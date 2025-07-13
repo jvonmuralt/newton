@@ -41,7 +41,7 @@ class Example:
 
         builder = newton.ModelBuilder(up_axis=newton.Axis.Z)
         builder.default_joint_cfg = newton.ModelBuilder.JointDofConfig(
-            armature=0.05,
+            armature=0.06,
             limit_ke=1.0e3,
             limit_kd=1.0e1,
         )
@@ -50,7 +50,6 @@ class Example:
         builder.default_shape_cfg.kf = 1.0e3
         builder.default_shape_cfg.mu = 0.75
 
-        # Get the directory where this script is located
         script_dir = os.path.dirname(os.path.abspath(__file__))
         path = os.path.join(script_dir, "assets", "mjmodel.xml")
         newton.utils.parse_mjcf(
@@ -73,23 +72,11 @@ class Example:
         self.sim_substeps = 4
         self.sim_dt = self.frame_dt / self.sim_substeps
 
-        builder.joint_q[:3] = [0.0, 1.7, 1.7]
-       
+        builder.joint_q[:3] = [0.0, 0.7, 0.7]
 
-        builder.joint_q[7:] = [
-            0.0,
-            -0.4,
-            0.8,
-            0.0,
-            -0.4,
-            0.8,
-            0.0,
-            0.4,
-            -0.8,
-            0.0,
-            0.4,
-            -0.8,
-        ]
+   
+
+
         for i in range(len(builder.joint_dof_mode)):
             builder.joint_dof_mode[i] = newton.JOINT_MODE_TARGET_POSITION
 
@@ -193,7 +180,7 @@ if __name__ == "__main__":
         import mujoco_warp as mjwarp
         import pathlib as epath
 
-        path = os.path.join(script_dir, "assets", "mjmodel.xml")
+        path = os.path.join(script_dir, "assets", "mjmodel_with_ground_plane.xml")
         model = mujoco.MjModel.from_xml_path(path)
         data = mujoco.MjData(model)
         mujoco.mj_resetData(model, data)
@@ -201,8 +188,8 @@ if __name__ == "__main__":
         print(example.solver.mj_model.body_mass)
         print(model.body_mass)
         #exit()
-       # model = example.solver.mj_model
-       # data = example.solver.mj_data
+        model = example.solver.mj_model
+        data = example.solver.mj_data
         m = mjwarp.put_model(model)
         d = mjwarp.put_data(model, data)
         i = 0
