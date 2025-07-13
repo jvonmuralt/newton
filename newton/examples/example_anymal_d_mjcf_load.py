@@ -14,12 +14,12 @@
 # limitations under the License.
 
 ###########################################################################
-# Example Anymal C walk
+# Example Anymal D
 #
-# Shows how to control Anymal C with a policy pretrained in physx.
-#
-# Example usage:
-# uv run --extra cu12 newton/examples/example_anymal_c_walk_physx_policy.py
+# Loads Anymal D model from mjcf file and compares dynamics with mujoco warp.
+#Comment/uncomment these lineas dependent on which model needs to be simulated
+#model = example.solver.mj_model
+#data = example.solver.mj_data
 #
 ###########################################################################
 
@@ -188,6 +188,7 @@ if __name__ == "__main__":
         print(example.solver.mj_model.body_mass)
         print(model.body_mass)
         #exit()
+        #comment out the next 2 lines to have mujoco warp loaded model with expected dynamics.
         model = example.solver.mj_model
         data = example.solver.mj_data
         m = mjwarp.put_model(model)
