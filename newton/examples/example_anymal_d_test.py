@@ -34,8 +34,8 @@ import mujoco_warp as mjwarp
 
 
 use_usd = False # loading usd or mjcf model in newton
-show_viewer = False # show sim the viewer or print masses and inertias only
-show_newton_model_in_viewer = False # show newton or mujoco model in viewer
+show_viewer = True # show sim the viewer or print masses and inertias only
+show_newton_model_in_viewer = True # show newton or mujoco model in viewer
 
 class Example:
     def __init__(self, stage_path=None, headless=False):
@@ -203,6 +203,10 @@ if __name__ == "__main__":
         if show_newton_model_in_viewer:
             model = example.solver.mj_model
             data = example.solver.mj_data
+
+        model.opt.timestep = 0.005
+        model.opt.iterations =20
+        model.opt.ls_iterations = 10
         m = mjwarp.put_model(model)
         d = mjwarp.put_data(model, data)
         i = 0

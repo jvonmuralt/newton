@@ -1,5 +1,7 @@
 <mujoco model="anymal">
   <compiler angle="radian"/>
+
+  <option cone="elliptic" impratio="100"/>
   <default>
     <material specular="0" shininess="0.25"/>
     <default class="anymal">
