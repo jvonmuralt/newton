@@ -27,16 +27,19 @@ import os
 
 import torch
 import warp as wp
-import pathlib as epath
 import newton
 import newton.utils
-from newton.sim import State
-import numpy as np 
+import mujoco.viewer
+import mujoco_warp as mjwarp
+
+
+use_usd = False # loading usd or mjcf model in newton
+show_viewer = False # show sim the viewer or print masses and inertias only
+show_newton_model_in_viewer = False # show newton or mujoco model in viewer
 
 class Example:
     def __init__(self, stage_path=None, headless=False):
         self.device = wp.get_device()
-        # Convert Warp device to PyTorch device string
         self.torch_device = "cuda" if self.device.is_cuda else "cpu"
 
         builder = newton.ModelBuilder(up_axis=newton.Axis.Z)
@@ -51,15 +54,26 @@ class Example:
         builder.default_shape_cfg.mu = 0.75
 
         script_dir = os.path.dirname(os.path.abspath(__file__))
-        path = os.path.join(script_dir, "assets", "mjmodel.xml")
-        newton.utils.parse_mjcf(
-            path,
-            builder,
-            #floating=True,
-            enable_self_collisions=False,
-            collapse_fixed_joints=True,
-            #ignore_inertial_definitions=False,
-        )
+        if use_usd:
+            stage_path = os.path.join(script_dir, "assets", "anymal_d_simple_description", "anymal_d.usd")
+            newton.utils.parse_usd(
+            stage_path,
+                builder,
+                #floating=True,
+                enable_self_collisions=False,
+                collapse_fixed_joints=True,
+                #ignore_inertial_definitions=False,
+            )
+        else:
+            path = os.path.join(script_dir, "assets", "mjmodel.xml")
+            newton.utils.parse_mjcf(
+                path,
+                builder,
+                #floating=True,
+                enable_self_collisions=False,
+                collapse_fixed_joints=True,
+                #ignore_inertial_definitions=False,
+            )
 
         builder.add_ground_plane()
 
@@ -75,8 +89,6 @@ class Example:
         builder.joint_q[:3] = [0.0, 0.7, 0.7]
 
    
-
-
         for i in range(len(builder.joint_dof_mode)):
             builder.joint_dof_mode[i] = newton.JOINT_MODE_TARGET_POSITION
 
@@ -176,35 +188,32 @@ if __name__ == "__main__":
         example.act = torch.zeros(1, 12, device=example.torch_device, dtype=torch.float32)
         example.rearranged_act = torch.zeros(1, 12, device=example.torch_device, dtype=torch.float32)
 
-        import mujoco.viewer
-        import mujoco_warp as mjwarp
-        import pathlib as epath
 
         path = os.path.join(script_dir, "assets", "mjmodel_with_ground_plane.xml")
         model = mujoco.MjModel.from_xml_path(path)
         data = mujoco.MjData(model)
         mujoco.mj_resetData(model, data)
         mujoco.mj_forward(model, data)
-        print(example.solver.mj_model.body_mass)
-        print(model.body_mass)
-        #exit()
-        #comment out the next 2 lines to have mujoco warp loaded model with expected dynamics.
-        model = example.solver.mj_model
-        data = example.solver.mj_data
+        for i in range(model.nbody):
+            print("MASS of ", i, model.body_mass[i], example.solver.mj_model.body_mass[i])
+            print("INERTIA of ", i, model.body_inertia[i], example.solver.mj_model.body_inertia[i])
+        if not show_viewer:
+            exit()
+        
+        if show_newton_model_in_viewer:
+            model = example.solver.mj_model
+            data = example.solver.mj_data
         m = mjwarp.put_model(model)
         d = mjwarp.put_data(model, data)
         i = 0
-        dec = 4
+
         viewer = mujoco.viewer.launch_passive(model, data)
         joint_pos_initial =  torch.tensor(data.qpos[7:].copy(), device=device).unsqueeze(0)
         joint_vel_initial =  torch.tensor(data.qvel[6:].copy(), device=device)
         act = torch.zeros(1, 12, device=device)
         rearranged_act = torch.zeros(1, 12, device=device)
         graph = _compile_step(m, d)
-        actions_applied = []
-        qpos_history = []
-        print(data.qpos)
-        print(data.qvel)
+
         with viewer:
             while i < 8000:
                 wp.capture_launch(graph)
@@ -212,5 +221,4 @@ if __name__ == "__main__":
                 i+=1
                 mjwarp.get_data_into(data, model, d)
                 viewer.sync()
-                print(i)
-            qpos_history.append(data.qpos.copy())
+
