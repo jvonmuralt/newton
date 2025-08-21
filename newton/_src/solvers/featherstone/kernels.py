@@ -240,9 +240,9 @@ def jcalc_motion(
         return v_j_s
 
     if type == JointType.BALL:
-        S_0 = transform_twist(X_sc, wp.spatial_vector(1.0, 0.0, 0.0, 0.0, 0.0, 0.0))
-        S_1 = transform_twist(X_sc, wp.spatial_vector(0.0, 1.0, 0.0, 0.0, 0.0, 0.0))
-        S_2 = transform_twist(X_sc, wp.spatial_vector(0.0, 0.0, 1.0, 0.0, 0.0, 0.0))
+        S_0 = transform_twist(X_sc, wp.spatial_vector(0.0, 0.0, 0.0, 1.0, 0.0, 0.0))
+        S_1 = transform_twist(X_sc, wp.spatial_vector(0.0, 0.0, 0.0, 0.0, 1.0, 0.0))
+        S_2 = transform_twist(X_sc, wp.spatial_vector(0.0, 0.0, 0.0, 0.0, 0.0, 1.0))
 
         joint_S_s[qd_start + 0] = S_0
         joint_S_s[qd_start + 1] = S_1
@@ -590,30 +590,30 @@ def eval_rigid_fk(
 
 @wp.func
 def spatial_cross(a: wp.spatial_vector, b: wp.spatial_vector):
-    w_a = wp.spatial_top(a)
-    v_a = wp.spatial_bottom(a)
+    w_a = wp.spatial_bottom(a)  # angular velocity (now in bottom)
+    v_a = wp.spatial_top(a)     # linear velocity (now in top)
 
-    w_b = wp.spatial_top(b)
-    v_b = wp.spatial_bottom(b)
+    w_b = wp.spatial_bottom(b)  # angular velocity (now in bottom)
+    v_b = wp.spatial_top(b)     # linear velocity (now in top)
 
     w = wp.cross(w_a, w_b)
     v = wp.cross(w_a, v_b) + wp.cross(v_a, w_b)
 
-    return wp.spatial_vector(w, v)
+    return wp.spatial_vector(v, w)
 
 
 @wp.func
 def spatial_cross_dual(a: wp.spatial_vector, b: wp.spatial_vector):
-    w_a = wp.spatial_top(a)
-    v_a = wp.spatial_bottom(a)
+    w_a = wp.spatial_bottom(a)  # angular velocity (now in bottom)
+    v_a = wp.spatial_top(a)     # linear velocity (now in top)
 
-    w_b = wp.spatial_top(b)
-    v_b = wp.spatial_bottom(b)
+    w_b = wp.spatial_bottom(b)  # angular velocity (now in bottom)
+    v_b = wp.spatial_top(b)     # linear velocity (now in top)
 
     w = wp.cross(w_a, w_b) + wp.cross(v_a, v_b)
     v = wp.cross(w_a, v_b)
 
-    return wp.spatial_vector(w, v)
+    return wp.spatial_vector(v, w)
 
 
 @wp.func
@@ -692,7 +692,7 @@ def compute_link_velocity(
 
     f_g = m * gravity
     r_com = wp.transform_get_translation(X_sm)
-    f_g_s = wp.spatial_vector(wp.cross(r_com, f_g), f_g)
+    f_g_s = wp.spatial_vector(f_g, wp.cross(r_com, f_g))
 
     # body forces
     I_s = spatial_transform_inertia(X_sm, I_m)
