@@ -42,13 +42,13 @@ class State:
         """Array of body coordinates (7-dof transforms) in maximal coordinates with shape ``(body_count,)`` and type :class:`transform`."""
 
         self.body_qd: wp.array | None = None
-        """Array of body velocities in maximal coordinates (first three entries represent angular velocity,
-        last three entries represent linear velocity) with shape ``(body_count,)`` and type :class:`spatial_vector`.
+        """Array of body velocities in maximal coordinates (first three entries represent linear velocity,
+        last three entries represent angular velocity) with shape ``(body_count,)`` and type :class:`spatial_vector`.
         """
 
         self.body_f: wp.array | None = None
-        """Array of body forces in maximal coordinates (first three entries represent torque, last three
-        entries represent linear force) with shape ``(body_count,)`` and type :class:`spatial_vector`.
+        """Array of body forces in maximal coordinates (first three entries represent linear force, last three
+        entries represent torque) with shape ``(body_count,)`` and type :class:`spatial_vector`.
 
         .. note::
             :attr:`body_f` represents external wrenches in world frame and denotes wrenches measured w.r.t.

@@ -62,14 +62,14 @@ def compute_observations_anymal(
         joint_q[dof_q * env_id + 6],
     )
     lin_vel = wp.vec3(
-        joint_qd[dof_qd * env_id + 3],
-        joint_qd[dof_qd * env_id + 4],
-        joint_qd[dof_qd * env_id + 5],
-    )
-    ang_vel = wp.vec3(
         joint_qd[dof_qd * env_id + 0],
         joint_qd[dof_qd * env_id + 1],
         joint_qd[dof_qd * env_id + 2],
+    )
+    ang_vel = wp.vec3(
+        joint_qd[dof_qd * env_id + 3],
+        joint_qd[dof_qd * env_id + 4],
+        joint_qd[dof_qd * env_id + 5],
     )
 
     # convert the linear velocity of the torso from twist representation to the velocity of the center of mass in world frame
