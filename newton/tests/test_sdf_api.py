@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Tests for the SDF API: USD attribute parsing and per-shape overrides via override_shape_sdf."""
+"""Tests for the SDF API: USD attribute parsing and per-shape SDF configuration."""
 
 import tempfile
 import unittest
@@ -109,10 +109,10 @@ def _count_sdf_shapes(model):
 
 
 class TestSDFAPI(unittest.TestCase):
-    """Tests for USD SDF attribute parsing and override_shape_sdf."""
+    """Tests for SDF configuration: USD attributes and per-shape direct writes."""
 
-    def test_usd_sdf_attributes(self, device=None):
-        """USD newton:sdf* attributes are parsed into per-shape SDF lists on the builder."""
+    def test_sdf_api(self, device=None):
+        """USD SDF attributes are parsed, and per-shape SDF properties can be modified before finalize."""
         if device is None or not wp.get_device(device).is_cuda:
             self.skipTest("SDF tests require CUDA device")
 
@@ -127,44 +127,7 @@ class TestSDFAPI(unittest.TestCase):
             m1 = _add_collision_mesh(stage, "/World/Body1/CollisionMesh")
             _set_sdf_attrs(m1.GetPrim(), resolution=128, inner=-0.02, outer=0.02)
 
-            # Body2: USD-defined resolution=256, no narrow band
-            _add_rigid_body(stage, "/World/Body2")
-            m2 = _add_collision_mesh(stage, "/World/Body2/CollisionMesh")
-            _set_sdf_attrs(m2.GetPrim(), resolution=256)
-
-            stage.Save()
-
-            builder = newton.ModelBuilder()
-            result = parse_usd(builder, str(usd_path))
-            psm = result["path_shape_map"]
-            s1 = psm["/World/Body1/CollisionMesh"]
-            s2 = psm["/World/Body2/CollisionMesh"]
-
-            # Body1: USD values for both resolution and narrow band
-            self.assertEqual(builder.shape_sdf_max_resolution[s1], 128)
-            self.assertAlmostEqual(builder.shape_sdf_narrow_band_range[s1][0], -0.02, places=5)
-            self.assertAlmostEqual(builder.shape_sdf_narrow_band_range[s1][1], 0.02, places=5)
-
-            # Body2: USD resolution only, narrow band from ShapeConfig default
-            self.assertEqual(builder.shape_sdf_max_resolution[s2], 256)
-
-            model = builder.finalize(device=device)
-            self.assertEqual(_count_sdf_shapes(model), 2)
-
-    def test_override_shape_sdf(self, device=None):
-        """override_shape_sdf sets and modifies SDF properties on individual shapes."""
-        if device is None or not wp.get_device(device).is_cuda:
-            self.skipTest("SDF tests require CUDA device")
-
-        from pxr import Usd
-
-        with tempfile.TemporaryDirectory() as tmpdir:
-            usd_path = Path(tmpdir) / "test_sdf.usda"
-            stage = Usd.Stage.CreateNew(str(usd_path))
-
-            _add_rigid_body(stage, "/World/Body1")
-            _add_collision_mesh(stage, "/World/Body1/CollisionMesh")
-
+            # Body2: no USD SDF attributes
             _add_rigid_body(stage, "/World/Body2")
             _add_collision_mesh(stage, "/World/Body2/CollisionMesh")
 
@@ -176,47 +139,40 @@ class TestSDFAPI(unittest.TestCase):
             s1 = psm["/World/Body1/CollisionMesh"]
             s2 = psm["/World/Body2/CollisionMesh"]
 
-            # Set SDF on shape1 via override
-            builder.override_shape_sdf(s1, sdf_max_resolution=128, sdf_narrow_band_range=(-0.02, 0.02))
+            # Body1: USD attributes parsed into per-shape lists
             self.assertEqual(builder.shape_sdf_max_resolution[s1], 128)
-            self.assertEqual(builder.shape_sdf_narrow_band_range[s1], (-0.02, 0.02))
+            self.assertAlmostEqual(builder.shape_sdf_narrow_band_range[s1][0], -0.02, places=5)
+            self.assertAlmostEqual(builder.shape_sdf_narrow_band_range[s1][1], 0.02, places=5)
 
-            # Set SDF on shape2 via override
-            builder.override_shape_sdf(s2, sdf_max_resolution=256, sdf_narrow_band_range=(-0.01, 0.01))
+            # Body2: no USD SDF attrs → defaults (None = SDF disabled)
+            self.assertIsNone(builder.shape_sdf_max_resolution[s2])
+
+            # Set SDF on Body2 via direct list write (e.g. IsaacLab workflow)
+            builder.shape_sdf_max_resolution[s2] = 256
+            builder.shape_sdf_narrow_band_range[s2] = (-0.01, 0.01)
             self.assertEqual(builder.shape_sdf_max_resolution[s2], 256)
             self.assertEqual(builder.shape_sdf_narrow_band_range[s2], (-0.01, 0.01))
 
-            # Partial override keeps other fields
-            builder.override_shape_sdf(s1, sdf_max_resolution=96)
+            # Modify Body1 resolution, narrow band is preserved
+            builder.shape_sdf_max_resolution[s1] = 96
             self.assertEqual(builder.shape_sdf_max_resolution[s1], 96)
-            self.assertEqual(builder.shape_sdf_narrow_band_range[s1], (-0.02, 0.02))
+            self.assertAlmostEqual(builder.shape_sdf_narrow_band_range[s1][0], -0.02, places=5)
 
-            # Hydroelastic flag
-            builder.override_shape_sdf(s1, is_hydroelastic=True, k_hydro=1.0e11)
+            # Hydroelastic flag via shape_flags
+            builder.shape_flags[s1] = builder.shape_flags[s1] | newton.ShapeFlags.HYDROELASTIC
+            builder.shape_material_k_hydro[s1] = 1.0e11
             self.assertTrue(builder.shape_flags[s1] & newton.ShapeFlags.HYDROELASTIC)
-            self.assertEqual(builder.shape_material_k_hydro[s1], 1.0e11)
 
-            builder.override_shape_sdf(s1, is_hydroelastic=False)
+            builder.shape_flags[s1] = builder.shape_flags[s1] & (~newton.ShapeFlags.HYDROELASTIC)
             self.assertFalse(builder.shape_flags[s1] & newton.ShapeFlags.HYDROELASTIC)
 
-            # Finalize and check SDF pointers
+            # Finalize and verify both shapes got SDFs
             model = builder.finalize(device=device)
             self.assertEqual(_count_sdf_shapes(model), 2)
 
-            # Error cases
-            with self.assertRaises(IndexError):
-                builder.override_shape_sdf(9999, sdf_max_resolution=64)
-
-            with self.assertRaises(ValueError):
-                builder.override_shape_sdf(s1, sdf_max_resolution=65)
-
-            with self.assertRaises(ValueError):
-                builder.override_shape_sdf(s1, sdf_narrow_band_range=(0.01, -0.01))
-
 
 devices = get_selected_cuda_test_devices()
-add_function_test(TestSDFAPI, "test_usd_sdf_attributes", TestSDFAPI.test_usd_sdf_attributes, devices=devices)
-add_function_test(TestSDFAPI, "test_override_shape_sdf", TestSDFAPI.test_override_shape_sdf, devices=devices)
+add_function_test(TestSDFAPI, "test_sdf_api", TestSDFAPI.test_sdf_api, devices=devices)
 
 
 if __name__ == "__main__":
