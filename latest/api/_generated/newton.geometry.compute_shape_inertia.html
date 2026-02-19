@@ -58,8 +58,8 @@
         </script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
-    <link rel="next" title="newton.geometry.create_box_mesh" href="newton.geometry.create_box_mesh.html" />
-    <link rel="prev" title="newton.geometry.compute_sdf" href="newton.geometry.compute_sdf.html" />
+    <link rel="next" title="newton.geometry.create_empty_sdf_data" href="newton.geometry.create_empty_sdf_data.html" />
+    <link rel="prev" title="newton.geometry.collide_sphere_sphere" href="newton.geometry.collide_sphere_sphere.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   <meta name="docsearch:version" content="" />
@@ -818,7 +818,7 @@
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>type</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – The type of shape (GeoType.SPHERE, GeoType.BOX, etc.)</p></li>
 <li><p><strong>scale</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em>] </em><em>| </em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.14)"><em>tuple</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em>] </em><em>| </em><a class="reference external" href="https://nvidia.github.io/warp/api_reference/_generated/warp.vec3f.html#warp.vec3f" title="(in Warp v1.11.1)"><em>vec3f</em></a>) – The scale of the shape</p></li>
-<li><p><strong>src</strong> (<a class="reference internal" href="newton.SDF.html#newton.SDF" title="newton._src.geometry.types.SDF"><em>SDF</em></a><em> | </em><a class="reference internal" href="newton.Mesh.html#newton.Mesh" title="newton._src.geometry.types.Mesh"><em>Mesh</em></a><em> | </em><em>None</em>) – The source shape (Mesh or SDF)</p></li>
+<li><p><strong>src</strong> (<a class="reference internal" href="newton.Mesh.html#newton.Mesh" title="newton._src.geometry.types.Mesh"><em>Mesh</em></a><em> | </em><a class="reference internal" href="newton.Heightfield.html#newton.Heightfield" title="newton._src.geometry.types.Heightfield"><em>Heightfield</em></a><em> | </em><em>None</em>) – The source shape (Mesh or Heightfield)</p></li>
 <li><p><strong>density</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – The density of the shape</p></li>
 <li><p><strong>is_solid</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – Whether the shape is solid or hollow</p></li>
 <li><p><strong>thickness</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em>] </em><em>| </em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – The thickness of the shape (used for collision detection, and inertia computation of hollow shapes)</p></li>
