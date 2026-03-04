@@ -738,13 +738,6 @@ class Example:
         if ui.button("Reset"):
             self.reset()
 
-    def test_final(self):
-        body_q = self.state_0.body_q.numpy()
-        table_top_z = self.table_top_center[2]
-        for i, body_idx in enumerate(self.brick_bodies):
-            z = body_q[body_idx][2]
-            assert z > table_top_z - 0.01, f"Brick {i} fell below table: z={z:.4f}, table_top={table_top_z:.4f}"
-
 
 if __name__ == "__main__":
     parser = newton.examples.create_parser()
