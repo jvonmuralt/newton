@@ -16,448 +16,309 @@
 ###########################################################################
 # Example LEGO Bricks
 #
-# Demonstrates frictional locking of LEGO bricks using mesh + SDF
-# collision with compliant contact.  A 2x2 brick is dropped onto a 2x4
-# brick at true-to-life dimensions, pushed down so the studs lock via
-# friction, and then the assembly is picked up by a simple parallel
-# gripper (two kinematic boxes).
-#
-# All geometry is generated procedurally at real LEGO dimensions
-# (scaled uniformly for simulation stability, as in the nut/bolt
-# example).  No fixed joints or other artificial constraints are used --
-# the locking is purely from frictional contact.
-#
-# Each brick is a single mesh (hollow shell + stud cylinders) with
-# consistent outward-facing normals, so the SDF correctly resolves
-# interior cavity vs. solid material.
+# Demonstrates a Franka Panda robot picking up LEGO bricks from a table
+# and stacking them, using SDF-based mesh collision and the MuJoCo solver.
+# The arm is controlled with IK and a finite-state machine that sequences
+# approach, grasp, lift, move, place and release for each brick.
 #
 # Command: python -m newton.examples lego_bricks
-#          python -m newton.examples lego_bricks --solver xpbd
 #
 ###########################################################################
+
+import enum
+from pathlib import Path
 
 import numpy as np
 import warp as wp
 
 import newton
 import newton.examples
+import newton.ik as ik
 
-# ---------------------------------------------------------------------------
-# LEGO dimensions (metres, true-to-life) -- uniformly scaled for sim
-# ---------------------------------------------------------------------------
-SCENE_SCALE = 1.0
+# LEGO dimensions [m]
+PITCH = 0.008
+BODY_HEIGHT = 0.0096
 
-PITCH = 0.008 * SCENE_SCALE
-STUD_RADIUS = 0.0024 * SCENE_SCALE
-STUD_HEIGHT = 0.0017 * SCENE_SCALE
-BODY_HEIGHT = 0.0096 * SCENE_SCALE
-WALL_THICKNESS = 0.0012 * SCENE_SCALE
-TOP_THICKNESS = 0.001 * SCENE_SCALE
-TUBE_OUTER_RADIUS = 0.003255 * SCENE_SCALE
-TUBE_HEIGHT = BODY_HEIGHT - TOP_THICKNESS
-
-CYLINDER_SEGMENTS = 16
-SDF_RESOLUTION = 128
-SDF_NARROW_BAND = 0.02 * SCENE_SCALE
-SDF_MARGIN = 0.02 * SCENE_SCALE
-
-# Interference fit: inflate each brick's collision surface to model the
-# clutch-power overlap.  Two bricks' margins are summed, giving ~1mm
-# total overlap -- exaggerated vs. real (~0.2mm) for a visible lock.
-BRICK_MARGIN = 0.0001 * SCENE_SCALE
+BRICK_SCALE = 1.0
+BRICK_DENSITY = 565.0  # ABS plastic [kg/m³]
 
 
-# ---------------------------------------------------------------------------
-# Mesh generation helpers
-# ---------------------------------------------------------------------------
+BRICK_MASS = BRICK_DENSITY * (2 * PITCH) * (2 * PITCH) * 2.0 * BODY_HEIGHT
+BRICK_KE = 9.81 * BRICK_MASS / 1.25e-6
+BRICK_KD = 2.0 * np.sqrt(BRICK_KE)
+BRICK_MARGIN = 5.0e-5
+
+# SDF mesh parameters
+SDF_RESOLUTION = 256
+SDF_NARROW_BAND = 0.004
+SDF_MARGIN = 0.004
+
+# Gripper finger positions [m]
+GRIPPER_OPEN = 0.5 * (2 * PITCH * BRICK_SCALE + 0.004)
+GRIPPER_RELEASE = 0.5 * (2 * PITCH * BRICK_SCALE * 2.0)
+GRIPPER_CLOSED = 0.5 * (2 * PITCH * BRICK_SCALE - 0.003)
 
 
-def _cylinder_mesh(radius, height, segments, cx=0.0, cy=0.0, cz=0.0):
-    """Closed cylinder: bottom cap, side quads, top cap.  Outward normals."""
-    n = segments
-    angles = np.linspace(0, 2 * np.pi, n, endpoint=False)
-    cos_a, sin_a = np.cos(angles), np.sin(angles)
-
-    verts = np.zeros((2 * n + 2, 3), dtype=np.float32)
-    verts[:n, 0] = cx + radius * cos_a
-    verts[:n, 1] = cy + radius * sin_a
-    verts[:n, 2] = cz
-    verts[n : 2 * n, 0] = cx + radius * cos_a
-    verts[n : 2 * n, 1] = cy + radius * sin_a
-    verts[n : 2 * n, 2] = cz + height
-    verts[2 * n] = [cx, cy, cz]
-    verts[2 * n + 1] = [cx, cy, cz + height]
-
-    bc, tc = 2 * n, 2 * n + 1
-    faces = []
-    for i in range(n):
-        j = (i + 1) % n
-        # side quads (outward radial)
-        faces.append([i, n + j, n + i])
-        faces.append([i, j, n + j])
-        # bottom cap (normal -z)
-        faces.append([bc, j, i])
-        # top cap (normal +z)
-        faces.append([tc, n + i, n + j])
-    return verts, np.array(faces, dtype=np.int32)
-
-
-def _combine_meshes(mesh_list):
-    all_v, all_f, off = [], [], 0
-    for v, f in mesh_list:
-        all_v.append(v)
-        all_f.append(f + off)
-        off += len(v)
-    return np.vstack(all_v).astype(np.float32), np.vstack(all_f).astype(np.int32)
-
-
-def make_shell_mesh(nx, ny):
-    """Watertight hollow box shell for an *nx* x *ny* LEGO brick.
-
-    Origin at the centre-bottom (z = 0).  Inner cavity is open at the
-    bottom and sealed by a top plate.
-    """
-    ox = nx * PITCH / 2.0
-    oy = ny * PITCH / 2.0
-    inx = ox - WALL_THICKNESS
-    iny = oy - WALL_THICKNESS
-    H = BODY_HEIGHT
-    T = TOP_THICKNESS
-
-    # Vertex layout:
-    #   0-3:  outer ring at z=0      4-7:   outer ring at z=H
-    #   8-11: inner ring at z=0      12-15: inner ring at z=H-T
-    v = np.array(
-        [
-            [-ox, -oy, 0],  # 0
-            [+ox, -oy, 0],  # 1
-            [+ox, +oy, 0],  # 2
-            [-ox, +oy, 0],  # 3
-            [-ox, -oy, H],  # 4
-            [+ox, -oy, H],  # 5
-            [+ox, +oy, H],  # 6
-            [-ox, +oy, H],  # 7
-            [-inx, -iny, 0],  # 8
-            [+inx, -iny, 0],  # 9
-            [+inx, +iny, 0],  # 10
-            [-inx, +iny, 0],  # 11
-            [-inx, -iny, H - T],  # 12
-            [+inx, -iny, H - T],  # 13
-            [+inx, +iny, H - T],  # 14
-            [-inx, +iny, H - T],  # 15
-        ],
-        dtype=np.float32,
-    )
-    # Every face wound so that (v1-v0) x (v2-v0) points OUTWARD from solid.
-    f = np.array(
-        [
-            # outer top  (normal +z)
-            [4, 5, 6],
-            [4, 6, 7],
-            # outer sides
-            [0, 1, 5],
-            [0, 5, 4],  # -y face  (normal -y)
-            [2, 3, 7],
-            [2, 7, 6],  # +y face  (normal +y)
-            [3, 0, 4],
-            [3, 4, 7],  # -x face  (normal -x)
-            [1, 2, 6],
-            [1, 6, 5],  # +x face  (normal +x)
-            # bottom rim  (normal -z)
-            [0, 8, 9],
-            [0, 9, 1],
-            [1, 9, 10],
-            [1, 10, 2],
-            [2, 10, 11],
-            [2, 11, 3],
-            [3, 11, 8],
-            [3, 8, 0],
-            # inner walls  (normals point into cavity)
-            [9, 8, 12],
-            [9, 12, 13],  # -y wall  (normal +y)
-            [11, 10, 14],
-            [11, 14, 15],  # +y wall  (normal -y)
-            [8, 11, 15],
-            [8, 15, 12],  # -x wall  (normal +x)
-            [10, 9, 13],
-            [10, 13, 14],  # +x wall  (normal -x)
-            # inner ceiling  (normal -z, into cavity)
-            [12, 15, 14],
-            [12, 14, 13],
-        ],
-        dtype=np.int32,
-    )
-    return v, f
-
-
-def make_lego_brick(nx, ny):
-    """Full LEGO brick mesh (shell + studs + interior tubes) for an *nx* x *ny* brick.
-
-    Each sub-component (shell, stud cylinders, tube cylinders) is a closed
-    surface with consistent outward normals.  The combined mesh relies on the
-    winding-number sign convention used by ``wp.mesh_query_point``.
-    """
-    shell_v, shell_f = make_shell_mesh(nx, ny)
-
-    stud_meshes = []
-    for i in range(nx):
-        for j in range(ny):
-            sx = (i - (nx - 1) / 2.0) * PITCH
-            sy = (j - (ny - 1) / 2.0) * PITCH
-            stud_meshes.append(
-                _cylinder_mesh(STUD_RADIUS, STUD_HEIGHT, CYLINDER_SEGMENTS, cx=sx, cy=sy, cz=BODY_HEIGHT)
-            )
-
-    # Interior tubes: for 2-wide bricks, one tube between each adjacent
-    # pair of stud columns, centred on the y-axis.  These grip the studs
-    # of the brick below to create the clutch mechanism.
-    tube_meshes = []
-    if ny == 2:
-        for i in range(nx - 1):
-            tx = (i - (nx - 2) / 2.0) * PITCH
-            tube_meshes.append(_cylinder_mesh(TUBE_OUTER_RADIUS, TUBE_HEIGHT, CYLINDER_SEGMENTS, cx=tx, cy=0.0, cz=0.0))
-
-    return _combine_meshes([(shell_v, shell_f), *stud_meshes, *tube_meshes])
-
-
-def _build_mesh_with_sdf(verts, faces, color):
-    mesh = newton.Mesh(verts, faces.flatten(), color=color)
+def _build_mesh_with_sdf(verts, faces, color, scale=1.0):
+    scaled_verts = verts * scale
+    mesh = newton.Mesh(scaled_verts, faces.flatten(), color=color)
     mesh.build_sdf(
         max_resolution=SDF_RESOLUTION,
-        narrow_band_range=(-SDF_NARROW_BAND, SDF_NARROW_BAND),
-        margin=SDF_MARGIN,
+        narrow_band_range=(-SDF_NARROW_BAND * scale, SDF_NARROW_BAND * scale),
+        margin=SDF_MARGIN * scale,
     )
     return mesh
 
 
-@wp.kernel
-def _add_forces(src: wp.array(dtype=wp.spatial_vector), dst: wp.array(dtype=wp.spatial_vector)):
-    i = wp.tid()
-    dst[i] = dst[i] + src[i]
+def _load_brick_mesh():
+    """Load the 2x4 LEGO brick mesh (Omniverse TwoByFourSI asset)."""
+    data = np.load(Path(__file__).parent.parent / "assets" / "lego_2x4_mesh.npz")
+    return data["vertices"], data["faces"]
 
 
-@wp.kernel
-def _set_kinematic_bodies(
+class TaskType(enum.IntEnum):
+    APPROACH = 0
+    REFINE_APPROACH = 1
+    GRASP = 2
+    LIFT = 3
+    MOVE_TO_DROP_OFF = 4
+    REFINE_DROP_OFF = 5
+    RELEASE = 6
+    RETRACT = 7
+    HOME = 8
+
+
+@wp.kernel(enable_backward=False)
+def set_target_pose_kernel(
+    task_schedule: wp.array(dtype=wp.int32),
+    task_time_limits: wp.array(dtype=float),
+    task_pick_body: wp.array(dtype=int),
+    task_drop_body: wp.array(dtype=int),
+    task_drop_layer: wp.array(dtype=int),
+    task_idx: wp.array(dtype=int),
+    task_time_elapsed: wp.array(dtype=float),
+    task_dt: float,
+    offset_approach: wp.vec3,
+    offset_lift: wp.vec3,
+    offset_retract: wp.vec3,
+    grasp_z_offset: wp.vec3,
+    drop_z_offset: wp.vec3,
+    brick_stack_height: float,
+    home_pos: wp.vec3,
+    task_init_body_q: wp.array(dtype=wp.transform),
     body_q: wp.array(dtype=wp.transform),
-    joint_q: wp.array(dtype=wp.float32),
-    joint_qd: wp.array(dtype=wp.float32),
-    finger_l: int,
-    finger_r: int,
-    pusher: int,
-    jq_start_l: int,
-    jq_start_r: int,
-    jq_start_p: int,
-    jqd_start_l: int,
-    jqd_start_r: int,
-    jqd_start_p: int,
-    params: wp.array(dtype=wp.float32),
+    ee_index: int,
+    # outputs
+    ee_pos_target: wp.array(dtype=wp.vec3),
+    ee_pos_interp: wp.array(dtype=wp.vec3),
+    ee_rot_target: wp.array(dtype=wp.vec4),
+    ee_rot_interp: wp.array(dtype=wp.vec4),
+    gripper_target: wp.array2d(dtype=wp.float32),
 ):
-    # params: [gripper_y, gripper_z, pusher_z]
-    y = params[0]
-    z = params[1]
-    pz = params[2]
+    tid = wp.tid()
 
-    body_q[finger_l] = wp.transform(wp.vec3(0.0, -y, z), wp.quat_identity())
-    body_q[finger_r] = wp.transform(wp.vec3(0.0, y, z), wp.quat_identity())
-    body_q[pusher] = wp.transform(wp.vec3(0.0, 0.0, pz), wp.quat_identity())
+    idx = task_idx[tid]
+    task = task_schedule[idx]
+    time_limit = task_time_limits[idx]
+    pick_body = task_pick_body[idx]
+    drop_body = task_drop_body[idx]
+    drop_layer = task_drop_layer[idx]
 
-    # Also update joint_q so MuJoCo's solver sees the correct positions
-    # Free joint_q layout: [px, py, pz, qx, qy, qz, qw]
-    joint_q[jq_start_l + 0] = 0.0
-    joint_q[jq_start_l + 1] = -y
-    joint_q[jq_start_l + 2] = z
-    joint_q[jq_start_l + 3] = 0.0
-    joint_q[jq_start_l + 4] = 0.0
-    joint_q[jq_start_l + 5] = 0.0
-    joint_q[jq_start_l + 6] = 1.0
+    task_time_elapsed[tid] += task_dt
+    t_lin = wp.min(1.0, task_time_elapsed[tid] / time_limit)
+    # Smoothstep easing
+    t = t_lin * t_lin * (3.0 - 2.0 * t_lin)
 
-    joint_q[jq_start_r + 0] = 0.0
-    joint_q[jq_start_r + 1] = y
-    joint_q[jq_start_r + 2] = z
-    joint_q[jq_start_r + 3] = 0.0
-    joint_q[jq_start_r + 4] = 0.0
-    joint_q[jq_start_r + 5] = 0.0
-    joint_q[jq_start_r + 6] = 1.0
+    ee_pos_prev = wp.transform_get_translation(task_init_body_q[ee_index])
+    ee_quat_prev = wp.transform_get_rotation(task_init_body_q[ee_index])
+    ee_quat_down = wp.quat_from_axis_angle(wp.vec3(1.0, 0.0, 0.0), wp.pi)
 
-    joint_q[jq_start_p + 0] = 0.0
-    joint_q[jq_start_p + 1] = 0.0
-    joint_q[jq_start_p + 2] = pz
-    joint_q[jq_start_p + 3] = 0.0
-    joint_q[jq_start_p + 4] = 0.0
-    joint_q[jq_start_p + 5] = 0.0
-    joint_q[jq_start_p + 6] = 1.0
+    pick_pos = wp.transform_get_translation(task_init_body_q[pick_body])
+    pick_quat = wp.transform_get_rotation(task_init_body_q[pick_body])
 
-    # Zero joint velocities for all kinematic bodies
-    for i in range(6):
-        joint_qd[jqd_start_l + i] = 0.0
-        joint_qd[jqd_start_r + i] = 0.0
-        joint_qd[jqd_start_p + i] = 0.0
+    drop_pos = wp.transform_get_translation(task_init_body_q[drop_body])
+    drop_quat = wp.transform_get_rotation(task_init_body_q[drop_body])
+    layer_offset = wp.float(drop_layer) * brick_stack_height * wp.vec3(0.0, 0.0, 1.0)
+    ee_quat_drop = ee_quat_down * wp.quat_inverse(drop_quat)
+
+    t_gripper = 0.0
+    target_pos = home_pos
+    target_quat = ee_quat_down
+
+    if task == TaskType.APPROACH.value:
+        target_pos = pick_pos + offset_approach
+        target_quat = ee_quat_down * wp.quat_inverse(pick_quat)
+    elif task == TaskType.REFINE_APPROACH.value:
+        target_pos = pick_pos + grasp_z_offset
+        target_quat = ee_quat_prev
+    elif task == TaskType.GRASP.value:
+        target_pos = ee_pos_prev
+        target_quat = ee_quat_prev
+        t_gripper = t
+    elif task == TaskType.LIFT.value:
+        target_pos = ee_pos_prev + offset_lift
+        target_quat = ee_quat_prev
+        t_gripper = 1.0
+    elif task == TaskType.MOVE_TO_DROP_OFF.value:
+        target_pos = drop_pos + layer_offset + offset_approach
+        target_quat = ee_quat_drop
+        t_gripper = 1.0
+    elif task == TaskType.REFINE_DROP_OFF.value:
+        target_pos = drop_pos + layer_offset + grasp_z_offset + drop_z_offset
+        target_quat = ee_quat_drop
+        t_gripper = 1.0
+    elif task == TaskType.RELEASE.value:
+        target_pos = drop_pos + layer_offset + grasp_z_offset + drop_z_offset
+        target_quat = ee_quat_drop
+        t_gripper = 1.0 - t
+    elif task == TaskType.RETRACT.value:
+        target_pos = ee_pos_prev
+        target_quat = ee_quat_prev
+        t_gripper = t
+    elif task == TaskType.HOME.value:
+        target_pos = home_pos
+        target_quat = ee_quat_down
+
+    ee_pos_target[tid] = target_pos
+    interp_pos = ee_pos_prev * (1.0 - t) + target_pos * t
+
+    # XY alignment correction: amplify horizontal error for IK convergence
+    align_gain = -4.0
+    ee_pos_actual = wp.transform_get_translation(body_q[ee_index])
+    xy_err = wp.vec3(
+        align_gain * (ee_pos_actual[0] - interp_pos[0]),
+        align_gain * (ee_pos_actual[1] - interp_pos[1]),
+        0.0,
+    )
+    use_align = 1.0
+    if task == TaskType.APPROACH.value or task == TaskType.HOME.value:
+        use_align = 0.0
+    ee_pos_interp[tid] = interp_pos + use_align * xy_err
+
+    ee_rot_target[tid] = target_quat[:4]
+    ee_rot_interp[tid] = wp.quat_slerp(ee_quat_prev, target_quat, t)[:4]
+
+    gripper_open = GRIPPER_OPEN
+    if task == TaskType.RELEASE.value or task == TaskType.RETRACT.value or task == TaskType.HOME.value:
+        gripper_open = GRIPPER_RELEASE
+    gripper_pos = gripper_open * (1.0 - t_gripper) + GRIPPER_CLOSED * t_gripper
+    gripper_target[tid, 0] = gripper_pos
+    gripper_target[tid, 1] = gripper_pos
 
 
-# ---------------------------------------------------------------------------
-# Example
-# ---------------------------------------------------------------------------
+@wp.kernel(enable_backward=False)
+def advance_task_kernel(
+    task_time_limits: wp.array(dtype=float),
+    ee_pos_target: wp.array(dtype=wp.vec3),
+    ee_rot_target: wp.array(dtype=wp.vec4),
+    body_q: wp.array(dtype=wp.transform),
+    ee_index: int,
+    # outputs
+    task_idx: wp.array(dtype=int),
+    task_time_elapsed: wp.array(dtype=float),
+    task_init_body_q: wp.array(dtype=wp.transform),
+):
+    tid = wp.tid()
+    idx = task_idx[tid]
+    time_limit = task_time_limits[idx]
+
+    ee_pos_current = wp.transform_get_translation(body_q[ee_index])
+    ee_quat_current = wp.transform_get_rotation(body_q[ee_index])
+
+    pos_err = wp.length(ee_pos_target[tid] - ee_pos_current)
+
+    ee_quat_tgt = wp.quaternion(ee_rot_target[tid][:3], ee_rot_target[tid][3])
+    quat_rel = ee_quat_current * wp.quat_inverse(ee_quat_tgt)
+    rot_err = wp.abs(wp.degrees(2.0 * wp.atan2(wp.length(quat_rel[:3]), quat_rel[3])))
+
+    if (
+        task_time_elapsed[tid] >= time_limit
+        and pos_err < 0.003
+        and rot_err < 1.5
+        and task_idx[tid] < wp.len(task_time_limits) - 1
+    ):
+        task_idx[tid] += 1
+        task_time_elapsed[tid] = 0.0
+        num_bodies = wp.len(body_q)
+        for i in range(num_bodies):
+            task_init_body_q[i] = body_q[i]
 
 
 class Example:
     def __init__(self, viewer, args=None):
         self.viewer = viewer
         self.sim_time = 0.0
-
         self.fps = 60
         self.frame_dt = 1.0 / self.fps
         self.sim_substeps = 8
         self.sim_dt = self.frame_dt / self.sim_substeps
+        self.ee_index = 11
+        self.brick_count = 3
 
-        solver_type = getattr(args, "solver", None) or "xpbd"
-        self.solver_type = solver_type
+        self.table_height = 0.1
+        self.table_pos = wp.vec3(0.0, -0.5, 0.5 * self.table_height)
+        self.table_top_center = self.table_pos + wp.vec3(0.0, 0.0, 0.5 * self.table_height)
+        self.robot_base_pos = self.table_top_center + wp.vec3(-0.5, 0.0, 0.0)
 
-        # -- phase timing (seconds) ----------------------------------------
-        self.t_push_start = 0.05
-        self.t_push_end = 1.0
-        self.t_grip_start = 1.2
-        self.t_grip_closed = 2.0
-        self.t_lift_start = 2.2
+        self.brick_height_scaled = BODY_HEIGHT * BRICK_SCALE
+        self.brick_width_scaled = 2 * PITCH * BRICK_SCALE
+        self.brick_length_scaled = 4 * PITCH * BRICK_SCALE
 
-        # gentle downward push ~2x gravity for the 2x2 brick (~2-3 g)
-        self.push_force = -0.05
+        # Task offsets (TCP frame) [m]
+        self.offset_approach = wp.vec3(0.0, 0.0, 0.025)
+        self.offset_lift = wp.vec3(0.0, -0.001, 0.042)
+        self.offset_retract = wp.vec3(0.0, 0.0, 0.025)
+        self.grasp_z_offset = wp.vec3(0.0, 0.0, 0.012)
+        self.drop_z_offset = wp.vec3(0.0, 0.0, -0.001)
 
-        # -- generate brick meshes -----------------------------------------
-        print("Generating LEGO brick meshes …")
+        # Load brick mesh
+        self.v_2x4, self.f_2x4 = _load_brick_mesh()
 
-        v_2x4, f_2x4 = make_lego_brick(4, 2)
-        mesh_2x4 = _build_mesh_with_sdf(v_2x4, f_2x4, color=(0.8, 0.1, 0.1))
+        # Build Franka + table, finalize IK model from default pose
+        franka_builder = self.build_franka_with_table()
+        self.model_ik = franka_builder.finalize()
 
-        v_2x2, f_2x2 = make_lego_brick(2, 2)
-        mesh_2x2 = _build_mesh_with_sdf(v_2x2, f_2x2, color=(0.2, 0.4, 0.8))
+        # Record home EE position from the default URDF configuration
+        state_tmp = self.model_ik.state()
+        newton.eval_fk(self.model_ik, self.model_ik.joint_q, self.model_ik.joint_qd, state_tmp)
+        self.home_pos = wp.vec3(*state_tmp.body_q.numpy()[self.ee_index][:3])
 
-        # -- scene ----------------------------------------------------------
-        print("Building scene …")
-        builder = newton.ModelBuilder()
+        # Solve IK for the approach pose above the red brick so the gripper
+        # starts there and the first visible motion is a smooth descent.
+        init_joints = self._solve_approach_ik()
+        franka_builder.joint_q[:7] = init_joints.tolist()
+        franka_builder.joint_q[7] = GRIPPER_OPEN
+        franka_builder.joint_q[8] = GRIPPER_OPEN
+        franka_builder.joint_target_pos[:9] = franka_builder.joint_q[:9]
 
-        if solver_type == "mujoco":
-            contact_ke, contact_kd = 1e4, 2e2
-        else:
-            contact_ke, contact_kd = 10.0, 5.0
+        # Build full scene
+        scene = newton.ModelBuilder()
+        scene.add_builder(franka_builder)
+        self.add_bricks(scene)
+        scene.add_ground_plane(cfg=newton.ModelBuilder.ShapeConfig(mu=0.75))
 
-        contact_gap = 0.005 * SCENE_SCALE
-
-        brick_cfg = newton.ModelBuilder.ShapeConfig(
-            density=1050.0,
-            ke=contact_ke,
-            kd=contact_kd,
-            mu=0.8,
-            margin=BRICK_MARGIN,
-            gap=contact_gap,
-        )
-        gripper_density = 1.0 if solver_type == "mujoco" else 0.0
-        gripper_cfg = newton.ModelBuilder.ShapeConfig(
-            density=gripper_density,
-            ke=contact_ke,
-            kd=contact_kd,
-            mu=0.8,
-            gap=contact_gap,
-        )
-        ground_cfg = newton.ModelBuilder.ShapeConfig(ke=contact_ke, kd=contact_kd, mu=0.5, gap=contact_gap)
-        builder.add_ground_plane(cfg=ground_cfg)
-
-        # 2x4 brick
-        self.body_2x4 = builder.add_body(
-            xform=wp.transform(wp.vec3(0.0, 0.0, 0.001 * SCENE_SCALE), wp.quat_identity()),
-            label="brick_2x4",
-        )
-        builder.add_shape_mesh(self.body_2x4, mesh=mesh_2x4, cfg=brick_cfg)
-
-        # 2x2 brick -- start well above the 2x4 studs so there's no initial overlap
-        drop_gap = 0.01 * SCENE_SCALE
-        self.body_2x2 = builder.add_body(
-            xform=wp.transform(wp.vec3(0.0, 0.0, BODY_HEIGHT + drop_gap), wp.quat_identity()),
-            label="brick_2x2",
-        )
-        builder.add_shape_mesh(self.body_2x2, mesh=mesh_2x2, cfg=brick_cfg)
-
-        # pusher cube (kinematic, slides vertically above the bricks)
-        pusher_hx = PITCH * 1.5
-        pusher_hy = PITCH * 0.75
-        pusher_hz = 0.003 * SCENE_SCALE
-        self.pusher_rest_z = (BODY_HEIGHT * 2 + STUD_HEIGHT + 0.015) * SCENE_SCALE
-        pusher_density = 1.0 if solver_type == "mujoco" else 0.0
-        pusher_cfg = newton.ModelBuilder.ShapeConfig(
-            density=pusher_density,
-            ke=contact_ke,
-            kd=contact_kd,
-            mu=0.3,
-            gap=contact_gap,
-        )
-        self.body_pusher = builder.add_body(
-            xform=wp.transform(wp.vec3(0.0, 0.0, self.pusher_rest_z), wp.quat_identity()),
-            label="pusher",
-        )
-        builder.add_shape_box(self.body_pusher, hx=pusher_hx, hy=pusher_hy, hz=pusher_hz, cfg=pusher_cfg)
-
-        # gripper fingers (approach along ±Y, grip the full 2-brick stack)
-        brick_hy = PITCH  # brick outer half-width in Y
-        finger_hx = 0.025 * SCENE_SCALE
-        finger_hy = 0.005 * SCENE_SCALE
-        finger_hz = BODY_HEIGHT + STUD_HEIGHT
-        self.finger_cz = BODY_HEIGHT * 0.5
-
-        self.gripper_open_y = 0.050 * SCENE_SCALE
-        self.gripper_closed_y = brick_hy + finger_hy - 0.0005 * SCENE_SCALE
-
-        self.body_finger_l = builder.add_body(
-            xform=wp.transform(wp.vec3(0.0, -self.gripper_open_y, self.finger_cz), wp.quat_identity()),
-            label="finger_left",
-        )
-        builder.add_shape_box(self.body_finger_l, hx=finger_hx, hy=finger_hy, hz=finger_hz, cfg=gripper_cfg)
-
-        self.body_finger_r = builder.add_body(
-            xform=wp.transform(wp.vec3(0.0, self.gripper_open_y, self.finger_cz), wp.quat_identity()),
-            label="finger_right",
-        )
-        builder.add_shape_box(self.body_finger_r, hx=finger_hx, hy=finger_hy, hz=finger_hz, cfg=gripper_cfg)
-
-        # -- finalize -------------------------------------------------------
-        if solver_type == "vbd":
-            builder.color()
-
-        self.model = builder.finalize()
-        self.model.rigid_contact_max = 256
+        self.model = scene.finalize()
+        self.model.rigid_contact_max = 8192
 
         self.collision_pipeline = newton.CollisionPipeline(
             self.model,
             reduce_contacts=True,
-            rigid_contact_max=256,
+            rigid_contact_max=8192,
             broad_phase="nxn",
         )
 
-        if solver_type == "mujoco":
-            self.solver = newton.solvers.SolverMuJoCo(
-                self.model,
-                use_mujoco_contacts=False,
-                nconmax=512,
-                njmax=512,
-                solver="newton",
-                integrator="implicitfast",
-                cone="elliptic",
-                iterations=15,
-                ls_iterations=100,
-                impratio=1.0,
-            )
-        elif solver_type == "vbd":
-            self.solver = newton.solvers.SolverVBD(
-                self.model,
-                iterations=30,
-                rigid_avbd_beta=1.0e3,
-                rigid_avbd_gamma=0.8,
-                rigid_contact_k_start=1.0,
-            )
-        else:
-            self.solver = newton.solvers.SolverXPBD(
-                self.model,
-                iterations=16,
-                rigid_contact_relaxation=0.7,
-            )
+        self.solver = newton.solvers.SolverMuJoCo(
+            self.model,
+            solver="newton",
+            integrator="implicitfast",
+            iterations=15,
+            ls_iterations=100,
+            nconmax=8000,
+            njmax=16000,
+            cone="elliptic",
+            impratio=1000.0,
+            use_mujoco_contacts=False,
+        )
 
         self.state_0 = self.model.state()
         self.state_1 = self.model.state()
@@ -465,171 +326,400 @@ class Example:
         self.contacts = self.collision_pipeline.contacts()
 
         newton.eval_fk(self.model, self.model.joint_q, self.model.joint_qd, self.state_0)
+        wp.copy(self.control.joint_target_pos[:9], self.model.joint_q[:9])
 
-        # Look up joint_q_start / joint_qd_start for kinematic bodies
-        joint_child_np = self.model.joint_child.numpy()
-        jq_start_np = self.model.joint_q_start.numpy()
-        jqd_start_np = self.model.joint_qd_start.numpy()
-        self.jq_start_l = self.jq_start_r = self.jq_start_p = 0
-        self.jqd_start_l = self.jqd_start_r = self.jqd_start_p = 0
-        for j in range(self.model.joint_count):
-            if joint_child_np[j] == self.body_finger_l:
-                self.jq_start_l = int(jq_start_np[j])
-                self.jqd_start_l = int(jqd_start_np[j])
-            elif joint_child_np[j] == self.body_finger_r:
-                self.jq_start_r = int(jq_start_np[j])
-                self.jqd_start_r = int(jqd_start_np[j])
-            elif joint_child_np[j] == self.body_pusher:
-                self.jq_start_p = int(jq_start_np[j])
-                self.jqd_start_p = int(jqd_start_np[j])
-
-        # GPU-side arrays updated each frame before graph launch
-        n_bodies = self.model.body_count
-        push_f = np.zeros((n_bodies, 6), dtype=np.float32)
-        push_f[self.body_2x2][2] = self.push_force
-        self._push_force_base = wp.array(push_f, dtype=wp.spatial_vector)
-        self._push_force = wp.zeros(n_bodies, dtype=wp.spatial_vector)
-
-        self._kin_params = wp.array(
-            np.array([self.gripper_open_y, self.finger_cz, self.pusher_rest_z], dtype=np.float32),
-            dtype=wp.float32,
-        )
-        self._kin_params_host = wp.array(
-            np.array([self.gripper_open_y, self.finger_cz, self.pusher_rest_z], dtype=np.float32),
-            dtype=wp.float32,
-            device="cpu",
-        )
-
-        # Slider state (initialised to open position, pusher high)
-        self.gripper_y = self.gripper_open_y
-        self.gripper_z = self.finger_cz
-        self.pusher_z = self.pusher_rest_z
-        self.push_active = False
-        self.auto_mode = False
+        self.setup_ik()
+        self.setup_tasks()
 
         self.viewer.set_model(self.model)
-        if hasattr(self.viewer, "picking"):
-            self.viewer.picking.pick_stiffness = 5.0
-            self.viewer.picking.pick_damping = 1.0
-            ps = self.viewer.picking.pick_state.numpy()
-            ps[6] = 5.0
-            ps[7] = 1.0
-            self.viewer.picking.pick_state = wp.array(ps, dtype=float, device=self.model.device)
-        cam_dist = 0.12 * SCENE_SCALE
-        self.viewer.set_camera(pos=wp.vec3(cam_dist, -cam_dist, cam_dist * 0.6), pitch=-25.0, yaw=135.0)
+        cam_pos = self.table_top_center + wp.vec3(0.22, -0.18, 0.15)
+        self.viewer.set_camera(pos=cam_pos, pitch=-30.0, yaw=135.0)
 
         self.capture()
 
+    # -- scene construction --------------------------------------------------
+
+    def build_franka_with_table(self):
+        builder = newton.ModelBuilder()
+        newton.solvers.SolverMuJoCo.register_custom_attributes(builder)
+
+        builder.add_urdf(
+            newton.utils.download_asset("franka_emika_panda") / "urdf/fr3_franka_hand.urdf",
+            xform=wp.transform(self.robot_base_pos, wp.quat_identity()),
+            floating=False,
+            enable_self_collisions=False,
+            parse_visuals_as_colliders=False,
+        )
+
+        builder.joint_q[:9] = [
+            -3.6802115e-03,
+            2.3901723e-02,
+            3.6804110e-03,
+            -2.3683236e00,
+            -1.2918962e-04,
+            2.3922248e00,
+            7.8549200e-01,
+            GRIPPER_OPEN,
+            GRIPPER_OPEN,
+        ]
+        builder.joint_target_pos[:9] = builder.joint_q[:9]
+        builder.joint_target_ke[:9] = [400, 400, 400, 400, 400, 400, 400, 100, 100]
+        builder.joint_target_kd[:9] = [40, 40, 40, 40, 40, 40, 40, 10, 10]
+        builder.joint_effort_limit[:9] = [87, 87, 87, 87, 12, 12, 12, 100, 100]
+        builder.joint_armature[:9] = [0.3] * 4 + [0.11] * 3 + [0.15] * 2
+
+        # Gravity compensation
+        gravcomp_attr = builder.custom_attributes["mujoco:jnt_actgravcomp"]
+        if gravcomp_attr.values is None:
+            gravcomp_attr.values = {}
+        for dof_idx in range(7):
+            gravcomp_attr.values[dof_idx] = True
+
+        gravcomp_body = builder.custom_attributes["mujoco:gravcomp"]
+        if gravcomp_body.values is None:
+            gravcomp_body.values = {}
+        for body_idx in range(2, 14):
+            gravcomp_body.values[body_idx] = 1.0
+
+        # Finger contact: low solimp + high priority → weak normal forces
+        # at release so the gripper doesn't stick to bricks.
+        solimp_attr = builder.custom_attributes.get("mujoco:geom_solimp")
+        priority_attr = builder.custom_attributes.get("mujoco:geom_priority")
+        if solimp_attr is not None and priority_attr is not None:
+            if solimp_attr.values is None:
+                solimp_attr.values = {}
+            if priority_attr.values is None:
+                priority_attr.values = {}
+            for s, b in enumerate(builder.shape_body):
+                if b in (12, 13):
+                    solimp_attr.values[s] = (0.7, 0.95, 0.0001, 0.5, 2.0)
+                    priority_attr.values[s] = 1
+
+        # Table
+        table_cfg = newton.ModelBuilder.ShapeConfig(
+            margin=1e-3,
+            density=1000.0,
+            ke=5.0e4,
+            kd=5.0e2,
+            mu=1.0,
+        )
+        builder.add_shape_box(
+            body=-1,
+            hx=0.4,
+            hy=0.4,
+            hz=0.5 * self.table_height,
+            xform=wp.transform(self.table_pos, wp.quat_identity()),
+            cfg=table_cfg,
+        )
+
+        return builder
+
+    def add_board_floor(self, scene, center_x, center_y, brick_cfg):
+        """Add a static gray brick floor centered at (center_x, center_y)."""
+        gray_mesh = _build_mesh_with_sdf(
+            self.v_2x4,
+            self.f_2x4,
+            color=(0.35, 0.35, 0.35),
+            scale=BRICK_SCALE,
+        )
+        sqrt2_2 = float(np.sqrt(2.0) / 2.0)
+        floor_rot = wp.quat(0.0, 0.0, sqrt2_2, sqrt2_2)
+        floor_z = self.table_top_center[2] - 0.8 * self.brick_height_scaled
+
+        solimp_attr = scene.custom_attributes.get("mujoco:geom_solimp")
+        bw = self.brick_width_scaled
+        bl = self.brick_length_scaled
+        for dx in (-1.5 * bw, -0.5 * bw, 0.5 * bw, 1.5 * bw):
+            for dy in (-0.5 * bl, 0.5 * bl):
+                pos = wp.vec3(center_x + dx, center_y + dy, floor_z)
+                shape_idx = scene.shape_count
+                scene.add_shape_mesh(
+                    body=-1,
+                    mesh=gray_mesh,
+                    cfg=brick_cfg,
+                    xform=wp.transform(pos, floor_rot),
+                )
+                if solimp_attr is not None:
+                    if solimp_attr.values is None:
+                        solimp_attr.values = {}
+                    solimp_attr.values[shape_idx] = (0.6, 0.95, 0.00075, 0.5, 2.5)
+
+    def add_bricks(self, scene):
+        brick_cfg = newton.ModelBuilder.ShapeConfig(
+            density=BRICK_DENSITY,
+            ke=BRICK_KE,
+            kd=BRICK_KD,
+            mu=1.0,
+            margin=BRICK_MARGIN,
+        )
+        bh = 0.5 * self.brick_height_scaled
+        sqrt2_2 = float(np.sqrt(2.0) / 2.0)
+        rot_90z = wp.quat(0.0, 0.0, sqrt2_2, sqrt2_2)
+
+        blue_x = self.table_top_center[0] - 0.05
+        blue_y = self.table_top_center[1] - 0.04
+        self.add_board_floor(scene, blue_x, blue_y, brick_cfg)
+
+        positions = [
+            self.table_top_center + wp.vec3(0.0, 0.06, bh),
+            self.table_top_center + wp.vec3(0.05, -0.04, bh),
+            wp.vec3(blue_x, blue_y, self.table_top_center[2] + 0.2 * self.brick_height_scaled),
+        ]
+        rotations = [rot_90z, rot_90z, wp.quat_identity()]
+        colors = [(0.8, 0.1, 0.1), (0.1, 0.7, 0.1), (0.1, 0.2, 0.8)]
+        labels = ["brick_red", "brick_green", "brick_blue"]
+
+        solimp_attr = scene.custom_attributes.get("mujoco:geom_solimp")
+        self.brick_bodies = []
+        for i in range(self.brick_count):
+            mesh = _build_mesh_with_sdf(self.v_2x4, self.f_2x4, color=colors[i], scale=BRICK_SCALE)
+            body = scene.add_body(xform=wp.transform(positions[i], rotations[i]), label=labels[i])
+            shape_idx = scene.shape_count
+            scene.add_shape_mesh(body, mesh=mesh, cfg=brick_cfg)
+            if solimp_attr is not None:
+                if solimp_attr.values is None:
+                    solimp_attr.values = {}
+                solimp_attr.values[shape_idx] = (0.6, 0.95, 0.00075, 0.5, 2.5)
+            self.brick_bodies.append(body)
+
+    # -- IK ------------------------------------------------------------------
+
+    def _solve_approach_ik(self):
+        """Solve IK for the approach pose above the red brick."""
+        bh = 0.5 * self.brick_height_scaled
+        sqrt2_2 = np.sqrt(2.0) / 2.0
+
+        red_pos = np.array(
+            [
+                float(self.table_top_center[0]),
+                float(self.table_top_center[1]) + 0.06,
+                float(self.table_top_center[2]) + bh,
+            ]
+        )
+        target_pos = red_pos + np.array([0.0, 0.0, float(self.offset_approach[2])])
+
+        # ee_quat_down * quat_inverse(pick_quat) — Hamilton product (x,y,z,w)
+        down = np.array([1.0, 0.0, 0.0, 0.0])
+        inv_pick = np.array([0.0, 0.0, -sqrt2_2, sqrt2_2])
+        x1, y1, z1, w1 = down
+        x2, y2, z2, w2 = inv_pick
+        target_quat = np.array(
+            [
+                w1 * x2 + x1 * w2 + y1 * z2 - z1 * y2,
+                w1 * y2 - x1 * z2 + y1 * w2 + z1 * x2,
+                w1 * z2 + x1 * y2 - y1 * x2 + z1 * w2,
+                w1 * w2 - x1 * x2 - y1 * y2 - z1 * z2,
+            ]
+        )
+
+        ik_dofs = self.model_ik.joint_coord_count
+        seed = np.zeros(ik_dofs, dtype=np.float32)
+        seed[:7] = [0.0, 0.5, 0.0, -1.5, 0.0, 2.0, 0.78]
+        joint_q = wp.array(seed.reshape(1, -1), dtype=wp.float32)
+
+        solver = ik.IKSolver(
+            model=self.model_ik,
+            n_problems=1,
+            objectives=[
+                ik.IKObjectivePosition(
+                    link_index=self.ee_index,
+                    link_offset=wp.vec3(0.0, 0.0, 0.0),
+                    target_positions=wp.array([wp.vec3(*target_pos.tolist())], dtype=wp.vec3),
+                ),
+                ik.IKObjectiveRotation(
+                    link_index=self.ee_index,
+                    link_offset_rotation=wp.quat_identity(),
+                    target_rotations=wp.array([wp.vec4(*target_quat.tolist())], dtype=wp.vec4),
+                ),
+                ik.IKObjectiveJointLimit(
+                    joint_limit_lower=self.model_ik.joint_limit_lower[:ik_dofs],
+                    joint_limit_upper=self.model_ik.joint_limit_upper[:ik_dofs],
+                ),
+            ],
+            lambda_initial=0.1,
+            jacobian_mode=ik.IKJacobianType.ANALYTIC,
+        )
+        for _ in range(30):
+            solver.step(joint_q, joint_q, iterations=24)
+
+        return joint_q.flatten().numpy()[:7]
+
+    def setup_ik(self):
+        state_ik = self.model.state()
+        newton.eval_fk(self.model, self.model.joint_q, self.model.joint_qd, state_ik)
+        body_q_np = state_ik.body_q.numpy()
+
+        self.pos_obj = ik.IKObjectivePosition(
+            link_index=self.ee_index,
+            link_offset=wp.vec3(0.0, 0.0, 0.0),
+            target_positions=wp.array([self.home_pos], dtype=wp.vec3),
+        )
+        self.rot_obj = ik.IKObjectiveRotation(
+            link_index=self.ee_index,
+            link_offset_rotation=wp.quat_identity(),
+            target_rotations=wp.array([body_q_np[self.ee_index][3:][:4]], dtype=wp.vec4),
+        )
+
+        ik_dofs = self.model_ik.joint_coord_count
+        obj_joint_limits = ik.IKObjectiveJointLimit(
+            joint_limit_lower=wp.clone(self.model_ik.joint_limit_lower[:ik_dofs].reshape((1, ik_dofs))).flatten(),
+            joint_limit_upper=wp.clone(self.model_ik.joint_limit_upper[:ik_dofs].reshape((1, ik_dofs))).flatten(),
+        )
+        self.joint_q_ik = wp.clone(self.model.joint_q[:ik_dofs].reshape((1, ik_dofs)))
+
+        self.ik_iters = 24
+        self.ik_solver = ik.IKSolver(
+            model=self.model_ik,
+            n_problems=1,
+            objectives=[self.pos_obj, self.rot_obj, obj_joint_limits],
+            lambda_initial=0.1,
+            jacobian_mode=ik.IKJacobianType.ANALYTIC,
+        )
+
+    # -- task FSM ------------------------------------------------------------
+
+    def setup_tasks(self):
+        # Round 1: pick red, place on green, release.
+        round_1 = [
+            TaskType.APPROACH,
+            TaskType.REFINE_APPROACH,
+            TaskType.GRASP,
+            TaskType.LIFT,
+            TaskType.MOVE_TO_DROP_OFF,
+            TaskType.REFINE_DROP_OFF,
+            TaskType.RELEASE,
+        ]
+        round_1_times = [2.0, 1.0, 0.5, 1.0, 1.5, 1.5, 1.0]
+
+        # Round 2: grip red+green pair, place on blue, release, go home.
+        round_2 = [
+            TaskType.GRASP,
+            TaskType.LIFT,
+            TaskType.MOVE_TO_DROP_OFF,
+            TaskType.REFINE_DROP_OFF,
+            TaskType.RELEASE,
+            TaskType.HOME,
+        ]
+        round_2_times = [0.5, 1.0, 1.5, 1.5, 1.0, 2.5]
+
+        red, green, blue = self.brick_bodies
+
+        task_schedule, task_pick, task_drop, task_layer, time_limits = [], [], [], [], []
+        for tasks, times, pick, drop, layer in [
+            (round_1, round_1_times, red, green, 1),
+            (round_2, round_2_times, red, blue, 2),
+        ]:
+            task_schedule.extend(tasks)
+            task_pick.extend([pick] * len(tasks))
+            task_drop.extend([drop] * len(tasks))
+            task_layer.extend([layer] * len(tasks))
+            time_limits.extend(times)
+
+        self.task_schedule = wp.array(task_schedule, dtype=wp.int32)
+        self.task_time_limits = wp.array(time_limits, dtype=float)
+        self.task_pick_body = wp.array(task_pick, dtype=wp.int32)
+        self.task_drop_body = wp.array(task_drop, dtype=wp.int32)
+        self.task_drop_layer = wp.array(task_layer, dtype=wp.int32)
+
+        self.task_idx = wp.zeros(1, dtype=wp.int32)
+        self.task_time_elapsed = wp.zeros(1, dtype=wp.float32)
+        self.task_init_body_q = wp.clone(self.state_0.body_q)
+
+        self.ee_pos_target = wp.zeros(1, dtype=wp.vec3)
+        self.ee_pos_interp = wp.zeros(1, dtype=wp.vec3)
+        self.ee_rot_target = wp.zeros(1, dtype=wp.vec4)
+        self.ee_rot_interp = wp.zeros(1, dtype=wp.vec4)
+        self.gripper_target = wp.zeros(shape=(1, 2), dtype=wp.float32)
+
+    def set_joint_targets(self):
+        wp.launch(
+            set_target_pose_kernel,
+            dim=1,
+            inputs=[
+                self.task_schedule,
+                self.task_time_limits,
+                self.task_pick_body,
+                self.task_drop_body,
+                self.task_drop_layer,
+                self.task_idx,
+                self.task_time_elapsed,
+                self.frame_dt,
+                self.offset_approach,
+                self.offset_lift,
+                self.offset_retract,
+                self.grasp_z_offset,
+                self.drop_z_offset,
+                self.brick_height_scaled,
+                self.home_pos,
+                self.task_init_body_q,
+                self.state_0.body_q,
+                self.ee_index,
+            ],
+            outputs=[
+                self.ee_pos_target,
+                self.ee_pos_interp,
+                self.ee_rot_target,
+                self.ee_rot_interp,
+                self.gripper_target,
+            ],
+        )
+
+        self.pos_obj.set_target_positions(self.ee_pos_interp)
+        self.rot_obj.set_target_rotations(self.ee_rot_interp)
+
+        if self.graph_ik is not None:
+            wp.capture_launch(self.graph_ik)
+        else:
+            self.ik_solver.step(self.joint_q_ik, self.joint_q_ik, iterations=self.ik_iters)
+
+        wp.copy(dest=self.control.joint_target_pos[:7], src=self.joint_q_ik.flatten()[:7])
+        wp.copy(dest=self.control.joint_target_pos[7:9], src=self.gripper_target.flatten()[:2])
+
+        wp.launch(
+            advance_task_kernel,
+            dim=1,
+            inputs=[
+                self.task_time_limits,
+                self.ee_pos_target,
+                self.ee_rot_target,
+                self.state_0.body_q,
+                self.ee_index,
+            ],
+            outputs=[self.task_idx, self.task_time_elapsed, self.task_init_body_q],
+        )
+
+    # -- simulation loop -----------------------------------------------------
+
     def capture(self):
+        self.graph = None
+        self.graph_ik = None
         if wp.get_device().is_cuda:
             with wp.ScopedCapture() as capture:
                 self.simulate()
             self.graph = capture.graph
-        else:
-            self.graph = None
-
-    # -- simulation ---------------------------------------------------------
+            with wp.ScopedCapture() as capture:
+                self.ik_solver.step(self.joint_q_ik, self.joint_q_ik, iterations=self.ik_iters)
+            self.graph_ik = capture.graph
 
     def simulate(self):
+        self.collision_pipeline.collide(self.state_0, self.contacts)
         for _ in range(self.sim_substeps):
-            wp.launch(
-                _set_kinematic_bodies,
-                dim=1,
-                inputs=[
-                    self.state_0.body_q,
-                    self.state_0.joint_q,
-                    self.state_0.joint_qd,
-                    self.body_finger_l,
-                    self.body_finger_r,
-                    self.body_pusher,
-                    self.jq_start_l,
-                    self.jq_start_r,
-                    self.jq_start_p,
-                    self.jqd_start_l,
-                    self.jqd_start_r,
-                    self.jqd_start_p,
-                    self._kin_params,
-                ],
-            )
-
             self.state_0.clear_forces()
-            self.viewer.apply_forces(self.state_0)
-
-            wp.launch(
-                _add_forces,
-                dim=self._push_force.shape[0],
-                inputs=[self._push_force, self.state_0.body_f],
-            )
-
-            self.collision_pipeline.collide(self.state_0, self.contacts)
             self.solver.step(self.state_0, self.state_1, self.control, self.contacts, self.sim_dt)
             self.state_0, self.state_1 = self.state_1, self.state_0
 
-    def _compute_gripper_yz(self):
-        """Compute gripper y and z positions from sim_time (CPU-side)."""
-        t = self.sim_time
-        if t < self.t_grip_start:
-            y = self.gripper_open_y
-        elif t < self.t_grip_closed:
-            s = (t - self.t_grip_start) / (self.t_grip_closed - self.t_grip_start)
-            s = max(0.0, min(1.0, s))
-            s = s * s * (3.0 - 2.0 * s)
-            y = self.gripper_open_y + (self.gripper_closed_y - self.gripper_open_y) * s
-        else:
-            y = self.gripper_closed_y
-
-        z_off = max(0.0, t - self.t_lift_start) * 0.03 * SCENE_SCALE
-        z = self.finger_cz + z_off
-        return float(y), float(z)
-
-    # -- GUI ----------------------------------------------------------------
-
-    def gui(self, ui):
-        _, self.auto_mode = ui.checkbox("Auto sequence", self.auto_mode)
-        _, self.pusher_z = ui.slider_float("Pusher Z", self.pusher_z, BODY_HEIGHT * 0.5, self.pusher_rest_z)
-        if not self.auto_mode:
-            _, self.gripper_y = ui.slider_float(
-                "Gripper Y", self.gripper_y, self.gripper_closed_y * 0.8, self.gripper_open_y
-            )
-            _, self.gripper_z = ui.slider_float("Gripper Z", self.gripper_z, 0.0, self.finger_cz + 0.2 * SCENE_SCALE)
-            _, self.push_active = ui.checkbox("Push down", self.push_active)
-
-        if self.solver_type == "vbd":
-            changed, v = ui.slider_float("VBD beta (log10)", np.log10(self.solver.avbd_beta), 1.0, 8.0)
-            if changed:
-                self.solver.avbd_beta = 10.0**v
-            changed, v = ui.slider_float(
-                "VBD k_start (log10)", np.log10(max(self.solver.k_start_body_contact, 1.0)), 0.0, 6.0
-            )
-            if changed:
-                self.solver.k_start_body_contact = 10.0**v
-            changed, v = ui.slider_float("VBD gamma", self.solver.avbd_gamma, 0.0, 1.0)
-            if changed:
-                self.solver.avbd_gamma = v
-            changed, v = ui.slider_float("VBD iterations", float(self.solver.iterations), 1.0, 60.0)
-            if changed:
-                self.solver.iterations = int(v)
-
-    # -- step / render ------------------------------------------------------
+    def reset(self):
+        self.sim_time = 0.0
+        self.state_0 = self.model.state()
+        self.state_1 = self.model.state()
+        newton.eval_fk(self.model, self.model.joint_q, self.model.joint_qd, self.state_0)
+        wp.copy(self.control.joint_target_pos[:9], self.model.joint_q[:9])
+        self.joint_q_ik = wp.clone(self.model.joint_q[: self.model_ik.joint_coord_count].reshape((1, -1)))
+        self.setup_tasks()
+        self.capture()
 
     def step(self):
-        if self.auto_mode:
-            y, z = self._compute_gripper_yz()
-            push_on = self.t_push_start < self.sim_time < self.t_push_end
-        else:
-            y, z = self.gripper_y, self.gripper_z
-            push_on = self.push_active
-
-        host = self._kin_params_host.numpy()
-        host[0] = y
-        host[1] = z
-        host[2] = self.pusher_z
-        wp.copy(self._kin_params, self._kin_params_host)
-
-        if push_on:
-            wp.copy(self._push_force, self._push_force_base)
-        else:
-            self._push_force.zero_()
+        self.set_joint_targets()
 
         if self.graph:
             wp.capture_launch(self.graph)
@@ -644,24 +734,20 @@ class Example:
         self.viewer.log_contacts(self.contacts, self.state_0)
         self.viewer.end_frame()
 
+    def gui(self, ui):
+        if ui.button("Reset"):
+            self.reset()
+
     def test_final(self):
         body_q = self.state_0.body_q.numpy()
-        z_2x4 = body_q[self.body_2x4][2]
-        z_2x2 = body_q[self.body_2x2][2]
-
-        assert z_2x4 > -0.01 * SCENE_SCALE, f"2x4 brick fell through ground: z={z_2x4:.4f}"
-        assert z_2x2 > z_2x4, f"2x2 should be above 2x4: z_2x2={z_2x2:.4f}, z_2x4={z_2x4:.4f}"
+        table_top_z = self.table_top_center[2]
+        for i, body_idx in enumerate(self.brick_bodies):
+            z = body_q[body_idx][2]
+            assert z > table_top_z - 0.01, f"Brick {i} fell below table: z={z:.4f}, table_top={table_top_z:.4f}"
 
 
 if __name__ == "__main__":
     parser = newton.examples.create_parser()
-    parser.add_argument(
-        "--solver",
-        type=str,
-        default="xpbd",
-        choices=["xpbd", "mujoco", "vbd"],
-        help="Solver type.",
-    )
 
     viewer, args = newton.examples.init(parser)
     example = Example(viewer, args)
