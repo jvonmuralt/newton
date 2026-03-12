@@ -58,12 +58,12 @@ ALL_FIELDS = {
     "geom_rbound": (float, "ngeom"),
     "geom_pos": (wp.vec3, "ngeom"),
     "body_mass": (float, "nbody"),
-    "body_subtreemass": (float, "nbody"),
     "body_inertia": (wp.vec3, "nbody"),
-    "body_invweight0": (wp.vec2, "nbody"),
     "body_ipos": (wp.vec3, "nbody"),
     "body_iquat": (wp.quat, "nbody"),
 }
+# body_subtreemass and body_invweight0 are tree-dependent and recomputed
+# by set_const_fixed / set_const_0 after scattering.
 
 # ---------------------------------------------------------------------------
 # Warp scatter kernels  (src is compact, dst is full model array)
@@ -133,7 +133,7 @@ class MeshRandomizer:
     Usage::
 
         randomizer = MeshRandomizer(solver)
-        indices = randomizer.reset(solver.mjw_model, nworld, rng)
+        indices = randomizer.reset(solver.mjw_model, solver.mjw_data, nworld, rng)
     """
 
     def __init__(self, solver, device: str = "cuda:0"):
@@ -330,25 +330,12 @@ class MeshRandomizer:
 
             body_inertia = eigenvalues.astype(np.float32)
 
-            # For free-floating bodies
-            body_subtreemass = total_mass
-            if total_mass > 0:
-                inv_mass = 1.0 / total_mass
-                max_inertia = max(eigenvalues) if max(eigenvalues) > 0 else 1.0
-                inv_inertia = 1.0 / max_inertia
-            else:
-                inv_mass = 0.0
-                inv_inertia = 0.0
-
-            # Store in variants_data
             group.variants_data[vi] = {
                 "geom_size": geom_sizes,
                 "geom_rbound": geom_rbounds,
                 "geom_pos": geom_positions,
                 "body_mass": np.array([total_mass], dtype=np.float32),
-                "body_subtreemass": np.array([body_subtreemass], dtype=np.float32),
                 "body_inertia": np.array([body_inertia], dtype=np.float32),
-                "body_invweight0": np.array([[inv_mass, inv_inertia]], dtype=np.float32),
                 "body_ipos": np.array([body_com], dtype=np.float32),
                 "body_iquat": np.array([body_iquat], dtype=np.float32),
             }
@@ -364,7 +351,7 @@ class MeshRandomizer:
     # -- Reset --
 
     def reset(
-        self, mjw_model, nworld: int, rng: np.random.Generator
+        self, mjw_model, mjw_data, nworld: int, rng: np.random.Generator
     ) -> list[np.ndarray]:
         """Randomize all groups independently.  Returns per-group index arrays."""
         all_indices = []
@@ -376,6 +363,12 @@ class MeshRandomizer:
             self._scatter_fields(group, mjw_model, variant_gpu, nworld)
 
             all_indices.append(local_idx)
+
+        # Recompute tree-dependent fields (body_subtreemass, body_invweight0)
+        import mujoco_warp
+        mujoco_warp.set_const_fixed(mjw_model, mjw_data)
+        mujoco_warp.set_const_0(mjw_model, mjw_data)
+
         return all_indices
 
     def _scatter_dataid(
@@ -498,7 +491,7 @@ def main():
     # physics properties (mass, inertia, geom_size, etc.) to the GPU model.
 
     rng = np.random.default_rng(42)
-    indices = randomizer.reset(solver.mjw_model, nworld, rng)
+    indices = randomizer.reset(solver.mjw_model, solver.mjw_data, nworld, rng)
     idx_a, idx_b, idx_c = indices
 
     # =====================================================================
