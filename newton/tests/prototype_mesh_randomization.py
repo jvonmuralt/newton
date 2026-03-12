@@ -341,13 +341,6 @@ class MeshRandomizer:
         self, mjw_model, mjw_data, nworld: int, rng: np.random.Generator
     ) -> list[np.ndarray]:
         """Randomize all groups independently.  Returns per-group index arrays."""
-        # One-time expansion of geom_dataid to (nworld, ngeom) if needed.
-        if mjw_model.geom_dataid.shape[0] < nworld:
-            dataid = mjw_model.geom_dataid.numpy()
-            mjw_model.geom_dataid = wp.array(
-                np.tile(dataid, (nworld, 1)), dtype=int, device=self.device,
-            )
-
         all_indices = []
         for group in self.groups:
             local_idx = rng.integers(0, group.n_variants, size=nworld).astype(np.int32)

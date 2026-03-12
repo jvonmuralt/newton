@@ -5071,6 +5071,7 @@ class SolverMuJoCo(SolverBase):
             "dof_solimp",
             "dof_solref",
             # "geom_matid",
+            "geom_dataid",
             "geom_solmix",
             "geom_solref",
             "geom_solimp",
