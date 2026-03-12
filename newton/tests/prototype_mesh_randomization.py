@@ -1,19 +1,23 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 The Newton Developers
 # SPDX-License-Identifier: Apache-2.0
 #
-# Prototype: per-world mesh randomization in Newton style.
+# Prototype: per-world mesh randomization via GPU-resident caching.
 #
-# Uses Newton's ModelBuilder + SolverMuJoCo to create a multi-world scene,
-# then demonstrates how to randomize which mesh each world uses, with
-# GPU-resident caching for fast RL episode resets.
+# One scene with both kinds of randomization running simultaneously:
+#
+#   - Object A: single geom, 2 mesh variants (small / large)      [geom-level]
+#   - Object B: single geom, 2 mesh variants (medium / tiny)      [geom-level]
+#   - Object C: 4 geom slots (convex decomposition), 3 variants   [body-level]
+#       Variant X (4 pieces) ← default, most complex
+#       Variant Y (3 pieces) — slot 3 disabled
+#       Variant Z (2 pieces) — slots 2-3 disabled
+#
+# MeshRandomizer auto-discovers all variant groups from the solver and
+# manages randomization via a single reset() call.
 #
 # Requires: mujoco_warp with PR #1191 (2D geom_dataid).
 #
 # Run:  uv run --extra dev python newton/tests/prototype_mesh_randomization.py
-
-import os
-import re
-import tempfile
 
 import mujoco
 import mujoco_warp
@@ -24,15 +28,9 @@ import newton
 
 NWORLD = 64
 
-BOX_SMALL_VERTS = np.array([
-    [-0.1, -0.1, -0.1], [0.1, -0.1, -0.1], [0.1, 0.1, -0.1], [-0.1, 0.1, -0.1],
-    [-0.1, -0.1,  0.1], [0.1, -0.1,  0.1], [0.1, 0.1,  0.1], [-0.1, 0.1,  0.1],
-], dtype=np.float32)
-
-BOX_LARGE_VERTS = np.array([
-    [-0.2, -0.2, -0.2], [0.2, -0.2, -0.2], [0.2, 0.2, -0.2], [-0.2, 0.2, -0.2],
-    [-0.2, -0.2,  0.2], [0.2, -0.2,  0.2], [0.2, 0.2,  0.2], [-0.2, 0.2,  0.2],
-], dtype=np.float32)
+# ---------------------------------------------------------------------------
+# Mesh helpers
+# ---------------------------------------------------------------------------
 
 BOX_INDICES = np.array([
     0, 2, 1, 0, 3, 2, 4, 5, 6, 4, 6, 7,
@@ -40,7 +38,21 @@ BOX_INDICES = np.array([
     0, 4, 7, 0, 7, 3, 1, 2, 6, 1, 6, 5,
 ], dtype=np.int32)
 
-# Mesh-dependent fields that need per-world values when swapping meshes.
+
+def _box_verts(hx: float, hy: float, hz: float, offset=(0., 0., 0.)):
+    ox, oy, oz = offset
+    return np.array([
+        [ox - hx, oy - hy, oz - hz], [ox + hx, oy - hy, oz - hz],
+        [ox + hx, oy + hy, oz - hz], [ox - hx, oy + hy, oz - hz],
+        [ox - hx, oy - hy, oz + hz], [ox + hx, oy - hy, oz + hz],
+        [ox + hx, oy + hy, oz + hz], [ox - hx, oy + hy, oz + hz],
+    ], dtype=np.float32)
+
+
+# ---------------------------------------------------------------------------
+# Fields that change when a mesh is swapped
+# ---------------------------------------------------------------------------
+
 ALL_FIELDS = {
     "geom_size": (wp.vec3, "ngeom"),
     "geom_rbound": (float, "ngeom"),
@@ -53,162 +65,425 @@ ALL_FIELDS = {
     "body_iquat": (wp.quat, "nbody"),
 }
 
+# ---------------------------------------------------------------------------
+# Warp scatter kernels  (src is compact, dst is full model array)
+# ---------------------------------------------------------------------------
 
-# -- Warp kernels: scatter cached variant data into per-world arrays --
 
 @wp.kernel
-def _scatter_1d(idx: wp.array(dtype=int), src: wp.array2d(dtype=float), dst: wp.array2d(dtype=float)):
-    w, e = wp.tid()
-    dst[w, e] = src[idx[w], e]
+def _scatter_1d(idx: wp.array(dtype=int), src: wp.array2d(dtype=float),
+                entity_ids: wp.array(dtype=int), dst: wp.array2d(dtype=float)):
+    w, i = wp.tid()
+    dst[w, entity_ids[i]] = src[idx[w], i]
+
 
 @wp.kernel
-def _scatter_vec2(idx: wp.array(dtype=int), src: wp.array2d(dtype=wp.vec2), dst: wp.array2d(dtype=wp.vec2)):
-    w, e = wp.tid()
-    dst[w, e] = src[idx[w], e]
+def _scatter_vec2(idx: wp.array(dtype=int), src: wp.array2d(dtype=wp.vec2),
+                  entity_ids: wp.array(dtype=int), dst: wp.array2d(dtype=wp.vec2)):
+    w, i = wp.tid()
+    dst[w, entity_ids[i]] = src[idx[w], i]
+
 
 @wp.kernel
-def _scatter_vec3(idx: wp.array(dtype=int), src: wp.array2d(dtype=wp.vec3), dst: wp.array2d(dtype=wp.vec3)):
-    w, e = wp.tid()
-    dst[w, e] = src[idx[w], e]
+def _scatter_vec3(idx: wp.array(dtype=int), src: wp.array2d(dtype=wp.vec3),
+                  entity_ids: wp.array(dtype=int), dst: wp.array2d(dtype=wp.vec3)):
+    w, i = wp.tid()
+    dst[w, entity_ids[i]] = src[idx[w], i]
+
 
 @wp.kernel
-def _scatter_quat(idx: wp.array(dtype=int), src: wp.array2d(dtype=wp.quat), dst: wp.array2d(dtype=wp.quat)):
-    w, e = wp.tid()
-    dst[w, e] = src[idx[w], e]
+def _scatter_quat(idx: wp.array(dtype=int), src: wp.array2d(dtype=wp.quat),
+                  entity_ids: wp.array(dtype=int), dst: wp.array2d(dtype=wp.quat)):
+    w, i = wp.tid()
+    dst[w, entity_ids[i]] = src[idx[w], i]
 
-_SCATTER = {float: _scatter_1d, wp.vec2: _scatter_vec2, wp.vec3: _scatter_vec3, wp.quat: _scatter_quat}
+
+_SCATTER = {
+    float: _scatter_1d, wp.vec2: _scatter_vec2,
+    wp.vec3: _scatter_vec3, wp.quat: _scatter_quat,
+}
+
+# ---------------------------------------------------------------------------
+# MeshRandomizer — auto-discovers variant groups from solver, single reset()
+# ---------------------------------------------------------------------------
 
 
-class MeshVariantCache:
-    """GPU-resident cache of mesh-dependent physics properties.
+class _VariantGroup:
+    """One independent randomization group (one body, one or more geom slots)."""
 
-    Built once at init by mini-compiling each variant via spec.compile().
-    At reset, a Warp kernel scatters cached values into per-world model arrays.
+    def __init__(self):
+        self.body_name: str = ""
+        self.n_variants: int = 0
+        self.geom_ids: dict[str, int] = {}       # geom_name → MuJoCo geom id
+        self.owned_geom_ids: wp.array = None      # (n_geoms,) on GPU
+        self.owned_body_ids: wp.array = None      # (n_bodies,) on GPU
+        self.dataid_rows: list[np.ndarray] = []   # per-variant geom_dataid row
+        self.variants_data: dict = {}             # variant_idx → {field: np.array}
+        self.gpu_cache: dict[str, wp.array] = {}  # field → (n_variants, n_owned)
+
+
+class MeshRandomizer:
+    """Per-world mesh randomizer that auto-discovers variant groups from the solver.
+
+    Groups shapes by body: each body with mesh variants forms one independent
+    randomization group.  Geom-level (1 shape on a body) and body-level
+    (multiple shapes on a body, e.g. convex decomposition) are handled
+    uniformly.
+
+    Usage::
+
+        randomizer = MeshRandomizer(solver)
+        indices = randomizer.reset(solver.mjw_model, nworld, rng)
     """
 
-    def __init__(self, spec: mujoco.MjSpec, mj_model, geom_name: str,
-                 mesh_names: list[str], device: str = "cuda:0"):
+    def __init__(self, solver, device: str = "cuda:0"):
         self.device = device
-        self.mesh_names = mesh_names
-        self.n_variants = len(mesh_names)
-        self.geom_id = mujoco.mj_name2id(mj_model, mujoco.mjtObj.mjOBJ_GEOM, geom_name)
-        self.mesh_ids = [
-            mujoco.mj_name2id(mj_model, mujoco.mjtObj.mjOBJ_MESH, mn)
-            for mn in mesh_names
-        ]
-        self.base_dataid = mj_model.geom_dataid.copy()
-        self.ngeom = mj_model.ngeom
-        self.nbody = mj_model.nbody
+        self.groups: list[_VariantGroup] = []
 
-        geom_spec = next(g for g in spec.geoms if g.name == geom_name)
-        original_meshname = geom_spec.meshname
+        newton_model = solver.model
+        bodies_per_world = newton_model.body_count // newton_model.world_count
+        shape_types = newton_model.shape_type.numpy()
+
+        for body_id in range(bodies_per_world):
+            mesh_shapes = self._find_mesh_shapes(newton_model, body_id, shape_types)
+            if not mesh_shapes:
+                continue
+
+            variant_counts = [len(newton_model.shape_mesh_variants[s]) for s in mesh_shapes]
+            if max(variant_counts) == 0:
+                continue
+
+            n_variants = 1 + max(variant_counts)
+            variants = self._build_variant_dicts(newton_model, mesh_shapes, n_variants)
+
+            group = _VariantGroup()
+            group.body_name = newton_model.body_label[body_id]
+            group.n_variants = n_variants
+            self._resolve_mujoco_ids(group, variants, solver.mj_model, device)
+            self._build_dataid_rows(group, variants, solver.mj_model)
+            self._compile_and_cache(group, variants, solver.mj_spec, solver.mj_model, device)
+            self.groups.append(group)
+
+    # -- Discovery --
+
+    @staticmethod
+    def _find_mesh_shapes(newton_model, body_id: int, shape_types: np.ndarray) -> list[int]:
+        """Return mesh-type shape indices for a given body."""
+        shapes = newton_model.body_shapes.get(body_id, [])
+        return [s for s in shapes if shape_types[s] == 7]  # GeoType.MESH
+
+    @staticmethod
+    def _build_variant_dicts(
+        newton_model, mesh_shapes: list[int], n_variants: int
+    ) -> list[dict[str, str | None]]:
+        """Build per-variant dicts: {geom_name: mesh_name | None}.
+
+        Variant 0 = original meshes.
+        Variant i>0 = mesh_variants[i-1] per shape, or None if that shape
+        has fewer variants (disables the geom slot).
+        """
+        variants = []
+        for vi in range(n_variants):
+            var_dict = {}
+            for s in mesh_shapes:
+                geom_name = f"{newton_model.shape_label[s]}_{s}"
+                if vi == 0:
+                    var_dict[geom_name] = geom_name
+                else:
+                    mvs = newton_model.shape_mesh_variants[s]
+                    if vi - 1 < len(mvs):
+                        var_dict[geom_name] = f"{geom_name}_variant_{vi - 1}"
+                    else:
+                        var_dict[geom_name] = None
+            variants.append(var_dict)
+        return variants
+
+    # -- MuJoCo id resolution --
+
+    @staticmethod
+    def _resolve_mujoco_ids(
+        group: _VariantGroup, variants: list[dict], mj_model, device: str
+    ):
+        """Map geom/body names to MuJoCo integer ids."""
+        body_id_set: set[int] = set()
+        for gn in variants[0]:
+            gid = mujoco.mj_name2id(mj_model, mujoco.mjtObj.mjOBJ_GEOM, gn)
+            group.geom_ids[gn] = gid
+            body_id_set.add(int(mj_model.geom_bodyid[gid]))
+
+        group.owned_geom_ids = wp.array(
+            np.array(list(group.geom_ids.values()), dtype=np.int32),
+            dtype=int, device=device,
+        )
+        group.owned_body_ids = wp.array(
+            np.array(sorted(body_id_set), dtype=np.int32),
+            dtype=int, device=device,
+        )
+
+    @staticmethod
+    def _build_dataid_rows(
+        group: _VariantGroup, variants: list[dict], mj_model
+    ):
+        """Pre-compute the geom_dataid row for each variant."""
+        base = mj_model.geom_dataid.copy()
+        for var in variants:
+            row = base.copy()
+            for gname, mname in var.items():
+                gid = group.geom_ids[gname]
+                row[gid] = -1 if mname is None else mujoco.mj_name2id(
+                    mj_model, mujoco.mjtObj.mjOBJ_MESH, mname
+                )
+            group.dataid_rows.append(row)
+
+    # -- Compilation & caching --
+
+    @staticmethod
+    def _compile_and_cache(
+        group: _VariantGroup,
+        variants: list[dict],
+        spec: mujoco.MjSpec,
+        mj_model,
+        device: str,
+    ):
+        """Mini-compile each variant, extract owned fields, build GPU cache."""
+
+        # Find the MjSpec geom objects we need to modify
+        geom_specs: dict[str, object] = {}
+        for g in spec.geoms:
+            if g.name in group.geom_ids:
+                geom_specs[g.name] = g
+        for b in spec.bodies:
+            for g in b.geoms:
+                if g.name in group.geom_ids:
+                    geom_specs[g.name] = g
+
+        # Save original state so we can restore after compilation
+        saved = {
+            gn: (gs.meshname, gs.contype, gs.conaffinity)
+            for gn, gs in geom_specs.items()
+        }
+
+        # Compile each variant (temporarily swap meshnames in spec)
         compiled = []
-        for mn in mesh_names:
-            geom_spec.meshname = mn
+        for var in variants:
+            for gname, mname in var.items():
+                gs = geom_specs[gname]
+                if mname is None:
+                    gs.contype = 0
+                    gs.conaffinity = 0
+                else:
+                    gs.meshname = mname
+                    gs.contype = 1
+                    gs.conaffinity = 1
             compiled.append(spec.compile())
-        geom_spec.meshname = original_meshname
 
-        self.cache: dict[str, wp.array] = {}
-        for field, (wp_dtype, count_attr) in ALL_FIELDS.items():
-            n = getattr(mj_model, count_attr)
-            np_data = np.stack([getattr(ref, field) for ref in compiled], axis=0)
-            self.cache[field] = wp.array(np_data, dtype=wp_dtype, device=device)
+        # Restore spec to original state
+        for gn, (mn, ct, ca) in saved.items():
+            geom_specs[gn].meshname = mn
+            geom_specs[gn].contype = ct
+            geom_specs[gn].conaffinity = ca
 
-    def reset(self, mjw_model, nworld: int, rng: np.random.Generator) -> np.ndarray:
-        """Randomize mesh variants across worlds."""
-        local_idx = rng.integers(0, self.n_variants, size=nworld).astype(np.int32)
-        variant_gpu = wp.array(local_idx, dtype=int, device=self.device)
+        # Extract owned fields from each compiled model → nested dict
+        owned_geom_np = group.owned_geom_ids.numpy()
+        owned_body_np = group.owned_body_ids.numpy()
 
-        dataid_table = np.tile(self.base_dataid, (nworld, 1))
-        for w in range(nworld):
-            dataid_table[w, self.geom_id] = self.mesh_ids[local_idx[w]]
-        mjw_model.geom_dataid = wp.array(dataid_table, dtype=int, device=self.device)
+        for vi in range(group.n_variants):
+            ref = compiled[vi]
+            group.variants_data[vi] = {}
+            for field in ALL_FIELDS:
+                ids = owned_geom_np if "geom" in field else owned_body_np
+                group.variants_data[vi][field] = getattr(ref, field)[ids]
 
+        # Stack into compact GPU arrays: shape (n_variants, n_owned)
         for field, (wp_dtype, _) in ALL_FIELDS.items():
-            n = self.ngeom if "geom" in field else self.nbody
-            dst = wp.empty((nworld, n), dtype=wp_dtype, device=self.device)
-            wp.launch(_SCATTER[wp_dtype], dim=(nworld, n),
-                      inputs=[variant_gpu, self.cache[field], dst], device=self.device)
-            setattr(mjw_model, field, dst)
+            np_data = np.stack(
+                [group.variants_data[vi][field] for vi in range(group.n_variants)],
+                axis=0,
+            )
+            group.gpu_cache[field] = wp.array(np_data, dtype=wp_dtype, device=device)
 
-        return local_idx
+    # -- Reset --
 
+    def reset(
+        self, mjw_model, nworld: int, rng: np.random.Generator
+    ) -> list[np.ndarray]:
+        """Randomize all groups independently.  Returns per-group index arrays."""
+        all_indices = []
+        for group in self.groups:
+            local_idx = rng.integers(0, group.n_variants, size=nworld).astype(np.int32)
+            variant_gpu = wp.array(local_idx, dtype=int, device=self.device)
+
+            self._scatter_dataid(group, mjw_model, local_idx, nworld)
+            self._scatter_fields(group, mjw_model, variant_gpu, nworld)
+
+            all_indices.append(local_idx)
+        return all_indices
+
+    def _scatter_dataid(
+        self, group: _VariantGroup, mjw_model, local_idx: np.ndarray, nworld: int
+    ):
+        """Write per-world geom_dataid (which mesh each geom uses)."""
+        dataid = mjw_model.geom_dataid.numpy()
+        if dataid.shape[0] < nworld:
+            dataid = np.tile(dataid, (nworld, 1))
+        for w in range(nworld):
+            row = group.dataid_rows[local_idx[w]]
+            for gid in group.geom_ids.values():
+                dataid[w, gid] = row[gid]
+        mjw_model.geom_dataid = wp.array(dataid, dtype=int, device=self.device)
+
+    def _scatter_fields(
+        self, group: _VariantGroup, mjw_model, variant_gpu: wp.array, nworld: int
+    ):
+        """Scatter cached physics properties (mass, inertia, etc.) to model."""
+        for field, (wp_dtype, _) in ALL_FIELDS.items():
+            entity_ids = group.owned_geom_ids if "geom" in field else group.owned_body_ids
+            n_owned = entity_ids.shape[0]
+            dst = getattr(mjw_model, field)
+            wp.launch(
+                _SCATTER[wp_dtype], dim=(nworld, n_owned),
+                inputs=[variant_gpu, group.gpu_cache[field], entity_ids, dst],
+                device=self.device,
+            )
+
+
+# ===========================================================================
+# Demo
+# ===========================================================================
 
 def main():
-    # -- 1. Build Newton multi-world model --
-    mesh_small = newton.Mesh(BOX_SMALL_VERTS, BOX_INDICES)
+    # =====================================================================
+    # Step 1: Build the model
+    # =====================================================================
+    # Three objects with mesh variants registered via add_shape_mesh():
+    #   A, B — single geom each, 2 mesh sizes           (geom-level)
+    #   C    — 4 geom slots (convex decomp), 3 variants  (body-level)
 
     world_builder = newton.ModelBuilder()
-    body = world_builder.add_body(
-        xform=wp.transform((0.0, 0.0, 0.5), wp.quat_identity()),
-        label="obj",
+
+    body_a = world_builder.add_body(
+        xform=wp.transform((0.0, 0.0, 0.5), wp.quat_identity()), label="obj_a")
+    world_builder.add_shape_mesh(
+        body=body_a,
+        mesh=newton.Mesh(_box_verts(0.1, 0.1, 0.1), BOX_INDICES),
+        label="geom_a",
+        mesh_variants=[newton.Mesh(_box_verts(0.2, 0.2, 0.2), BOX_INDICES)],
     )
-    world_builder.add_shape_mesh(body=body, mesh=mesh_small, label="obj_geom")
+
+    body_b = world_builder.add_body(
+        xform=wp.transform((0.0, 1.0, 0.5), wp.quat_identity()), label="obj_b")
+    world_builder.add_shape_mesh(
+        body=body_b,
+        mesh=newton.Mesh(_box_verts(0.15, 0.15, 0.15), BOX_INDICES),
+        label="geom_b",
+        mesh_variants=[newton.Mesh(_box_verts(0.05, 0.05, 0.05), BOX_INDICES)],
+    )
+
+    hull_x = [_box_verts(0.08, 0.08, 0.04, offset=(i * 0.16, 0, 0)) for i in range(4)]
+    hull_y = [
+        _box_verts(0.12, 0.06, 0.06),
+        _box_verts(0.12, 0.06, 0.06, offset=(0.24, 0, 0)),
+        _box_verts(0.06, 0.12, 0.06, offset=(0.12, 0.12, 0)),
+    ]
+    hull_z = [
+        _box_verts(0.15, 0.15, 0.08),
+        _box_verts(0.15, 0.15, 0.08, offset=(0.3, 0, 0)),
+    ]
+
+    body_c = world_builder.add_body(
+        xform=wp.transform((0.0, 2.0, 0.5), wp.quat_identity()), label="obj_c")
+    world_builder.add_shape_mesh(
+        body=body_c, mesh=newton.Mesh(hull_x[0], BOX_INDICES), label="hull_0",
+        mesh_variants=[newton.Mesh(hull_y[0], BOX_INDICES),
+                       newton.Mesh(hull_z[0], BOX_INDICES)])
+    world_builder.add_shape_mesh(
+        body=body_c, mesh=newton.Mesh(hull_x[1], BOX_INDICES), label="hull_1",
+        mesh_variants=[newton.Mesh(hull_y[1], BOX_INDICES),
+                       newton.Mesh(hull_z[1], BOX_INDICES)])
+    world_builder.add_shape_mesh(
+        body=body_c, mesh=newton.Mesh(hull_x[2], BOX_INDICES), label="hull_2",
+        mesh_variants=[newton.Mesh(hull_y[2], BOX_INDICES)])
+    world_builder.add_shape_mesh(
+        body=body_c, mesh=newton.Mesh(hull_x[3], BOX_INDICES), label="hull_3",
+        mesh_variants=[])
 
     main_builder = newton.ModelBuilder()
     main_builder.add_ground_plane()
     main_builder.replicate(world_builder, world_count=NWORLD, spacing=(2.0, 0.0, 0.0))
 
     model = main_builder.finalize()
-    print(f"\n{model.world_count} worlds, {model.body_count} bodies, {model.shape_count} shapes")
-
-    # -- 2. Create SolverMuJoCo --
-    mjcf_path = os.path.join(tempfile.mkdtemp(), "newton_scene.xml")
-    solver = newton.solvers.SolverMuJoCo(model, iterations=1, save_to_mjcf=mjcf_path)
-    print(f"MuJoCo template: nbody={solver.mj_model.nbody}, ngeom={solver.mj_model.ngeom}, nmesh={solver.mj_model.nmesh}")
-
-    # -- 3. Reconstruct spec, add variant mesh, recompile --
-    # Strip <inertial> tags — Newton writes explicit inertial which prevents
-    # the compiler from inferring mass/inertia from the swapped mesh.
-    mjcf_xml = re.sub(r'\s*<inertial[^/]*/>', '', open(mjcf_path).read())
-    spec = mujoco.MjSpec.from_string(mjcf_xml)
-    spec.add_mesh(name="box_large", uservert=BOX_LARGE_VERTS.flatten(), userface=BOX_INDICES.flatten())
-    mj_model_with_variants = spec.compile()
-
-    geom_name = next(
-        mujoco.mj_id2name(mj_model_with_variants, mujoco.mjtObj.mjOBJ_GEOM, i)
-        for i in range(mj_model_with_variants.ngeom)
-        if (mujoco.mj_id2name(mj_model_with_variants, mujoco.mjtObj.mjOBJ_GEOM, i) or "").startswith("obj_geom")
-    )
-    mesh_names = [
-        mujoco.mj_id2name(mj_model_with_variants, mujoco.mjtObj.mjOBJ_MESH, i)
-        for i in range(mj_model_with_variants.nmesh)
-        if mujoco.mj_id2name(mj_model_with_variants, mujoco.mjtObj.mjOBJ_MESH, i)
-    ]
-    print(f"Geom: '{geom_name}', meshes: {mesh_names}")
-
-    # -- 4. Rebuild GPU model with variant mesh data --
+    solver = newton.solvers.SolverMuJoCo(model, iterations=1)
+    mj_model = solver.mj_model
     nworld = solver.mjw_data.nworld
-    solver.mj_model = mj_model_with_variants
-    solver.mjw_model = mujoco_warp.put_model(mj_model_with_variants)
-    solver._expand_model_fields(solver.mjw_model, nworld)
 
-    # -- 5. Build GPU cache --
-    cache = MeshVariantCache(spec, mj_model_with_variants, geom_name, mesh_names)
-    obj_body_id = mj_model_with_variants.geom_bodyid[cache.geom_id]
+    print(f"\n{nworld} worlds, nbody={mj_model.nbody}, ngeom={mj_model.ngeom}, nmesh={mj_model.nmesh}")
 
-    # -- 6. Before reset: all worlds use box_small --
-    mass_before = solver.mjw_model.body_mass.numpy()
-    print(f"\nBefore reset: all worlds mass={mass_before[0, obj_body_id]:.1f}")
+    # =====================================================================
+    # Step 2: Initialize the randomizer
+    # =====================================================================
+    # Auto-discovers which bodies have mesh variants and builds GPU caches.
 
-    # -- 7. After reset: worlds randomly get box_small or box_large --
+    randomizer = MeshRandomizer(solver)
+
+    print(f"\nAuto-discovered {len(randomizer.groups)} randomization groups:")
+    for g in randomizer.groups:
+        geoms = list(g.geom_ids.keys())
+        print(f"  body '{g.body_name}': {g.n_variants} variants, geoms={geoms}")
+        for vi, fields in g.variants_data.items():
+            print(f"    variant {vi}: mass={fields['body_mass']}")
+
+    # =====================================================================
+    # Step 3: Randomize (one call per episode reset)
+    # =====================================================================
+    # Picks a random variant per world for each group and scatters cached
+    # physics properties (mass, inertia, geom_size, etc.) to the GPU model.
+
     rng = np.random.default_rng(42)
-    cache.reset(solver.mjw_model, nworld, rng)
+    indices = randomizer.reset(solver.mjw_model, nworld, rng)
+    idx_a, idx_b, idx_c = indices
 
+    # =====================================================================
+    # Step 4: Verify
+    # =====================================================================
+
+    body_a_id = randomizer.groups[0].owned_body_ids.numpy()[0]
+    body_b_id = randomizer.groups[1].owned_body_ids.numpy()[0]
+    body_c_id = randomizer.groups[2].owned_body_ids.numpy()[0]
+
+    mass = solver.mjw_model.body_mass.numpy()
     dataid = solver.mjw_model.geom_dataid.numpy()
-    mass_after = solver.mjw_model.body_mass.numpy()
-    for w in range(min(6, nworld)):
-        mid = dataid[w, cache.geom_id]
-        mn = mujoco.mj_id2name(mj_model_with_variants, mujoco.mjtObj.mjOBJ_MESH, mid)
-        print(f"  world[{w}]: {mn}, mass={mass_after[w, obj_body_id]:.1f}")
 
-    # -- 8. Step and verify finite --
-    mj_data = mujoco.MjData(mj_model_with_variants)
-    mujoco.mj_forward(mj_model_with_variants, mj_data)
-    solver.mjw_data = mujoco_warp.put_data(mj_model_with_variants, mj_data, nworld=nworld)
+    labels_a = ["small", "large"]
+    labels_b = ["medium", "tiny"]
+    labels_c = ["X (4 hulls)", "Y (3 hulls)", "Z (2 hulls)"]
+
+    print("\nAfter reset (first 8 worlds):")
+    hull_geom_ids = list(randomizer.groups[2].geom_ids.values())
+    for w in range(min(8, nworld)):
+        active = sum(1 for gid in hull_geom_ids if dataid[w, gid] != -1)
+        print(f"  world[{w}]: "
+              f"A={labels_a[idx_a[w]]}({mass[w, body_a_id]:.1f}), "
+              f"B={labels_b[idx_b[w]]}({mass[w, body_b_id]:.1f}), "
+              f"C={labels_c[idx_c[w]]}({mass[w, body_c_id]:.2f}, {active}/4 hulls)")
+
+    for vi in range(2):
+        masses = [mass[w, body_a_id] for w in range(nworld) if idx_a[w] == vi]
+        assert all(m == masses[0] for m in masses)
+    for vi in range(2):
+        masses = [mass[w, body_b_id] for w in range(nworld) if idx_b[w] == vi]
+        assert all(m == masses[0] for m in masses)
+    for vi in range(3):
+        masses = [mass[w, body_c_id] for w in range(nworld) if idx_c[w] == vi]
+        if masses:
+            assert all(m == masses[0] for m in masses)
+    print("\nConsistency checks passed.")
+
+    mj_data = mujoco.MjData(mj_model)
+    mujoco.mj_forward(mj_model, mj_data)
+    solver.mjw_data = mujoco_warp.put_data(mj_model, mj_data, nworld=nworld)
     mujoco_warp.step(solver.mjw_model, solver.mjw_data)
     assert np.all(np.isfinite(solver.mjw_data.qpos.numpy()))
-    print("\nSimulation step OK.")
+    print("Simulation step OK.")
 
 
 if __name__ == "__main__":

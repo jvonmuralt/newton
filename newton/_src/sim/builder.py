@@ -817,6 +817,7 @@ class ModelBuilder:
         self.shape_type = []
         self.shape_scale = []
         self.shape_source = []
+        self.shape_mesh_variants = []  # list[list[Mesh]] per shape, for domain randomization
         self.shape_is_solid = []
         self.shape_margin = []
         self.shape_material_ke = []
@@ -2818,6 +2819,7 @@ class ModelBuilder:
             "shape_type",
             "shape_scale",
             "shape_source",
+            "shape_mesh_variants",
             "shape_is_solid",
             "shape_margin",
             "shape_material_ke",
@@ -4912,6 +4914,7 @@ class ModelBuilder:
         self.shape_type.append(type)
         self.shape_scale.append((scale[0], scale[1], scale[2]))
         self.shape_source.append(src)
+        self.shape_mesh_variants.append([])
         self.shape_margin.append(cfg.margin)
         self.shape_is_solid.append(cfg.is_solid)
         self.shape_material_ke.append(cfg.ke)
@@ -5360,6 +5363,7 @@ class ModelBuilder:
         cfg: ShapeConfig | None = None,
         label: str | None = None,
         custom_attributes: dict[str, Any] | None = None,
+        mesh_variants: list["Mesh"] | None = None,
     ) -> int:
         """Adds a triangle mesh collision shape to a body.
 
@@ -5371,6 +5375,10 @@ class ModelBuilder:
             cfg (ShapeConfig | None): The configuration for the shape's physical and collision properties. If `None`, :attr:`default_shape_cfg` is used. Defaults to `None`.
             label (str | None): An optional unique label for identifying the shape. If `None`, a default label is automatically generated. Defaults to `None`.
             custom_attributes: Dictionary of custom attribute values for SHAPE frequency attributes.
+            mesh_variants: Alternative :class:`Mesh` objects for domain randomization.
+                When provided, the solver can swap between the primary *mesh* and
+                these variants at runtime (e.g. per-world mesh randomization with
+                :class:`~newton.solvers.SolverMuJoCo`).
 
         Returns:
             int: The index of the newly added shape.
@@ -5378,7 +5386,7 @@ class ModelBuilder:
 
         if cfg is None:
             cfg = self.default_shape_cfg
-        return self.add_shape(
+        shape_idx = self.add_shape(
             body=body,
             type=GeoType.MESH,
             xform=xform,
@@ -5388,6 +5396,9 @@ class ModelBuilder:
             label=label,
             custom_attributes=custom_attributes,
         )
+        if mesh_variants:
+            self.shape_mesh_variants[shape_idx] = list(mesh_variants)
+        return shape_idx
 
     def add_shape_convex_hull(
         self,
@@ -8866,6 +8877,7 @@ class ModelBuilder:
             m.shape_world = wp.array(self.shape_world, dtype=wp.int32)
 
             m.shape_source = self.shape_source  # used for rendering
+            m.shape_mesh_variants = self.shape_mesh_variants
 
             m.shape_material_ke = wp.array(self.shape_material_ke, dtype=wp.float32, requires_grad=requires_grad)
             m.shape_material_kd = wp.array(self.shape_material_kd, dtype=wp.float32, requires_grad=requires_grad)

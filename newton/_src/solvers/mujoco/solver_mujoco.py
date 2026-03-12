@@ -4110,6 +4110,15 @@ class SolverMuJoCo(SolverBase):
                         maxhullvert=maxhullvert,
                     )
                     geom_params["meshname"] = name
+                    for vi, variant_mesh in enumerate(model.shape_mesh_variants[shape]):
+                        vname = f"{name}_variant_{vi}"
+                        vverts = variant_mesh.vertices * size
+                        spec.add_mesh(
+                            name=vname,
+                            uservert=vverts.flatten(),
+                            userface=variant_mesh.indices.flatten(),
+                            maxhullvert=variant_mesh.maxhullvert,
+                        )
                 geom_params["pos"] = tf.p
                 geom_params["quat"] = quat_to_mjc(tf.q)
                 size = shape_size[shape]
@@ -4185,6 +4194,17 @@ class SolverMuJoCo(SolverBase):
         num_dofs = 0
         num_mjc_joints = 0
 
+        # Bodies whose inertial properties should be inferred from geom meshes
+        # (not written explicitly) because they have mesh variants for domain
+        # randomization — explicit inertial would prevent spec.compile() from
+        # recomputing mass/inertia when the mesh is swapped.
+        bodies_with_mesh_variants = set()
+        for body_id, shapes in model.body_shapes.items():
+            for s in shapes:
+                if model.shape_mesh_variants[s]:
+                    bodies_with_mesh_variants.add(body_id)
+                    break
+
         # add joints, bodies and geoms
         for j in joint_order:
             parent, child = int(joint_parent[j]), int(joint_child[j])
@@ -4229,7 +4249,8 @@ class SolverMuJoCo(SolverBase):
             # (sensor frames, reference links), omit mass and inertia entirely
             # and let MuJoCo handle them natively.
             body_kwargs = {"name": name, "pos": tf.p, "quat": quat_to_mjc(tf.q), "mocap": fixed_base}
-            if mass > 0.0:
+            has_mesh_variants = child in bodies_with_mesh_variants
+            if mass > 0.0 and not has_mesh_variants:
                 body_kwargs["mass"] = mass
                 body_kwargs["ipos"] = body_com[child, :]
                 # Use diaginertia when off-diagonals are exactly zero to preserve
@@ -4736,6 +4757,7 @@ class SolverMuJoCo(SolverBase):
             self.mjc_actuator_to_newton_idx = None
 
         self.mj_model = spec.compile()
+        self.mj_spec = spec
         self.mj_data = mujoco.MjData(self.mj_model)
 
         self._update_mjc_data(self.mj_data, model, state)
