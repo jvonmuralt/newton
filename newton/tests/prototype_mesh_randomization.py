@@ -91,19 +91,20 @@ def main():
     print(f"\n{nworld} worlds, {mj_model.nbody} bodies, {mj_model.ngeom} geoms, {mj_model.nmesh} meshes")
     print(f"variant cache: {solver._has_mesh_variants}")
 
-    # ----- discover variant groups (body → shapes with variants) -----
+    # ----- discover variant groups (body → its mesh shapes that have variants) -----
+    MESH_TYPES = (7, 10)  # GEO_MESH, GEO_SDF
     shape_types = model.shape_type.numpy()
     bpw = model.body_count // model.world_count
-    first_env = solver._first_env_shape_base
-    spw = solver._shapes_per_world
+    spw = solver._shapes_per_world  # shapes per world in the replicated model
 
-    groups = []
+    groups = []  # (body_name, n_variants, [template_shape_indices])
     for bid in range(bpw):
         shapes = model.body_shapes.get(bid, [])
-        with_var = [s for s in shapes if shape_types[s] in (7, 10) and model.shape_mesh_variants[s]]
+        with_var = [s for s in shapes
+                    if shape_types[s] in MESH_TYPES and model.shape_mesh_variants[s]]
         if not with_var:
             continue
-        all_mesh = [s for s in shapes if shape_types[s] in (7, 10)]
+        all_mesh = [s for s in shapes if shape_types[s] in MESH_TYPES]
         n_var = 1 + max(len(model.shape_mesh_variants[s]) for s in with_var)
         groups.append((model.body_label[bid], n_var, all_mesh))
 
@@ -112,13 +113,13 @@ def main():
     # ----- randomize: set shape_active_variant per world -----
     rng = np.random.default_rng(42)
     sav = model.shape_active_variant.numpy()
+    worlds = np.arange(nworld)
     indices = []
     for _, n_var, shape_ids in groups:
         idx = rng.integers(0, n_var, size=nworld).astype(np.int32)
         indices.append(idx)
-        for w in range(nworld):
-            for s in shape_ids:
-                sav[first_env + (s - first_env) + w * spw] = idx[w]
+        for s in shape_ids:
+            sav[s + worlds * spw] = idx  # shape s in world w lives at s + w * spw
 
     model.shape_active_variant.assign(sav)
     solver.notify_model_changed(SolverNotifyFlags.MESH_VARIANT_PROPERTIES)
