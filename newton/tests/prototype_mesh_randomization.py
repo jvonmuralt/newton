@@ -53,60 +53,44 @@ def _box_verts(hx: float, hy: float, hz: float, offset=(0., 0., 0.)):
 
 
 # ---------------------------------------------------------------------------
-# Fields that change when a mesh is swapped
-# ---------------------------------------------------------------------------
-
-ALL_FIELDS = {
-    "geom_dataid": (int, "ngeom"),
-    "geom_size": (wp.vec3, "ngeom"),
-    "geom_rbound": (float, "ngeom"),
-    "geom_pos": (wp.vec3, "ngeom"),
-    "body_mass": (float, "nbody"),
-    "body_inertia": (wp.vec3, "nbody"),
-    "body_ipos": (wp.vec3, "nbody"),
-    "body_iquat": (wp.quat, "nbody"),
-}
-
-
-# ---------------------------------------------------------------------------
-# Warp scatter kernels  (src is compact, dst is full model array)
+# Warp scatter kernels — one for geom fields, one for body fields
 # ---------------------------------------------------------------------------
 
 
 @wp.kernel
-def _scatter_int(idx: wp.array(dtype=int), src: wp.array2d(dtype=int),
-                 entity_ids: wp.array(dtype=int), dst: wp.array2d(dtype=int)):
+def _scatter_geom(
+    idx: wp.array(dtype=int),
+    geom_ids: wp.array(dtype=int),
+    dataid_src: wp.array2d(dtype=int),    dataid_dst: wp.array2d(dtype=int),
+    size_src: wp.array2d(dtype=wp.vec3),  size_dst: wp.array2d(dtype=wp.vec3),
+    rbound_src: wp.array2d(dtype=float),  rbound_dst: wp.array2d(dtype=float),
+    pos_src: wp.array2d(dtype=wp.vec3),   pos_dst: wp.array2d(dtype=wp.vec3),
+):
     w, i = wp.tid()
-    dst[w, entity_ids[i]] = src[idx[w], i]
+    gid = geom_ids[i]
+    vi = idx[w]
+    dataid_dst[w, gid] = dataid_src[vi, i]
+    size_dst[w, gid] = size_src[vi, i]
+    rbound_dst[w, gid] = rbound_src[vi, i]
+    pos_dst[w, gid] = pos_src[vi, i]
 
 
 @wp.kernel
-def _scatter_1d(idx: wp.array(dtype=int), src: wp.array2d(dtype=float),
-                entity_ids: wp.array(dtype=int), dst: wp.array2d(dtype=float)):
+def _scatter_body(
+    idx: wp.array(dtype=int),
+    body_ids: wp.array(dtype=int),
+    mass_src: wp.array2d(dtype=float),    mass_dst: wp.array2d(dtype=float),
+    inertia_src: wp.array2d(dtype=wp.vec3), inertia_dst: wp.array2d(dtype=wp.vec3),
+    ipos_src: wp.array2d(dtype=wp.vec3),    ipos_dst: wp.array2d(dtype=wp.vec3),
+    iquat_src: wp.array2d(dtype=wp.quat),   iquat_dst: wp.array2d(dtype=wp.quat),
+):
     w, i = wp.tid()
-    dst[w, entity_ids[i]] = src[idx[w], i]
-
-
-@wp.kernel
-def _scatter_vec3(idx: wp.array(dtype=int), src: wp.array2d(dtype=wp.vec3),
-                  entity_ids: wp.array(dtype=int), dst: wp.array2d(dtype=wp.vec3)):
-    w, i = wp.tid()
-    dst[w, entity_ids[i]] = src[idx[w], i]
-
-
-@wp.kernel
-def _scatter_quat(idx: wp.array(dtype=int), src: wp.array2d(dtype=wp.quat),
-                  entity_ids: wp.array(dtype=int), dst: wp.array2d(dtype=wp.quat)):
-    w, i = wp.tid()
-    dst[w, entity_ids[i]] = src[idx[w], i]
-
-
-_SCATTER = {
-    int: _scatter_int,
-    float: _scatter_1d,
-    wp.vec3: _scatter_vec3,
-    wp.quat: _scatter_quat,
-}
+    bid = body_ids[i]
+    vi = idx[w]
+    mass_dst[w, bid] = mass_src[vi, i]
+    inertia_dst[w, bid] = inertia_src[vi, i]
+    ipos_dst[w, bid] = ipos_src[vi, i]
+    iquat_dst[w, bid] = iquat_src[vi, i]
 
 # ---------------------------------------------------------------------------
 # MeshRandomizer — auto-discovers variant groups from solver, single reset()
@@ -357,16 +341,30 @@ class MeshRandomizer:
     def _scatter_fields(
         self, group: _VariantGroup, mjw_model, variant_gpu: wp.array, nworld: int
     ):
-        """Scatter all cached fields (dataid, mass, inertia, etc.) to model."""
-        for field, (wp_dtype, _) in ALL_FIELDS.items():
-            entity_ids = group.geom_ids if "geom" in field else group.body_ids
-            n_owned = entity_ids.shape[0]
-            dst = getattr(mjw_model, field)
-            wp.launch(
-                _SCATTER[wp_dtype], dim=(nworld, n_owned),
-                inputs=[variant_gpu, group.gpu_cache[field], entity_ids, dst],
-                device=self.device,
-            )
+        """Scatter all cached fields to model in 2 kernel launches."""
+        c = group.gpu_cache
+        wp.launch(
+            _scatter_geom, dim=(nworld, group.geom_ids.shape[0]),
+            inputs=[
+                variant_gpu, group.geom_ids,
+                c["geom_dataid"], mjw_model.geom_dataid,
+                c["geom_size"],   mjw_model.geom_size,
+                c["geom_rbound"], mjw_model.geom_rbound,
+                c["geom_pos"],    mjw_model.geom_pos,
+            ],
+            device=self.device,
+        )
+        wp.launch(
+            _scatter_body, dim=(nworld, group.body_ids.shape[0]),
+            inputs=[
+                variant_gpu, group.body_ids,
+                c["body_mass"],    mjw_model.body_mass,
+                c["body_inertia"], mjw_model.body_inertia,
+                c["body_ipos"],    mjw_model.body_ipos,
+                c["body_iquat"],   mjw_model.body_iquat,
+            ],
+            device=self.device,
+        )
 
 
 # ===========================================================================
