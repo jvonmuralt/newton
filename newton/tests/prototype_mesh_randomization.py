@@ -161,7 +161,7 @@ class MeshRandomizer:
             group.n_variants = n_variants
             self._resolve_mujoco_ids(group, variants, solver.mj_model, device)
             self._build_dataid_rows(group, variants, solver.mj_model)
-            self._compile_and_cache(group, variants, solver.mj_spec, solver.mj_model, device)
+            self._compute_and_cache(group, newton_model, mesh_shapes, device)
             self.groups.append(group)
 
     # -- Discovery --
@@ -238,61 +238,120 @@ class MeshRandomizer:
     # -- Compilation & caching --
 
     @staticmethod
-    def _compile_and_cache(
+    def _compute_and_cache(
         group: _VariantGroup,
-        variants: list[dict],
-        spec: mujoco.MjSpec,
-        mj_model,
+        newton_model,
+        mesh_shapes: list[int],
         device: str,
     ):
-        """Mini-compile each variant, extract owned fields, build GPU cache."""
+        """Compute physics properties directly from mesh vertices, build GPU cache.
+        """
+        from newton._src.geometry.inertia import compute_inertia_mesh
 
-        # Find the MjSpec geom objects we need to modify
-        geom_specs: dict[str, object] = {}
-        for g in spec.geoms:
-            if g.name in group.geom_ids:
-                geom_specs[g.name] = g
-        for b in spec.bodies:
-            for g in b.geoms:
-                if g.name in group.geom_ids:
-                    geom_specs[g.name] = g
-
-        # Save original state so we can restore after compilation
-        saved = {
-            gn: (gs.meshname, gs.contype, gs.conaffinity)
-            for gn, gs in geom_specs.items()
-        }
-
-        # Compile each variant (temporarily swap meshnames in spec)
-        compiled = []
-        for var in variants:
-            for gname, mname in var.items():
-                gs = geom_specs[gname]
-                if mname is None:
-                    gs.contype = 0
-                    gs.conaffinity = 0
-                else:
-                    gs.meshname = mname
-                    gs.contype = 1
-                    gs.conaffinity = 1
-            compiled.append(spec.compile())
-
-        # Restore spec to original state
-        for gn, (mn, ct, ca) in saved.items():
-            geom_specs[gn].meshname = mn
-            geom_specs[gn].contype = ct
-            geom_specs[gn].conaffinity = ca
-
-        # Extract owned fields from each compiled model → nested dict
-        owned_geom_np = group.owned_geom_ids.numpy()
-        owned_body_np = group.owned_body_ids.numpy()
+        n_geoms = len(mesh_shapes)
+        n_bodies = group.owned_body_ids.shape[0]
+        density = 1000.0  # MuJoCo default
+        all_scales = newton_model.shape_scale.numpy()
 
         for vi in range(group.n_variants):
-            ref = compiled[vi]
-            group.variants_data[vi] = {}
-            for field in ALL_FIELDS:
-                ids = owned_geom_np if "geom" in field else owned_body_np
-                group.variants_data[vi][field] = getattr(ref, field)[ids]
+            # -- Per-geom properties --
+            geom_sizes = np.zeros((n_geoms, 3), dtype=np.float32)
+            geom_rbounds = np.zeros(n_geoms, dtype=np.float32)
+            geom_positions = np.zeros((n_geoms, 3), dtype=np.float32)
+
+            geom_masses = []
+            geom_coms = []
+            geom_inertias = []
+
+            for gi, s in enumerate(mesh_shapes):
+                mvs = newton_model.shape_mesh_variants[s]
+                scale = all_scales[s].astype(np.float32)
+
+                if vi == 0:
+                    mesh = newton_model.shape_source[s]
+                elif vi - 1 < len(mvs):
+                    mesh = mvs[vi - 1]
+                else:
+                    # Disabled slot: zero contribution
+                    geom_masses.append(0.0)
+                    geom_coms.append(np.zeros(3))
+                    geom_inertias.append(np.zeros((3, 3)))
+                    continue
+
+                verts = np.array(mesh.vertices, dtype=np.float32) * scale
+                indices = np.array(mesh.indices, dtype=np.int32)
+
+                mass, com, I_mat, _ = compute_inertia_mesh(density, verts, indices)
+                com_np = np.array(com)
+                I_mat = np.array(I_mat).reshape(3, 3)
+
+                # geom_size = AABB half-extents
+                vmin = verts.min(axis=0)
+                vmax = verts.max(axis=0)
+                half_extents = (vmax - vmin) / 2.0
+                geom_sizes[gi] = half_extents
+
+                # geom_rbound = bounding sphere radius from geom center
+                center = (vmin + vmax) / 2.0
+                geom_rbounds[gi] = np.max(np.linalg.norm(verts - center, axis=1))
+
+                # geom_pos stays at body-frame origin (mesh defines the shape)
+                geom_positions[gi] = [0.0, 0.0, 0.0]
+
+                geom_masses.append(float(mass))
+                geom_coms.append(com_np)
+                geom_inertias.append(np.array(I_mat))
+
+            # -- Body properties (combine all active geoms) --
+            total_mass = sum(geom_masses)
+            if total_mass > 0:
+                body_com = sum(m * c for m, c in zip(geom_masses, geom_coms)) / total_mass
+            else:
+                body_com = np.zeros(3)
+
+            # Combine inertia tensors at body COM using parallel axis theorem
+            I_combined = np.zeros((3, 3))
+            for m, c, I in zip(geom_masses, geom_coms, geom_inertias):
+                if m > 0:
+                    r = c - body_com
+                    I_shifted = I + m * (np.dot(r, r) * np.eye(3) - np.outer(r, r))
+                    I_combined += I_shifted
+
+            # Diagonalize to get principal inertia + orientation
+            eigenvalues, eigenvectors = np.linalg.eigh(I_combined)
+            # Ensure right-handed frame
+            if np.linalg.det(eigenvectors) < 0:
+                eigenvectors[:, 0] *= -1
+
+            from scipy.spatial.transform import Rotation
+            body_iquat_scipy = Rotation.from_matrix(eigenvectors).as_quat()  # [x,y,z,w]
+            body_iquat = np.array([body_iquat_scipy[3], body_iquat_scipy[0],
+                                   body_iquat_scipy[1], body_iquat_scipy[2]], dtype=np.float32)
+
+            body_inertia = eigenvalues.astype(np.float32)
+
+            # For free-floating bodies
+            body_subtreemass = total_mass
+            if total_mass > 0:
+                inv_mass = 1.0 / total_mass
+                max_inertia = max(eigenvalues) if max(eigenvalues) > 0 else 1.0
+                inv_inertia = 1.0 / max_inertia
+            else:
+                inv_mass = 0.0
+                inv_inertia = 0.0
+
+            # Store in variants_data
+            group.variants_data[vi] = {
+                "geom_size": geom_sizes,
+                "geom_rbound": geom_rbounds,
+                "geom_pos": geom_positions,
+                "body_mass": np.array([total_mass], dtype=np.float32),
+                "body_subtreemass": np.array([body_subtreemass], dtype=np.float32),
+                "body_inertia": np.array([body_inertia], dtype=np.float32),
+                "body_invweight0": np.array([[inv_mass, inv_inertia]], dtype=np.float32),
+                "body_ipos": np.array([body_com], dtype=np.float32),
+                "body_iquat": np.array([body_iquat], dtype=np.float32),
+            }
 
         # Stack into compact GPU arrays: shape (n_variants, n_owned)
         for field, (wp_dtype, _) in ALL_FIELDS.items():
