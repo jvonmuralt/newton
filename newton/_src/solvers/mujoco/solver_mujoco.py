@@ -43,10 +43,12 @@ from ...utils.import_utils import string_to_warp
 from ..flags import SolverNotifyFlags
 from ..solver import SolverBase
 from .kernels import (
+    apply_body_variants_kernel,
     apply_mjc_body_f_kernel,
     apply_mjc_control_kernel,
     apply_mjc_free_joint_f_to_body_f_kernel,
     apply_mjc_qfrc_kernel,
+    apply_shape_variants_kernel,
     convert_mj_coords_to_warp_kernel,
     convert_mjw_contacts_to_newton_kernel,
     convert_newton_contacts_to_mjwarp_kernel,
@@ -2887,6 +2889,9 @@ class SolverMuJoCo(SolverBase):
         self._first_env_shape_base: int = 0
         """Base shape index for the first environment."""
 
+        # --- Mesh variant cache ---
+        self._has_mesh_variants: bool = False
+
         self._viewer = None
         """Instance of the MuJoCo viewer for debugging."""
 
@@ -3038,6 +3043,10 @@ class SolverMuJoCo(SolverBase):
         need_const_fixed = False
         need_const_0 = False
         need_length_range = False
+
+        if flags & SolverNotifyFlags.MESH_VARIANT_PROPERTIES:
+            self._apply_mesh_variants()
+            flags |= SolverNotifyFlags.SHAPE_PROPERTIES | SolverNotifyFlags.BODY_INERTIAL_PROPERTIES
 
         if flags & SolverNotifyFlags.BODY_INERTIAL_PROPERTIES:
             self._update_model_inertial_properties()
@@ -5033,6 +5042,9 @@ class SolverMuJoCo(SolverBase):
             # expand model fields that can be expanded:
             self._expand_model_fields(self.mjw_model, nworld)
 
+            # pre-compute per-variant properties for shapes/bodies with mesh_variants
+            self._build_mesh_variant_cache()
+
             # update solver options from Newton model (only if not overridden by constructor)
             self._update_solver_options(overridden_options=overridden_options)
 
@@ -5291,6 +5303,209 @@ class SolverMuJoCo(SolverBase):
                 self.model.body_inertia,
             ],
             outputs=[self.mjw_model.body_inertia, self.mjw_model.body_iquat],
+            device=self.model.device,
+        )
+
+    # --- Mesh variant support ---
+
+    def _build_mesh_variant_cache(self):
+        """Pre-compute per-variant geometry and body properties for all shapes
+        with :attr:`~newton.Model.shape_mesh_variants`.
+
+        Called once during solver init. Stores compact 2-D GPU arrays
+        ``(shapes_per_world, max_variants)`` and
+        ``(bodies_per_world, max_variants)`` that are indexed at runtime by
+        :meth:`_apply_mesh_variants`.
+        """
+        from ...geometry.inertia import compute_inertia_mesh
+        from ...geometry.types import GeoType
+
+        model = self.model
+        mujoco = self._mujoco
+        shapes_per_world = self._shapes_per_world
+        first_base = self._first_env_shape_base
+
+        if shapes_per_world == 0 or not hasattr(model, "shape_mesh_variants"):
+            self._has_mesh_variants = False
+            return
+
+        shape_types = model.shape_type.numpy()
+        shape_scales = model.shape_scale.numpy()
+
+        # ---------- shape-level variant cache ----------
+        max_sv = 0
+        for s in range(first_base, first_base + shapes_per_world):
+            mvs = model.shape_mesh_variants[s]
+            if mvs and shape_types[s] in (GeoType.MESH, GeoType.CONVEX_MESH):
+                max_sv = max(max_sv, 1 + len(mvs))
+
+        if max_sv == 0:
+            self._has_mesh_variants = False
+            return
+
+        self._has_mesh_variants = True
+        sv_counts_np = np.zeros(shapes_per_world, dtype=np.int32)
+        sv_dataid_np = np.full((shapes_per_world, max_sv), -1, dtype=np.int32)
+        sv_rbound_np = np.zeros((shapes_per_world, max_sv), dtype=np.float32)
+
+        for s_abs in range(first_base, first_base + shapes_per_world):
+            st = s_abs - first_base
+            mvs = model.shape_mesh_variants[s_abs]
+            if not mvs or shape_types[s_abs] not in (GeoType.MESH, GeoType.CONVEX_MESH):
+                continue
+
+            n = 1 + len(mvs)
+            sv_counts_np[st] = n
+            geom_name = f"{model.shape_label[s_abs]}_{s_abs}"
+            scale = shape_scales[s_abs].astype(np.float32)
+
+            def _rbound(verts):
+                vmin, vmax = verts.min(0), verts.max(0)
+                return float(np.max(np.linalg.norm(verts - (vmin + vmax) / 2, axis=1)))
+
+            sv_dataid_np[st, 0] = mujoco.mj_name2id(
+                self.mj_model, mujoco.mjtObj.mjOBJ_MESH, geom_name,
+            )
+            sv_rbound_np[st, 0] = _rbound(
+                np.asarray(model.shape_source[s_abs].vertices, dtype=np.float32) * scale,
+            )
+            for vi, vm in enumerate(mvs):
+                sv_dataid_np[st, vi + 1] = mujoco.mj_name2id(
+                    self.mj_model, mujoco.mjtObj.mjOBJ_MESH,
+                    f"{geom_name}_variant_{vi}",
+                )
+                sv_rbound_np[st, vi + 1] = _rbound(
+                    np.asarray(vm.vertices, dtype=np.float32) * scale,
+                )
+
+        dev = model.device
+        self._sv_counts = wp.array(sv_counts_np, dtype=wp.int32, device=dev)
+        self._sv_dataid = wp.array(sv_dataid_np, dtype=wp.int32, device=dev)
+        self._sv_rbound = wp.array(sv_rbound_np, dtype=float, device=dev)
+
+        # ---------- body-level variant cache ----------
+        bodies_per_world = model.body_count // model.world_count
+        self._bodies_per_world = bodies_per_world
+        density = 1000.0
+
+        max_bv = 0
+        body_info: dict[int, dict] = {}
+        for body_id in range(bodies_per_world):
+            shapes = model.body_shapes.get(body_id, [])
+            all_mesh = [
+                s for s in shapes
+                if shape_types[s] in (GeoType.MESH, GeoType.CONVEX_MESH)
+            ]
+            with_var = [s for s in all_mesh if model.shape_mesh_variants[s]]
+            if not with_var:
+                continue
+            n = 1 + max(len(model.shape_mesh_variants[s]) for s in with_var)
+            max_bv = max(max_bv, n)
+            body_info[body_id] = dict(n=n, all_mesh=all_mesh, repr=with_var[0])
+
+        if max_bv == 0:
+            max_bv = 1
+        bv_counts_np = np.zeros(bodies_per_world, dtype=np.int32)
+        bv_repr_np = np.zeros(bodies_per_world, dtype=np.int32)
+        bv_mass_np = np.zeros((bodies_per_world, max_bv), dtype=np.float32)
+        bv_com_np = np.zeros((bodies_per_world, max_bv, 3), dtype=np.float32)
+        bv_inertia_np = np.zeros((bodies_per_world, max_bv, 3, 3), dtype=np.float32)
+
+        for body_id, info in body_info.items():
+            bv_counts_np[body_id] = info["n"]
+            bv_repr_np[body_id] = info["repr"] - first_base
+
+            for vi in range(info["n"]):
+                g_masses, g_coms, g_inertias = [], [], []
+                for s in info["all_mesh"]:
+                    sc = shape_scales[s].astype(np.float32)
+                    mvs = model.shape_mesh_variants[s]
+                    if vi == 0:
+                        mesh = model.shape_source[s]
+                    elif vi - 1 < len(mvs):
+                        mesh = mvs[vi - 1]
+                    else:
+                        g_masses.append(0.0)
+                        g_coms.append(np.zeros(3))
+                        g_inertias.append(np.zeros((3, 3)))
+                        continue
+                    verts = np.asarray(mesh.vertices, dtype=np.float32) * sc
+                    indices = np.asarray(mesh.indices, dtype=np.int32)
+                    mass, com, I_mat, _ = compute_inertia_mesh(density, verts, indices)
+                    g_masses.append(float(mass))
+                    g_coms.append(np.asarray(com))
+                    g_inertias.append(np.asarray(I_mat).reshape(3, 3))
+
+                total = sum(g_masses)
+                if total > 0:
+                    bc = sum(m * c for m, c in zip(g_masses, g_coms)) / total
+                else:
+                    bc = np.zeros(3)
+                I_comb = np.zeros((3, 3))
+                for m, c, I in zip(g_masses, g_coms, g_inertias):
+                    if m > 0:
+                        r = c - bc
+                        I_comb += I + m * (np.dot(r, r) * np.eye(3) - np.outer(r, r))
+
+                bv_mass_np[body_id, vi] = total
+                bv_com_np[body_id, vi] = bc
+                bv_inertia_np[body_id, vi] = I_comb
+
+        self._bv_counts = wp.array(bv_counts_np, dtype=wp.int32, device=dev)
+        self._bv_repr_shape = wp.array(bv_repr_np, dtype=wp.int32, device=dev)
+        self._bv_mass = wp.array(bv_mass_np, dtype=float, device=dev)
+        self._bv_com = wp.array(bv_com_np, dtype=wp.vec3, device=dev)
+        self._bv_inertia = wp.array(bv_inertia_np, dtype=wp.mat33, device=dev)
+
+    def _apply_mesh_variants(self):
+        """Scatter pre-computed variant properties based on
+        :attr:`~newton.Model.shape_active_variant`.
+
+        Updates ``mjw_model.geom_dataid`` / ``geom_rbound`` and
+        Newton ``body_mass`` / ``body_com`` / ``body_inertia``.
+        """
+        if not self._has_mesh_variants:
+            return
+
+        nworld = self.mjc_geom_to_newton_shape.shape[0]
+        ngeom = self.mj_model.ngeom
+        nbody = self.mjc_body_to_newton.shape[1]
+
+        wp.launch(
+            apply_shape_variants_kernel,
+            dim=(nworld, ngeom),
+            inputs=[
+                self.model.shape_active_variant,
+                self.mjc_geom_to_newton_shape,
+                self._first_env_shape_base,
+                self._shapes_per_world,
+                self._sv_counts,
+                self._sv_dataid,
+                self._sv_rbound,
+                self.mjw_model.geom_dataid,
+                self.mjw_model.geom_rbound,
+            ],
+            device=self.model.device,
+        )
+
+        wp.launch(
+            apply_body_variants_kernel,
+            dim=(nworld, nbody),
+            inputs=[
+                self.model.shape_active_variant,
+                self.mjc_body_to_newton,
+                self._bodies_per_world,
+                self._first_env_shape_base,
+                self._shapes_per_world,
+                self._bv_counts,
+                self._bv_repr_shape,
+                self._bv_mass,
+                self._bv_com,
+                self._bv_inertia,
+                self.model.body_mass,
+                self.model.body_com,
+                self.model.body_inertia,
+            ],
             device=self.model.device,
         )
 

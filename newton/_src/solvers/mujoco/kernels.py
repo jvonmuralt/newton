@@ -2118,3 +2118,69 @@ def update_pair_properties_kernel(
 
     if pair_friction_in:
         pair_friction_out[world, mjc_pair] = pair_friction_in[newton_pair]
+
+
+# ---------------------------------------------------------------------------
+# Mesh-variant kernels
+# ---------------------------------------------------------------------------
+
+
+@wp.kernel(enable_backward=False)
+def apply_shape_variants_kernel(
+    shape_active_variant: wp.array(dtype=wp.int32),
+    mjc_geom_to_newton_shape: wp.array(dtype=wp.int32, ndim=2),
+    first_env_shape_base: int,
+    shapes_per_world: int,
+    sv_counts: wp.array(dtype=wp.int32),
+    sv_dataid: wp.array(dtype=wp.int32, ndim=2),
+    sv_rbound: wp.array(dtype=float, ndim=2),
+    geom_dataid: wp.array(dtype=wp.int32, ndim=2),
+    geom_rbound: wp.array(dtype=float, ndim=2),
+):
+    """Apply per-variant geom_dataid and geom_rbound from the variant cache."""
+    world, geom_idx = wp.tid()
+    newton_shape = mjc_geom_to_newton_shape[world, geom_idx]
+    if newton_shape < 0:
+        return
+    shape_rel = newton_shape - first_env_shape_base
+    if shape_rel < 0:
+        return
+    shape_template = shape_rel % shapes_per_world
+    n = sv_counts[shape_template]
+    if n == 0:
+        return
+    vi = shape_active_variant[newton_shape]
+    geom_dataid[world, geom_idx] = sv_dataid[shape_template, vi]
+    geom_rbound[world, geom_idx] = sv_rbound[shape_template, vi]
+
+
+@wp.kernel(enable_backward=False)
+def apply_body_variants_kernel(
+    shape_active_variant: wp.array(dtype=wp.int32),
+    mjc_body_to_newton: wp.array(dtype=wp.int32, ndim=2),
+    bodies_per_world: int,
+    first_env_shape_base: int,
+    shapes_per_world: int,
+    bv_counts: wp.array(dtype=wp.int32),
+    bv_repr_shape: wp.array(dtype=wp.int32),
+    bv_mass: wp.array(dtype=float, ndim=2),
+    bv_com: wp.array(dtype=wp.vec3, ndim=2),
+    bv_inertia: wp.array(dtype=wp.mat33, ndim=2),
+    body_mass: wp.array(dtype=float),
+    body_com: wp.array(dtype=wp.vec3),
+    body_inertia: wp.array(dtype=wp.mat33),
+):
+    """Apply per-variant body mass/com/inertia from the variant cache."""
+    world, mj_body = wp.tid()
+    newton_body = mjc_body_to_newton[world, mj_body]
+    if newton_body < 0:
+        return
+    body_template = newton_body % bodies_per_world
+    n = bv_counts[body_template]
+    if n == 0:
+        return
+    repr_shape = first_env_shape_base + bv_repr_shape[body_template] + world * shapes_per_world
+    vi = shape_active_variant[repr_shape]
+    body_mass[newton_body] = bv_mass[body_template, vi]
+    body_com[newton_body] = bv_com[body_template, vi]
+    body_inertia[newton_body] = bv_inertia[body_template, vi]

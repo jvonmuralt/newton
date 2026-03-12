@@ -8878,6 +8878,7 @@ class ModelBuilder:
 
             m.shape_source = self.shape_source  # used for rendering
             m.shape_mesh_variants = self.shape_mesh_variants
+            m.shape_active_variant = wp.zeros(len(self.shape_scale), dtype=wp.int32)
 
             m.shape_material_ke = wp.array(self.shape_material_ke, dtype=wp.float32, requires_grad=requires_grad)
             m.shape_material_kd = wp.array(self.shape_material_kd, dtype=wp.float32, requires_grad=requires_grad)

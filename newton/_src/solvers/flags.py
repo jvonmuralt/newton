@@ -54,6 +54,14 @@ class SolverNotifyFlags(IntEnum):
     ACTUATOR_PROPERTIES = 1 << 8
     """Indicates actuator property updates: gains, biases, limits, etc."""
 
+    MESH_VARIANT_PROPERTIES = 1 << 9
+    """Indicates that :attr:`~newton.Model.shape_active_variant` has changed.
+
+    Triggers the solver to apply the selected mesh variant's geometry and
+    body inertial properties (geom_dataid, geom_rbound, body_mass, body_com,
+    body_inertia) and recompute derived quantities (subtreemass, invweight0).
+    """
+
     ALL = (
         JOINT_PROPERTIES
         | JOINT_DOF_PROPERTIES
