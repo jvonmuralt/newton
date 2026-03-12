@@ -41,6 +41,26 @@ def _mesh(hx, hy, hz, offset=(0., 0., 0.)):
     return newton.Mesh(_box(hx, hy, hz, offset), BOX_INDICES)
 
 
+@wp.kernel
+def randomize_variants_kernel(
+    sav: wp.array(dtype=wp.int32),
+    shape_id: wp.array(dtype=wp.int32),
+    group_id: wp.array(dtype=wp.int32),
+    n_variants: wp.array(dtype=wp.int32),
+    spw: int,
+    seed: int,
+):
+    """One thread per (world, shape-slot). Writes one value to sav."""
+    world, slot = wp.tid()
+    grp = group_id[slot]
+    rng = wp.rand_init(seed, world * 65536 + grp)
+    n_var = n_variants[grp]
+    variant = int(wp.randf(rng) * float(n_var))
+    if variant >= n_var:
+        variant = n_var - 1
+    sav[shape_id[slot] + world * spw] = variant
+
+
 def main():
     # ----- build one-world template -----
     wb = newton.ModelBuilder()
@@ -110,28 +130,40 @@ def main():
 
     print(f"{len(groups)} groups: {[(g[0], g[1]) for g in groups]}")
 
-    # ----- randomize: set shape_active_variant per world -----
-    rng = np.random.default_rng(42)
-    sav = model.shape_active_variant.numpy()
-    worlds = np.arange(nworld)
-    indices = []
-    for _, n_var, shape_ids in groups:
-        idx = rng.integers(0, n_var, size=nworld).astype(np.int32)
-        indices.append(idx)
+    # ----- build GPU lookup arrays for the randomization kernel (once) -----
+    all_sids, all_gids, nvars = [], [], []
+    for gi, (_, n_var, shape_ids) in enumerate(groups):
         for s in shape_ids:
-            sav[s + worlds * spw] = idx  # shape s in world w lives at s + w * spw
+            all_sids.append(s)
+            all_gids.append(gi)
+        nvars.append(n_var)
 
-    model.shape_active_variant.assign(sav)
+    dev = model.device
+    n_slots = len(all_sids)
+    gpu_sids = wp.array(all_sids, dtype=wp.int32, device=dev)
+    gpu_gids = wp.array(all_gids, dtype=wp.int32, device=dev)
+    gpu_nvars = wp.array(nvars, dtype=wp.int32, device=dev)
+
+    # ----- randomize: one kernel launch, one thread per (world, shape-slot) -----
+    wp.launch(
+        randomize_variants_kernel,
+        dim=(nworld, n_slots),
+        inputs=[model.shape_active_variant, gpu_sids, gpu_gids,
+                gpu_nvars, spw, 42],
+        device=dev,
+    )
     solver.notify_model_changed(SolverNotifyFlags.MESH_VARIANT_PROPERTIES)
 
     # ----- verify -----
+    sav = model.shape_active_variant.numpy()
     mass = solver.mjw_model.body_mass.numpy()
     subtreemass = solver.mjw_model.body_subtreemass.numpy()
 
-    for gi, (name, n_var, _) in enumerate(groups):
+    for name, n_var, shape_ids in groups:
         bid = mujoco.mj_name2id(mj_model, mujoco.mjtObj.mjOBJ_BODY, name)
+        variant_per_world = np.array([sav[shape_ids[0] + w * spw] for w in range(nworld)])
         for vi in range(n_var):
-            wm = mass[indices[gi] == vi, bid]
+            wm = mass[variant_per_world == vi, bid]
             assert len(set(wm)) <= 1, f"{name} v{vi}: masses differ {set(wm)}"
     print("[PASS] mass consistency")
 
