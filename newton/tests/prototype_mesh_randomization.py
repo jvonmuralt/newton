@@ -480,13 +480,7 @@ def main():
 
     randomizer = MeshRandomizer(solver)
 
-    print(f"\nAuto-discovered {len(randomizer.groups)} randomization groups:")
-    for g in randomizer.groups:
-        masses = g.gpu_cache["body_mass"].numpy()
-        print(f"  body '{g.body_name}': {g.n_variants} variants, "
-              f"geom_ids={g.geom_ids.numpy()}, body_ids={g.body_ids.numpy()}")
-        for vi in range(g.n_variants):
-            print(f"    variant {vi}: mass={masses[vi]}")
+    print(f"\nAuto-discovered {len(randomizer.groups)} randomization groups.")
 
     # =====================================================================
     # Step 3: Randomize (one call per episode reset)
@@ -501,87 +495,36 @@ def main():
     # Step 4: Verify
     # =====================================================================
 
-    # Build group lookup by body name
-    groups_by_name = {g.body_name: (i, g) for i, g in enumerate(randomizer.groups)}
-
+    # Verify: all worlds with the same variant index must have identical mass.
     mass = solver.mjw_model.body_mass.numpy()
-    dataid = solver.mjw_model.geom_dataid.numpy()
-
-    # -- Free-floating bodies (A, B, C) --
-    idx_a, idx_b, idx_c = indices[0], indices[1], indices[2]
-    body_a_id = randomizer.groups[0].body_ids.numpy()[0]
-    body_b_id = randomizer.groups[1].body_ids.numpy()[0]
-    body_c_id = randomizer.groups[2].body_ids.numpy()[0]
-
-    labels_a = ["small", "large"]
-    labels_b = ["medium", "tiny"]
-    labels_c = ["X (4 hulls)", "Y (3 hulls)", "Z (2 hulls)"]
-
-    print("\nAfter reset (first 8 worlds):")
-    hull_geom_ids = randomizer.groups[2].geom_ids.numpy()
-    for w in range(min(8, nworld)):
-        active = sum(1 for gid in hull_geom_ids if dataid[w, gid] != -1)
-        print(f"  world[{w}]: "
-              f"A={labels_a[idx_a[w]]}({mass[w, body_a_id]:.1f}), "
-              f"B={labels_b[idx_b[w]]}({mass[w, body_b_id]:.1f}), "
-              f"C={labels_c[idx_c[w]]}({mass[w, body_c_id]:.2f}, {active}/4 hulls)")
-
-    for vi in range(2):
-        masses = [mass[w, body_a_id] for w in range(nworld) if idx_a[w] == vi]
-        assert all(m == masses[0] for m in masses)
-    for vi in range(2):
-        masses = [mass[w, body_b_id] for w in range(nworld) if idx_b[w] == vi]
-        assert all(m == masses[0] for m in masses)
-    for vi in range(3):
-        masses = [mass[w, body_c_id] for w in range(nworld) if idx_c[w] == vi]
-        if masses:
-            assert all(m == masses[0] for m in masses)
-
-    # -- Articulated arm (link1, link2) --
-    # Built with add_link() + add_articulation() → proper MuJoCo body tree.
-    # Verify body_subtreemass is recomputed correctly by set_const_fixed.
-    if "arm_link1" in groups_by_name and "arm_link2" in groups_by_name:
-        gi_l1, g_l1 = groups_by_name["arm_link1"]
-        gi_l2, g_l2 = groups_by_name["arm_link2"]
-        idx_l1, idx_l2 = indices[gi_l1], indices[gi_l2]
-        l1_id = g_l1.body_ids.numpy()[0]
-        l2_id = g_l2.body_ids.numpy()[0]
-        base_id = mujoco.mj_name2id(mj_model, mujoco.mjtObj.mjOBJ_BODY, "arm_base")
-
-        subtreemass = solver.mjw_model.body_subtreemass.numpy()
-
-        labels_l1 = ["thin", "thick"]
-        labels_l2 = ["narrow", "wide"]
-        print("\n  Articulated arm (first 8 worlds):")
-        for w in range(min(8, nworld)):
-            m_l1 = mass[w, l1_id]
-            m_l2 = mass[w, l2_id]
-            m_base = mass[w, base_id]
-            st_base = subtreemass[w, base_id]
-            expected_st = m_base + m_l1 + m_l2
-            print(f"    world[{w}]: "
-                  f"link1={labels_l1[idx_l1[w]]}({m_l1:.2f}), "
-                  f"link2={labels_l2[idx_l2[w]]}({m_l2:.2f}), "
-                  f"base_subtreemass={st_base:.2f} (expected {expected_st:.2f})")
-            assert abs(st_base - expected_st) < 0.01, (
-                f"world {w}: body_subtreemass mismatch: {st_base} != {expected_st}"
+    for gi, group in enumerate(randomizer.groups):
+        bid = group.body_ids.numpy()[0]
+        idx = indices[gi]
+        for vi in range(group.n_variants):
+            world_masses = mass[idx == vi, bid]
+            assert len(set(world_masses)) <= 1, (
+                f"{group.body_name} variant {vi}: inconsistent masses {set(world_masses)}"
             )
 
-        for vi in range(g_l1.n_variants):
-            masses = [mass[w, l1_id] for w in range(nworld) if idx_l1[w] == vi]
-            assert all(m == masses[0] for m in masses), f"link1 variant {vi} mass inconsistent"
-        for vi in range(g_l2.n_variants):
-            masses = [mass[w, l2_id] for w in range(nworld) if idx_l2[w] == vi]
-            assert all(m == masses[0] for m in masses), f"link2 variant {vi} mass inconsistent"
+    # Verify: subtreemass accumulates correctly for the articulated arm.
+    subtreemass = solver.mjw_model.body_subtreemass.numpy()
+    base_id = mujoco.mj_name2id(mj_model, mujoco.mjtObj.mjOBJ_BODY, "arm_base")
+    l1_id = mujoco.mj_name2id(mj_model, mujoco.mjtObj.mjOBJ_BODY, "arm_link1")
+    l2_id = mujoco.mj_name2id(mj_model, mujoco.mjtObj.mjOBJ_BODY, "arm_link2")
+    for w in range(nworld):
+        expected = mass[w, base_id] + mass[w, l1_id] + mass[w, l2_id]
+        assert abs(subtreemass[w, base_id] - expected) < 0.01, (
+            f"world {w}: subtreemass {subtreemass[w, base_id]:.2f} != {expected:.2f}"
+        )
 
-    print("\nConsistency checks passed.")
-
+    # Verify: simulation step produces finite state.
     mj_data = mujoco.MjData(mj_model)
     mujoco.mj_forward(mj_model, mj_data)
     solver.mjw_data = mujoco_warp.put_data(mj_model, mj_data, nworld=nworld)
     mujoco_warp.step(solver.mjw_model, solver.mjw_data)
     assert np.all(np.isfinite(solver.mjw_data.qpos.numpy()))
-    print("Simulation step OK.")
+
+    print("All checks passed.")
 
 
 if __name__ == "__main__":
