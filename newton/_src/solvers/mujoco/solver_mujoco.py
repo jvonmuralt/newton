@@ -4203,17 +4203,6 @@ class SolverMuJoCo(SolverBase):
         num_dofs = 0
         num_mjc_joints = 0
 
-        # Bodies whose inertial properties should be inferred from geom meshes
-        # (not written explicitly) because they have mesh variants for domain
-        # randomization — explicit inertial would prevent spec.compile() from
-        # recomputing mass/inertia when the mesh is swapped.
-        bodies_with_mesh_variants = set()
-        for body_id, shapes in model.body_shapes.items():
-            for s in shapes:
-                if model.shape_mesh_variants[s]:
-                    bodies_with_mesh_variants.add(body_id)
-                    break
-
         # add joints, bodies and geoms
         for j in joint_order:
             parent, child = int(joint_parent[j]), int(joint_child[j])
@@ -4258,8 +4247,7 @@ class SolverMuJoCo(SolverBase):
             # (sensor frames, reference links), omit mass and inertia entirely
             # and let MuJoCo handle them natively.
             body_kwargs = {"name": name, "pos": tf.p, "quat": quat_to_mjc(tf.q), "mocap": fixed_base}
-            has_mesh_variants = child in bodies_with_mesh_variants
-            if mass > 0.0 and not has_mesh_variants:
+            if mass > 0.0:
                 body_kwargs["mass"] = mass
                 body_kwargs["ipos"] = body_com[child, :]
                 # Use diaginertia when off-diagonals are exactly zero to preserve
