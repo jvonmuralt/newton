@@ -111,43 +111,38 @@ def main():
     print(f"\n{nworld} worlds, {mj_model.nbody} bodies, {mj_model.ngeom} geoms, {mj_model.nmesh} meshes")
     print(f"variant cache: {solver._has_mesh_variants}")
 
-    # ----- discover variant groups (body → its mesh shapes that have variants) -----
-    MESH_TYPES = (7, 10)  # GEO_MESH, GEO_SDF
+    # ----- discover variant groups + build GPU arrays (single pass) -----
     shape_types = model.shape_type.numpy()
     bpw = model.body_count // model.world_count
-    spw = solver._shapes_per_world  # shapes per world in the replicated model
+    spw = solver._shapes_per_world
 
-    groups = []  # (body_name, n_variants, [template_shape_indices])
+    shape_ids, group_ids, nvars = [], [], []
+    group_info = []  # (name, n_var, one_shape_id) — for verification only
     for bid in range(bpw):
-        shapes = model.body_shapes.get(bid, [])
-        with_var = [s for s in shapes
-                    if shape_types[s] in MESH_TYPES and model.shape_mesh_variants[s]]
-        if not with_var:
+        mesh_shapes = [s for s in model.body_shapes.get(bid, [])
+                       if shape_types[s] in (7, 10)]
+        max_var = max((len(model.shape_mesh_variants[s]) for s in mesh_shapes
+                       if model.shape_mesh_variants[s]), default=0)
+        if max_var == 0:
             continue
-        all_mesh = [s for s in shapes if shape_types[s] in MESH_TYPES]
-        n_var = 1 + max(len(model.shape_mesh_variants[s]) for s in with_var)
-        groups.append((model.body_label[bid], n_var, all_mesh))
+        gi = len(nvars)
+        nvars.append(1 + max_var)
+        group_info.append((model.body_label[bid], 1 + max_var, mesh_shapes[0]))
+        for s in mesh_shapes:
+            shape_ids.append(s)
+            group_ids.append(gi)
 
-    print(f"{len(groups)} groups: {[(g[0], g[1]) for g in groups]}")
-
-    # ----- build GPU lookup arrays for the randomization kernel (once) -----
-    all_sids, all_gids, nvars = [], [], []
-    for gi, (_, n_var, shape_ids) in enumerate(groups):
-        for s in shape_ids:
-            all_sids.append(s)
-            all_gids.append(gi)
-        nvars.append(n_var)
+    print(f"{len(group_info)} groups: {[(g[0], g[1]) for g in group_info]}")
 
     dev = model.device
-    n_slots = len(all_sids)
-    gpu_sids = wp.array(all_sids, dtype=wp.int32, device=dev)
-    gpu_gids = wp.array(all_gids, dtype=wp.int32, device=dev)
+    gpu_sids = wp.array(shape_ids, dtype=wp.int32, device=dev)
+    gpu_gids = wp.array(group_ids, dtype=wp.int32, device=dev)
     gpu_nvars = wp.array(nvars, dtype=wp.int32, device=dev)
 
     # ----- randomize: one kernel launch, one thread per (world, shape-slot) -----
     wp.launch(
         randomize_variants_kernel,
-        dim=(nworld, n_slots),
+        dim=(nworld, len(shape_ids)),
         inputs=[model.shape_active_variant, gpu_sids, gpu_gids,
                 gpu_nvars, spw, 42],
         device=dev,
@@ -159,9 +154,9 @@ def main():
     mass = solver.mjw_model.body_mass.numpy()
     subtreemass = solver.mjw_model.body_subtreemass.numpy()
 
-    for name, n_var, shape_ids in groups:
+    for name, n_var, rep_shape in group_info:
         bid = mujoco.mj_name2id(mj_model, mujoco.mjtObj.mjOBJ_BODY, name)
-        variant_per_world = np.array([sav[shape_ids[0] + w * spw] for w in range(nworld)])
+        variant_per_world = sav[rep_shape + np.arange(nworld) * spw]
         for vi in range(n_var):
             wm = mass[variant_per_world == vi, bid]
             assert len(set(wm)) <= 1, f"{name} v{vi}: masses differ {set(wm)}"
