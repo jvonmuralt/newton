@@ -11,6 +11,9 @@
 #       Variant X (4 pieces) ← default, most complex
 #       Variant Y (3 pieces) — slot 3 disabled
 #       Variant Z (2 pieces) — slots 2-3 disabled
+#   - Arm D: 2-link arm (base→link1→link2, revolute joints)       [articulated]
+#       link1: 2 mesh variants, link2: 2 mesh variants
+#       Verifies set_const recomputes body_subtreemass up the chain.
 #
 # MeshRandomizer auto-discovers all variant groups from the solver and
 # manages randomization via a single reset() call.
@@ -54,6 +57,7 @@ def _box_verts(hx: float, hy: float, hz: float, offset=(0., 0., 0.)):
 # ---------------------------------------------------------------------------
 
 ALL_FIELDS = {
+    "geom_dataid": (int, "ngeom"),
     "geom_size": (wp.vec3, "ngeom"),
     "geom_rbound": (float, "ngeom"),
     "geom_pos": (wp.vec3, "ngeom"),
@@ -62,8 +66,7 @@ ALL_FIELDS = {
     "body_ipos": (wp.vec3, "nbody"),
     "body_iquat": (wp.quat, "nbody"),
 }
-# body_subtreemass and body_invweight0 are tree-dependent and recomputed
-# by set_const_fixed / set_const_0 after scattering.
+
 
 # ---------------------------------------------------------------------------
 # Warp scatter kernels  (src is compact, dst is full model array)
@@ -71,15 +74,15 @@ ALL_FIELDS = {
 
 
 @wp.kernel
-def _scatter_1d(idx: wp.array(dtype=int), src: wp.array2d(dtype=float),
-                entity_ids: wp.array(dtype=int), dst: wp.array2d(dtype=float)):
+def _scatter_int(idx: wp.array(dtype=int), src: wp.array2d(dtype=int),
+                 entity_ids: wp.array(dtype=int), dst: wp.array2d(dtype=int)):
     w, i = wp.tid()
     dst[w, entity_ids[i]] = src[idx[w], i]
 
 
 @wp.kernel
-def _scatter_vec2(idx: wp.array(dtype=int), src: wp.array2d(dtype=wp.vec2),
-                  entity_ids: wp.array(dtype=int), dst: wp.array2d(dtype=wp.vec2)):
+def _scatter_1d(idx: wp.array(dtype=int), src: wp.array2d(dtype=float),
+                entity_ids: wp.array(dtype=int), dst: wp.array2d(dtype=float)):
     w, i = wp.tid()
     dst[w, entity_ids[i]] = src[idx[w], i]
 
@@ -99,8 +102,10 @@ def _scatter_quat(idx: wp.array(dtype=int), src: wp.array2d(dtype=wp.quat),
 
 
 _SCATTER = {
-    float: _scatter_1d, wp.vec2: _scatter_vec2,
-    wp.vec3: _scatter_vec3, wp.quat: _scatter_quat,
+    int: _scatter_int,
+    float: _scatter_1d,
+    wp.vec3: _scatter_vec3,
+    wp.quat: _scatter_quat,
 }
 
 # ---------------------------------------------------------------------------
@@ -114,12 +119,9 @@ class _VariantGroup:
     def __init__(self):
         self.body_name: str = ""
         self.n_variants: int = 0
-        self.geom_ids: dict[str, int] = {}       # geom_name → MuJoCo geom id
-        self.owned_geom_ids: wp.array = None      # (n_geoms,) on GPU
-        self.owned_body_ids: wp.array = None      # (n_bodies,) on GPU
-        self.dataid_rows: list[np.ndarray] = []   # per-variant geom_dataid row
-        self.variants_data: dict = {}             # variant_idx → {field: np.array}
-        self.gpu_cache: dict[str, wp.array] = {}  # field → (n_variants, n_owned)
+        self.geom_ids: wp.array = None             # (n_geoms,) int, on GPU
+        self.body_ids: wp.array = None             # (n_bodies,) int, on GPU
+        self.gpu_cache: dict[str, wp.array] = {}   # field → (n_variants, n_owned)
 
 
 class MeshRandomizer:
@@ -159,8 +161,10 @@ class MeshRandomizer:
             group = _VariantGroup()
             group.body_name = newton_model.body_label[body_id]
             group.n_variants = n_variants
-            self._resolve_mujoco_ids(group, variants, solver.mj_model, device)
-            self._build_dataid_rows(group, variants, solver.mj_model)
+            geom_name_to_id = self._resolve_mujoco_ids(
+                group, variants, solver.mj_model, device,
+            )
+            self._build_dataid_cache(group, variants, geom_name_to_id, solver.mj_model, device)
             self._compute_and_cache(group, newton_model, mesh_shapes, device)
             self.groups.append(group)
 
@@ -203,37 +207,40 @@ class MeshRandomizer:
     @staticmethod
     def _resolve_mujoco_ids(
         group: _VariantGroup, variants: list[dict], mj_model, device: str
-    ):
-        """Map geom/body names to MuJoCo integer ids."""
+    ) -> dict[str, int]:
+        """Map geom/body names to MuJoCo integer ids.  Returns name→id dict."""
+        geom_name_to_id: dict[str, int] = {}
         body_id_set: set[int] = set()
         for gn in variants[0]:
             gid = mujoco.mj_name2id(mj_model, mujoco.mjtObj.mjOBJ_GEOM, gn)
-            group.geom_ids[gn] = gid
+            geom_name_to_id[gn] = gid
             body_id_set.add(int(mj_model.geom_bodyid[gid]))
 
-        group.owned_geom_ids = wp.array(
-            np.array(list(group.geom_ids.values()), dtype=np.int32),
+        group.geom_ids = wp.array(
+            np.array(list(geom_name_to_id.values()), dtype=np.int32),
             dtype=int, device=device,
         )
-        group.owned_body_ids = wp.array(
+        group.body_ids = wp.array(
             np.array(sorted(body_id_set), dtype=np.int32),
             dtype=int, device=device,
         )
+        return geom_name_to_id
 
     @staticmethod
-    def _build_dataid_rows(
-        group: _VariantGroup, variants: list[dict], mj_model
+    def _build_dataid_cache(
+        group: _VariantGroup, variants: list[dict],
+        geom_name_to_id: dict[str, int], mj_model, device: str,
     ):
-        """Pre-compute the geom_dataid row for each variant."""
-        base = mj_model.geom_dataid.copy()
-        for var in variants:
-            row = base.copy()
-            for gname, mname in var.items():
-                gid = group.geom_ids[gname]
-                row[gid] = -1 if mname is None else mujoco.mj_name2id(
-                    mj_model, mujoco.mjtObj.mjOBJ_MESH, mname
+        """Build compact (n_variants, n_geoms) dataid cache on GPU."""
+        n_geoms = len(geom_name_to_id)
+        dataid = np.zeros((group.n_variants, n_geoms), dtype=np.int32)
+        for vi, var in enumerate(variants):
+            for gi, gname in enumerate(geom_name_to_id):
+                mname = var[gname]
+                dataid[vi, gi] = -1 if mname is None else mujoco.mj_name2id(
+                    mj_model, mujoco.mjtObj.mjOBJ_MESH, mname,
                 )
-            group.dataid_rows.append(row)
+        group.gpu_cache["geom_dataid"] = wp.array(dataid, dtype=int, device=device)
 
     # -- Compilation & caching --
 
@@ -244,24 +251,26 @@ class MeshRandomizer:
         mesh_shapes: list[int],
         device: str,
     ):
-        """Compute physics properties directly from mesh vertices, build GPU cache.
-        """
+        """Compute physics properties from mesh vertices, store directly in GPU cache."""
         from newton._src.geometry.inertia import compute_inertia_mesh
+        from scipy.spatial.transform import Rotation
 
         n_geoms = len(mesh_shapes)
-        n_bodies = group.owned_body_ids.shape[0]
+        n_variants = group.n_variants
         density = 1000.0  # MuJoCo default
         all_scales = newton_model.shape_scale.numpy()
 
-        for vi in range(group.n_variants):
-            # -- Per-geom properties --
-            geom_sizes = np.zeros((n_geoms, 3), dtype=np.float32)
-            geom_rbounds = np.zeros(n_geoms, dtype=np.float32)
-            geom_positions = np.zeros((n_geoms, 3), dtype=np.float32)
+        # Pre-allocate per-variant arrays: (n_variants, n_entities, ...)
+        all_geom_sizes = np.zeros((n_variants, n_geoms, 3), dtype=np.float32)
+        all_geom_rbounds = np.zeros((n_variants, n_geoms), dtype=np.float32)
+        all_geom_pos = np.zeros((n_variants, n_geoms, 3), dtype=np.float32)
+        all_body_mass = np.zeros((n_variants, 1), dtype=np.float32)
+        all_body_inertia = np.zeros((n_variants, 1, 3), dtype=np.float32)
+        all_body_ipos = np.zeros((n_variants, 1, 3), dtype=np.float32)
+        all_body_iquat = np.zeros((n_variants, 1, 4), dtype=np.float32)
 
-            geom_masses = []
-            geom_coms = []
-            geom_inertias = []
+        for vi in range(n_variants):
+            geom_masses, geom_coms, geom_inertias = [], [], []
 
             for gi, s in enumerate(mesh_shapes):
                 mvs = newton_model.shape_mesh_variants[s]
@@ -272,7 +281,6 @@ class MeshRandomizer:
                 elif vi - 1 < len(mvs):
                     mesh = mvs[vi - 1]
                 else:
-                    # Disabled slot: zero contribution
                     geom_masses.append(0.0)
                     geom_coms.append(np.zeros(3))
                     geom_inertias.append(np.zeros((3, 3)))
@@ -282,71 +290,50 @@ class MeshRandomizer:
                 indices = np.array(mesh.indices, dtype=np.int32)
 
                 mass, com, I_mat, _ = compute_inertia_mesh(density, verts, indices)
-                com_np = np.array(com)
                 I_mat = np.array(I_mat).reshape(3, 3)
 
-                # geom_size = AABB half-extents
-                vmin = verts.min(axis=0)
-                vmax = verts.max(axis=0)
-                half_extents = (vmax - vmin) / 2.0
-                geom_sizes[gi] = half_extents
-
-                # geom_rbound = bounding sphere radius from geom center
+                vmin, vmax = verts.min(axis=0), verts.max(axis=0)
+                all_geom_sizes[vi, gi] = (vmax - vmin) / 2.0
                 center = (vmin + vmax) / 2.0
-                geom_rbounds[gi] = np.max(np.linalg.norm(verts - center, axis=1))
-
-                # geom_pos stays at body-frame origin (mesh defines the shape)
-                geom_positions[gi] = [0.0, 0.0, 0.0]
+                all_geom_rbounds[vi, gi] = np.max(np.linalg.norm(verts - center, axis=1))
 
                 geom_masses.append(float(mass))
-                geom_coms.append(com_np)
-                geom_inertias.append(np.array(I_mat))
+                geom_coms.append(np.array(com))
+                geom_inertias.append(I_mat)
 
-            # -- Body properties (combine all active geoms) --
+            # Combine geoms → body properties
             total_mass = sum(geom_masses)
             if total_mass > 0:
                 body_com = sum(m * c for m, c in zip(geom_masses, geom_coms)) / total_mass
             else:
                 body_com = np.zeros(3)
 
-            # Combine inertia tensors at body COM using parallel axis theorem
             I_combined = np.zeros((3, 3))
             for m, c, I in zip(geom_masses, geom_coms, geom_inertias):
                 if m > 0:
                     r = c - body_com
-                    I_shifted = I + m * (np.dot(r, r) * np.eye(3) - np.outer(r, r))
-                    I_combined += I_shifted
+                    I_combined += I + m * (np.dot(r, r) * np.eye(3) - np.outer(r, r))
 
-            # Diagonalize to get principal inertia + orientation
             eigenvalues, eigenvectors = np.linalg.eigh(I_combined)
-            # Ensure right-handed frame
             if np.linalg.det(eigenvectors) < 0:
                 eigenvectors[:, 0] *= -1
+            q = Rotation.from_matrix(eigenvectors).as_quat()  # [x,y,z,w]
 
-            from scipy.spatial.transform import Rotation
-            body_iquat_scipy = Rotation.from_matrix(eigenvectors).as_quat()  # [x,y,z,w]
-            body_iquat = np.array([body_iquat_scipy[3], body_iquat_scipy[0],
-                                   body_iquat_scipy[1], body_iquat_scipy[2]], dtype=np.float32)
+            all_body_mass[vi, 0] = total_mass
+            all_body_inertia[vi, 0] = eigenvalues
+            all_body_ipos[vi, 0] = body_com
+            all_body_iquat[vi, 0] = [q[3], q[0], q[1], q[2]]  # wxyz
 
-            body_inertia = eigenvalues.astype(np.float32)
-
-            group.variants_data[vi] = {
-                "geom_size": geom_sizes,
-                "geom_rbound": geom_rbounds,
-                "geom_pos": geom_positions,
-                "body_mass": np.array([total_mass], dtype=np.float32),
-                "body_inertia": np.array([body_inertia], dtype=np.float32),
-                "body_ipos": np.array([body_com], dtype=np.float32),
-                "body_iquat": np.array([body_iquat], dtype=np.float32),
-            }
-
-        # Stack into compact GPU arrays: shape (n_variants, n_owned)
-        for field, (wp_dtype, _) in ALL_FIELDS.items():
-            np_data = np.stack(
-                [group.variants_data[vi][field] for vi in range(group.n_variants)],
-                axis=0,
-            )
-            group.gpu_cache[field] = wp.array(np_data, dtype=wp_dtype, device=device)
+        # Move to GPU (update, not replace — geom_dataid is already in gpu_cache)
+        group.gpu_cache.update({
+            "geom_size": wp.array(all_geom_sizes, dtype=wp.vec3, device=device),
+            "geom_rbound": wp.array(all_geom_rbounds, dtype=float, device=device),
+            "geom_pos": wp.array(all_geom_pos, dtype=wp.vec3, device=device),
+            "body_mass": wp.array(all_body_mass, dtype=float, device=device),
+            "body_inertia": wp.array(all_body_inertia, dtype=wp.vec3, device=device),
+            "body_ipos": wp.array(all_body_ipos, dtype=wp.vec3, device=device),
+            "body_iquat": wp.array(all_body_iquat, dtype=wp.quat, device=device),
+        })
 
     # -- Reset --
 
@@ -354,42 +341,32 @@ class MeshRandomizer:
         self, mjw_model, mjw_data, nworld: int, rng: np.random.Generator
     ) -> list[np.ndarray]:
         """Randomize all groups independently.  Returns per-group index arrays."""
+        # One-time expansion of geom_dataid to (nworld, ngeom) if needed.
+        if mjw_model.geom_dataid.shape[0] < nworld:
+            dataid = mjw_model.geom_dataid.numpy()
+            mjw_model.geom_dataid = wp.array(
+                np.tile(dataid, (nworld, 1)), dtype=int, device=self.device,
+            )
+
         all_indices = []
         for group in self.groups:
             local_idx = rng.integers(0, group.n_variants, size=nworld).astype(np.int32)
             variant_gpu = wp.array(local_idx, dtype=int, device=self.device)
-
-            self._scatter_dataid(group, mjw_model, local_idx, nworld)
             self._scatter_fields(group, mjw_model, variant_gpu, nworld)
-
             all_indices.append(local_idx)
 
-        # Recompute tree-dependent fields (body_subtreemass, body_invweight0)
-        import mujoco_warp
+        # Recompute tree-dependent fields (body_subtreemass, body_invweight0).
         mujoco_warp.set_const_fixed(mjw_model, mjw_data)
         mujoco_warp.set_const_0(mjw_model, mjw_data)
 
         return all_indices
 
-    def _scatter_dataid(
-        self, group: _VariantGroup, mjw_model, local_idx: np.ndarray, nworld: int
-    ):
-        """Write per-world geom_dataid (which mesh each geom uses)."""
-        dataid = mjw_model.geom_dataid.numpy()
-        if dataid.shape[0] < nworld:
-            dataid = np.tile(dataid, (nworld, 1))
-        for w in range(nworld):
-            row = group.dataid_rows[local_idx[w]]
-            for gid in group.geom_ids.values():
-                dataid[w, gid] = row[gid]
-        mjw_model.geom_dataid = wp.array(dataid, dtype=int, device=self.device)
-
     def _scatter_fields(
         self, group: _VariantGroup, mjw_model, variant_gpu: wp.array, nworld: int
     ):
-        """Scatter cached physics properties (mass, inertia, etc.) to model."""
+        """Scatter all cached fields (dataid, mass, inertia, etc.) to model."""
         for field, (wp_dtype, _) in ALL_FIELDS.items():
-            entity_ids = group.owned_geom_ids if "geom" in field else group.owned_body_ids
+            entity_ids = group.geom_ids if "geom" in field else group.body_ids
             n_owned = entity_ids.shape[0]
             dst = getattr(mjw_model, field)
             wp.launch(
@@ -459,6 +436,41 @@ def main():
         body=body_c, mesh=newton.Mesh(hull_x[3], BOX_INDICES), label="hull_3",
         mesh_variants=[])
 
+    # D — 2-link articulated arm: base (fixed to world) → link1 → link2
+    # Uses add_link() + add_articulation() for a proper kinematic chain.
+    arm_base = world_builder.add_link(
+        xform=wp.transform((0.0, 3.0, 0.5), wp.quat_identity()), label="arm_base")
+    world_builder.add_shape_mesh(
+        body=arm_base,
+        mesh=newton.Mesh(_box_verts(0.05, 0.05, 0.05), BOX_INDICES),
+        label="arm_base_geom",
+    )
+
+    arm_link1 = world_builder.add_link(
+        xform=wp.transform((0.0, 3.0, 0.8), wp.quat_identity()), label="arm_link1")
+    world_builder.add_shape_mesh(
+        body=arm_link1,
+        mesh=newton.Mesh(_box_verts(0.04, 0.04, 0.15), BOX_INDICES),
+        label="link1_geom",
+        mesh_variants=[newton.Mesh(_box_verts(0.06, 0.06, 0.15), BOX_INDICES)],
+    )
+
+    arm_link2 = world_builder.add_link(
+        xform=wp.transform((0.0, 3.0, 1.1), wp.quat_identity()), label="arm_link2")
+    world_builder.add_shape_mesh(
+        body=arm_link2,
+        mesh=newton.Mesh(_box_verts(0.03, 0.03, 0.12), BOX_INDICES),
+        label="link2_geom",
+        mesh_variants=[newton.Mesh(_box_verts(0.05, 0.05, 0.12), BOX_INDICES)],
+    )
+
+    j0 = world_builder.add_joint_fixed(parent=-1, child=arm_base)
+    j1 = world_builder.add_joint_revolute(
+        parent=arm_base, child=arm_link1, axis=newton.Axis.Y)
+    j2 = world_builder.add_joint_revolute(
+        parent=arm_link1, child=arm_link2, axis=newton.Axis.Y)
+    world_builder.add_articulation([j0, j1, j2], label="arm")
+
     main_builder = newton.ModelBuilder()
     main_builder.add_ground_plane()
     main_builder.replicate(world_builder, world_count=NWORLD, spacing=(2.0, 0.0, 0.0))
@@ -479,10 +491,11 @@ def main():
 
     print(f"\nAuto-discovered {len(randomizer.groups)} randomization groups:")
     for g in randomizer.groups:
-        geoms = list(g.geom_ids.keys())
-        print(f"  body '{g.body_name}': {g.n_variants} variants, geoms={geoms}")
-        for vi, fields in g.variants_data.items():
-            print(f"    variant {vi}: mass={fields['body_mass']}")
+        masses = g.gpu_cache["body_mass"].numpy()
+        print(f"  body '{g.body_name}': {g.n_variants} variants, "
+              f"geom_ids={g.geom_ids.numpy()}, body_ids={g.body_ids.numpy()}")
+        for vi in range(g.n_variants):
+            print(f"    variant {vi}: mass={masses[vi]}")
 
     # =====================================================================
     # Step 3: Randomize (one call per episode reset)
@@ -492,25 +505,29 @@ def main():
 
     rng = np.random.default_rng(42)
     indices = randomizer.reset(solver.mjw_model, solver.mjw_data, nworld, rng)
-    idx_a, idx_b, idx_c = indices
 
     # =====================================================================
     # Step 4: Verify
     # =====================================================================
 
-    body_a_id = randomizer.groups[0].owned_body_ids.numpy()[0]
-    body_b_id = randomizer.groups[1].owned_body_ids.numpy()[0]
-    body_c_id = randomizer.groups[2].owned_body_ids.numpy()[0]
+    # Build group lookup by body name
+    groups_by_name = {g.body_name: (i, g) for i, g in enumerate(randomizer.groups)}
 
     mass = solver.mjw_model.body_mass.numpy()
     dataid = solver.mjw_model.geom_dataid.numpy()
+
+    # -- Free-floating bodies (A, B, C) --
+    idx_a, idx_b, idx_c = indices[0], indices[1], indices[2]
+    body_a_id = randomizer.groups[0].body_ids.numpy()[0]
+    body_b_id = randomizer.groups[1].body_ids.numpy()[0]
+    body_c_id = randomizer.groups[2].body_ids.numpy()[0]
 
     labels_a = ["small", "large"]
     labels_b = ["medium", "tiny"]
     labels_c = ["X (4 hulls)", "Y (3 hulls)", "Z (2 hulls)"]
 
     print("\nAfter reset (first 8 worlds):")
-    hull_geom_ids = list(randomizer.groups[2].geom_ids.values())
+    hull_geom_ids = randomizer.groups[2].geom_ids.numpy()
     for w in range(min(8, nworld)):
         active = sum(1 for gid in hull_geom_ids if dataid[w, gid] != -1)
         print(f"  world[{w}]: "
@@ -528,6 +545,44 @@ def main():
         masses = [mass[w, body_c_id] for w in range(nworld) if idx_c[w] == vi]
         if masses:
             assert all(m == masses[0] for m in masses)
+
+    # -- Articulated arm (link1, link2) --
+    # Built with add_link() + add_articulation() → proper MuJoCo body tree.
+    # Verify body_subtreemass is recomputed correctly by set_const_fixed.
+    if "arm_link1" in groups_by_name and "arm_link2" in groups_by_name:
+        gi_l1, g_l1 = groups_by_name["arm_link1"]
+        gi_l2, g_l2 = groups_by_name["arm_link2"]
+        idx_l1, idx_l2 = indices[gi_l1], indices[gi_l2]
+        l1_id = g_l1.body_ids.numpy()[0]
+        l2_id = g_l2.body_ids.numpy()[0]
+        base_id = mujoco.mj_name2id(mj_model, mujoco.mjtObj.mjOBJ_BODY, "arm_base")
+
+        subtreemass = solver.mjw_model.body_subtreemass.numpy()
+
+        labels_l1 = ["thin", "thick"]
+        labels_l2 = ["narrow", "wide"]
+        print("\n  Articulated arm (first 8 worlds):")
+        for w in range(min(8, nworld)):
+            m_l1 = mass[w, l1_id]
+            m_l2 = mass[w, l2_id]
+            m_base = mass[w, base_id]
+            st_base = subtreemass[w, base_id]
+            expected_st = m_base + m_l1 + m_l2
+            print(f"    world[{w}]: "
+                  f"link1={labels_l1[idx_l1[w]]}({m_l1:.2f}), "
+                  f"link2={labels_l2[idx_l2[w]]}({m_l2:.2f}), "
+                  f"base_subtreemass={st_base:.2f} (expected {expected_st:.2f})")
+            assert abs(st_base - expected_st) < 0.01, (
+                f"world {w}: body_subtreemass mismatch: {st_base} != {expected_st}"
+            )
+
+        for vi in range(g_l1.n_variants):
+            masses = [mass[w, l1_id] for w in range(nworld) if idx_l1[w] == vi]
+            assert all(m == masses[0] for m in masses), f"link1 variant {vi} mass inconsistent"
+        for vi in range(g_l2.n_variants):
+            masses = [mass[w, l2_id] for w in range(nworld) if idx_l2[w] == vi]
+            assert all(m == masses[0] for m in masses), f"link2 variant {vi} mass inconsistent"
+
     print("\nConsistency checks passed.")
 
     mj_data = mujoco.MjData(mj_model)
