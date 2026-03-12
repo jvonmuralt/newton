@@ -28,6 +28,7 @@ import numpy as np
 import warp as wp
 
 import newton
+from newton._src.solvers.flags import SolverNotifyFlags
 
 NWORLD = 64
 
@@ -76,21 +77,20 @@ def _scatter_geom(
 
 
 @wp.kernel
-def _scatter_body(
+def _scatter_newton_body(
     idx: wp.array(dtype=int),
-    body_ids: wp.array(dtype=int),
-    mass_src: wp.array2d(dtype=float),    mass_dst: wp.array2d(dtype=float),
-    inertia_src: wp.array2d(dtype=wp.vec3), inertia_dst: wp.array2d(dtype=wp.vec3),
-    ipos_src: wp.array2d(dtype=wp.vec3),    ipos_dst: wp.array2d(dtype=wp.vec3),
-    iquat_src: wp.array2d(dtype=wp.quat),   iquat_dst: wp.array2d(dtype=wp.quat),
+    mj_body_ids: wp.array(dtype=int),
+    mjc_body_to_newton: wp.array2d(dtype=wp.int32),
+    mass_src: wp.array2d(dtype=float),       mass_dst: wp.array(dtype=float),
+    com_src: wp.array2d(dtype=wp.vec3),      com_dst: wp.array(dtype=wp.vec3),
+    inertia_src: wp.array2d(dtype=wp.mat33), inertia_dst: wp.array(dtype=wp.mat33),
 ):
     w, i = wp.tid()
-    bid = body_ids[i]
+    newton_body = mjc_body_to_newton[w, mj_body_ids[i]]
     vi = idx[w]
-    mass_dst[w, bid] = mass_src[vi, i]
-    inertia_dst[w, bid] = inertia_src[vi, i]
-    ipos_dst[w, bid] = ipos_src[vi, i]
-    iquat_dst[w, bid] = iquat_src[vi, i]
+    mass_dst[newton_body] = mass_src[vi, i]
+    com_dst[newton_body] = com_src[vi, i]
+    inertia_dst[newton_body] = inertia_src[vi, i]
 
 # ---------------------------------------------------------------------------
 # MeshRandomizer — auto-discovers variant groups from solver, single reset()
@@ -119,7 +119,7 @@ class MeshRandomizer:
     Usage::
 
         randomizer = MeshRandomizer(solver)
-        indices = randomizer.reset(solver.mjw_model, solver.mjw_data, nworld, rng)
+        indices = randomizer.reset(solver, nworld, rng)
     """
 
     def __init__(self, solver, device: str = "cuda:0"):
@@ -237,21 +237,18 @@ class MeshRandomizer:
     ):
         """Compute physics properties from mesh vertices, store directly in GPU cache."""
         from newton._src.geometry.inertia import compute_inertia_mesh
-        from scipy.spatial.transform import Rotation
 
         n_geoms = len(mesh_shapes)
         n_variants = group.n_variants
         density = 1000.0  # MuJoCo default
         all_scales = newton_model.shape_scale.numpy()
 
-        # Pre-allocate per-variant arrays: (n_variants, n_entities, ...)
         all_geom_sizes = np.zeros((n_variants, n_geoms, 3), dtype=np.float32)
         all_geom_rbounds = np.zeros((n_variants, n_geoms), dtype=np.float32)
         all_geom_pos = np.zeros((n_variants, n_geoms, 3), dtype=np.float32)
         all_body_mass = np.zeros((n_variants, 1), dtype=np.float32)
-        all_body_inertia = np.zeros((n_variants, 1, 3), dtype=np.float32)
-        all_body_ipos = np.zeros((n_variants, 1, 3), dtype=np.float32)
-        all_body_iquat = np.zeros((n_variants, 1, 4), dtype=np.float32)
+        all_body_com = np.zeros((n_variants, 1, 3), dtype=np.float32)
+        all_body_inertia = np.zeros((n_variants, 1, 3, 3), dtype=np.float32)
 
         for vi in range(n_variants):
             geom_masses, geom_coms, geom_inertias = [], [], []
@@ -285,7 +282,6 @@ class MeshRandomizer:
                 geom_coms.append(np.array(com))
                 geom_inertias.append(I_mat)
 
-            # Combine geoms → body properties
             total_mass = sum(geom_masses)
             if total_mass > 0:
                 body_com = sum(m * c for m, c in zip(geom_masses, geom_coms)) / total_mass
@@ -298,70 +294,61 @@ class MeshRandomizer:
                     r = c - body_com
                     I_combined += I + m * (np.dot(r, r) * np.eye(3) - np.outer(r, r))
 
-            eigenvalues, eigenvectors = np.linalg.eigh(I_combined)
-            if np.linalg.det(eigenvectors) < 0:
-                eigenvectors[:, 0] *= -1
-            q = Rotation.from_matrix(eigenvectors).as_quat()  # [x,y,z,w]
-
             all_body_mass[vi, 0] = total_mass
-            all_body_inertia[vi, 0] = eigenvalues
-            all_body_ipos[vi, 0] = body_com
-            all_body_iquat[vi, 0] = [q[3], q[0], q[1], q[2]]  # wxyz
+            all_body_com[vi, 0] = body_com
+            all_body_inertia[vi, 0] = I_combined
 
-        # Move to GPU (update, not replace — geom_dataid is already in gpu_cache)
         group.gpu_cache.update({
             "geom_size": wp.array(all_geom_sizes, dtype=wp.vec3, device=device),
             "geom_rbound": wp.array(all_geom_rbounds, dtype=float, device=device),
             "geom_pos": wp.array(all_geom_pos, dtype=wp.vec3, device=device),
             "body_mass": wp.array(all_body_mass, dtype=float, device=device),
-            "body_inertia": wp.array(all_body_inertia, dtype=wp.vec3, device=device),
-            "body_ipos": wp.array(all_body_ipos, dtype=wp.vec3, device=device),
-            "body_iquat": wp.array(all_body_iquat, dtype=wp.quat, device=device),
+            "body_com": wp.array(all_body_com, dtype=wp.vec3, device=device),
+            "body_inertia": wp.array(all_body_inertia, dtype=wp.mat33, device=device),
         })
 
     # -- Reset --
 
     def reset(
-        self, mjw_model, mjw_data, nworld: int, rng: np.random.Generator
+        self, solver, nworld: int, rng: np.random.Generator
     ) -> list[np.ndarray]:
         """Randomize all groups independently.  Returns per-group index arrays."""
         all_indices = []
         for group in self.groups:
             local_idx = rng.integers(0, group.n_variants, size=nworld).astype(np.int32)
             variant_gpu = wp.array(local_idx, dtype=int, device=self.device)
-            self._scatter_fields(group, mjw_model, variant_gpu, nworld)
+            self._scatter_fields(group, solver, variant_gpu, nworld)
             all_indices.append(local_idx)
 
-        # Recompute tree-dependent fields (body_subtreemass, body_invweight0).
-        mujoco_warp.set_const_fixed(mjw_model, mjw_data)
-        mujoco_warp.set_const_0(mjw_model, mjw_data)
+        # Sync Newton model → mjw_model and recompute tree-dependent fields.
+        solver.notify_model_changed(SolverNotifyFlags.BODY_INERTIAL_PROPERTIES)
 
         return all_indices
 
     def _scatter_fields(
-        self, group: _VariantGroup, mjw_model, variant_gpu: wp.array, nworld: int
+        self, group: _VariantGroup, solver, variant_gpu: wp.array, nworld: int
     ):
-        """Scatter all cached fields to model in 2 kernel launches."""
+        """Scatter geom fields to mjw_model, body fields to Newton model."""
         c = group.gpu_cache
         wp.launch(
             _scatter_geom, dim=(nworld, group.geom_ids.shape[0]),
             inputs=[
                 variant_gpu, group.geom_ids,
-                c["geom_dataid"], mjw_model.geom_dataid,
-                c["geom_size"],   mjw_model.geom_size,
-                c["geom_rbound"], mjw_model.geom_rbound,
-                c["geom_pos"],    mjw_model.geom_pos,
+                c["geom_dataid"], solver.mjw_model.geom_dataid,
+                c["geom_size"],   solver.mjw_model.geom_size,
+                c["geom_rbound"], solver.mjw_model.geom_rbound,
+                c["geom_pos"],    solver.mjw_model.geom_pos,
             ],
             device=self.device,
         )
         wp.launch(
-            _scatter_body, dim=(nworld, group.body_ids.shape[0]),
+            _scatter_newton_body, dim=(nworld, group.body_ids.shape[0]),
             inputs=[
                 variant_gpu, group.body_ids,
-                c["body_mass"],    mjw_model.body_mass,
-                c["body_inertia"], mjw_model.body_inertia,
-                c["body_ipos"],    mjw_model.body_ipos,
-                c["body_iquat"],   mjw_model.body_iquat,
+                solver.mjc_body_to_newton,
+                c["body_mass"],    solver.model.body_mass,
+                c["body_com"],     solver.model.body_com,
+                c["body_inertia"], solver.model.body_inertia,
             ],
             device=self.device,
         )
@@ -489,7 +476,7 @@ def main():
     # physics properties (mass, inertia, geom_size, etc.) to the GPU model.
 
     rng = np.random.default_rng(42)
-    indices = randomizer.reset(solver.mjw_model, solver.mjw_data, nworld, rng)
+    indices = randomizer.reset(solver, nworld, rng)
 
     # =====================================================================
     # Step 4: Verify
