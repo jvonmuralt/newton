@@ -2891,6 +2891,8 @@ class SolverMuJoCo(SolverBase):
 
         # --- Mesh variant cache ---
         self._has_mesh_variants: bool = False
+        self._mesh_variant_names: dict[int, list[str]] = {}
+        """Maps template shape index → [default_mesh_name, variant_0_name, …]."""
 
         self._viewer = None
         """Instance of the MuJoCo viewer for debugging."""
@@ -4119,6 +4121,7 @@ class SolverMuJoCo(SolverBase):
                         maxhullvert=maxhullvert,
                     )
                     geom_params["meshname"] = name
+                    mesh_names = [name]
                     for vi, variant_mesh in enumerate(model.shape_mesh_variants[shape]):
                         vname = f"{name}_variant_{vi}"
                         vverts = variant_mesh.vertices * size
@@ -4128,6 +4131,9 @@ class SolverMuJoCo(SolverBase):
                             userface=variant_mesh.indices.flatten(),
                             maxhullvert=variant_mesh.maxhullvert,
                         )
+                        mesh_names.append(vname)
+                    if len(mesh_names) > 1:
+                        self._mesh_variant_names[shape] = mesh_names
                 geom_params["pos"] = tf.p
                 geom_params["quat"] = quat_to_mjc(tf.q)
                 size = shape_size[shape]
@@ -5379,16 +5385,13 @@ class SolverMuJoCo(SolverBase):
                 continue
 
             counts[t] = 1 + len(variants)
-            geom_name = f"{model.shape_label[s]}_{s}"
             scale = shape_scales[s].astype(np.float32)
 
             all_meshes = [model.shape_source[s]] + list(variants)
-            all_names = [geom_name] + [
-                f"{geom_name}_variant_{i}" for i in range(len(variants))
-            ]
-            for vi, (mesh, name) in enumerate(zip(all_meshes, all_names)):
+            all_names = self._mesh_variant_names[s]
+            for vi, (mesh, mname) in enumerate(zip(all_meshes, all_names)):
                 dataid[t, vi] = mujoco.mj_name2id(
-                    self.mj_model, mujoco.mjtObj.mjOBJ_MESH, name,
+                    self.mj_model, mujoco.mjtObj.mjOBJ_MESH, mname,
                 )
                 verts = np.asarray(mesh.vertices, dtype=np.float32) * scale
                 rbound[t, vi] = bounding_radius(verts)
