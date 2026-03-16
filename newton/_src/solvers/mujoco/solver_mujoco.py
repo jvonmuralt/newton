@@ -43,12 +43,11 @@ from ...utils.import_utils import string_to_warp
 from ..flags import SolverNotifyFlags
 from ..solver import SolverBase
 from .kernels import (
-    apply_body_variants_kernel,
+    apply_mesh_pool_swap_kernel,
     apply_mjc_body_f_kernel,
     apply_mjc_control_kernel,
     apply_mjc_free_joint_f_to_body_f_kernel,
     apply_mjc_qfrc_kernel,
-    apply_shape_variants_kernel,
     convert_mj_coords_to_warp_kernel,
     convert_mjw_contacts_to_newton_kernel,
     convert_newton_contacts_to_mjwarp_kernel,
@@ -2889,10 +2888,8 @@ class SolverMuJoCo(SolverBase):
         self._first_env_shape_base: int = 0
         """Base shape index for the first environment."""
 
-        # --- Mesh variant cache ---
-        self._has_mesh_variants: bool = False
-        self._mesh_variant_names: dict[int, list[str]] = {}
-        """Maps template shape index → [default_mesh_name, variant_0_name, …]."""
+        self._mesh_to_dataid: wp.array | None = None
+        self._mesh_to_rbound: wp.array | None = None
 
         self._viewer = None
         """Instance of the MuJoCo viewer for debugging."""
@@ -3046,9 +3043,9 @@ class SolverMuJoCo(SolverBase):
         need_const_0 = False
         need_length_range = False
 
-        if flags & SolverNotifyFlags.MESH_VARIANT_PROPERTIES:
-            self._apply_mesh_variants()
-            flags |= SolverNotifyFlags.SHAPE_PROPERTIES | SolverNotifyFlags.BODY_INERTIAL_PROPERTIES
+        if flags & SolverNotifyFlags.SHAPE_MESH_PROPERTIES:
+            self._apply_mesh_pool_swap()
+            flags |= SolverNotifyFlags.SHAPE_PROPERTIES
 
         if flags & SolverNotifyFlags.BODY_INERTIAL_PROPERTIES:
             self._update_model_inertial_properties()
@@ -3807,6 +3804,7 @@ class SolverMuJoCo(SolverBase):
         shape_type = model.shape_type.numpy()
         shape_size = model.shape_scale.numpy()
         shape_flags = model.shape_flags.numpy()
+        shape_mesh_id_np = model.shape_mesh_id.numpy() if model.shape_mesh_id is not None else None
         shape_collision_group = model.shape_collision_group.numpy()
         shape_world = model.shape_world.numpy()
         shape_mu = model.shape_material_mu.numpy()
@@ -4109,31 +4107,7 @@ class SolverMuJoCo(SolverBase):
                         tf.q,
                     )
                 elif stype == GeoType.MESH or stype == GeoType.CONVEX_MESH:
-                    mesh_src = model.shape_source[shape]
-                    maxhullvert = mesh_src.maxhullvert
-                    # apply scaling
-                    size = shape_size[shape]
-                    vertices = mesh_src.vertices * size
-                    spec.add_mesh(
-                        name=name,
-                        uservert=vertices.flatten(),
-                        userface=mesh_src.indices.flatten(),
-                        maxhullvert=maxhullvert,
-                    )
-                    geom_params["meshname"] = name
-                    mesh_names = [name]
-                    for vi, variant_mesh in enumerate(model.shape_mesh_variants[shape]):
-                        vname = f"{name}_variant_{vi}"
-                        vverts = variant_mesh.vertices * size
-                        spec.add_mesh(
-                            name=vname,
-                            uservert=vverts.flatten(),
-                            userface=variant_mesh.indices.flatten(),
-                            maxhullvert=variant_mesh.maxhullvert,
-                        )
-                        mesh_names.append(vname)
-                    if len(mesh_names) > 1:
-                        self._mesh_variant_names[shape] = mesh_names
+                    geom_params["meshname"] = f"newton_pool_mesh_{shape_mesh_id_np[shape]}"
                 geom_params["pos"] = tf.p
                 geom_params["quat"] = quat_to_mjc(tf.q)
                 size = shape_size[shape]
@@ -4759,9 +4733,7 @@ class SolverMuJoCo(SolverBase):
             self.mjc_actuator_ctrl_source = None
             self.mjc_actuator_to_newton_idx = None
 
-        self.mj_model = spec.compile()
-        self.mj_spec = spec
-        self.mj_data = mujoco.MjData(self.mj_model)
+        self._register_mesh_pool(model, spec)
 
         self._update_mjc_data(self.mj_data, model, state)
 
@@ -5036,9 +5008,6 @@ class SolverMuJoCo(SolverBase):
             # expand model fields that can be expanded:
             self._expand_model_fields(self.mjw_model, nworld)
 
-            # pre-compute per-variant properties for shapes/bodies with mesh_variants
-            self._build_mesh_variant_cache()
-
             # update solver options from Newton model (only if not overridden by constructor)
             self._update_solver_options(overridden_options=overridden_options)
 
@@ -5300,228 +5269,72 @@ class SolverMuJoCo(SolverBase):
             device=self.model.device,
         )
 
-    # --- Mesh variant support ---
+    def _register_mesh_pool(self, model, spec):
+        """Add all pool meshes to the spec, compile, and build lookup arrays.
 
-    def _build_mesh_variant_cache(self):
-        """Pre-compute per-variant properties for shapes with mesh variants.
+        Every mesh in ``model.meshes`` is added to the spec under the name
+        ``newton_pool_mesh_{id}`` so that geoms can reference them and the user
+        can swap to any pool mesh at runtime.
 
-        Called once during solver init.  Creates two cache levels stored as
-        2-D GPU arrays indexed by ``(template_index, variant_index)``:
+        After compilation, builds two 1-D GPU arrays the swap kernel indexes
+        into:
 
-        **Shape cache** (template shape within one world):
-
-        ============== ====== ================================================
-        Attribute      Shape  Description
-        ============== ====== ================================================
-        _sv_counts     (S,)   Number of variants (0 = no variants)
-        _sv_dataid     (S, V) MuJoCo mesh ID (-1 = slot disabled)
-        _sv_rbound     (S, V) Bounding-sphere radius
-        ============== ====== ================================================
-
-        **Body cache** (template body within one world):
-
-        =============== ====== ================================================
-        Attribute       Shape  Description
-        =============== ====== ================================================
-        _bv_counts      (B,)   Number of variants (0 = no variant shapes)
-        _bv_repr_shape  (B,)   Template-relative shape for reading active variant
-        _bv_mass        (B, V) Total mass (sum of constituent shapes)
-        _bv_com         (B, V) Center of mass
-        _bv_inertia     (B, V) 3x3 inertia tensor (parallel axis theorem)
-        =============== ====== ================================================
-
-        S = shapes_per_world, B = bodies_per_world, V = max_variants.
+        - ``_mesh_to_dataid[mesh_id]`` → MuJoCo ``geom_dataid`` value
+        - ``_mesh_to_rbound[mesh_id]`` → bounding-sphere radius
         """
-        from ...geometry.inertia import compute_inertia_mesh
-        from ...geometry.types import GeoType
-
-        model = self.model
         mujoco = self._mujoco
-        shapes_per_world = self._shapes_per_world
-        first_shape = self._first_env_shape_base
-        MESH_TYPES = (GeoType.MESH, GeoType.CONVEX_MESH)
+        meshes = getattr(model, "meshes", None) or []
+        scales = getattr(model, "mesh_scales", None) or []
 
-        if shapes_per_world == 0 or not hasattr(model, "shape_mesh_variants"):
-            self._has_mesh_variants = False
+        for mid, mesh_obj in enumerate(meshes):
+            scale = scales[mid] if mid < len(scales) else np.ones(3, dtype=np.float32)
+            spec.add_mesh(
+                name=f"newton_pool_mesh_{mid}",
+                uservert=(np.asarray(mesh_obj.vertices, dtype=np.float32) * scale).flatten(),
+                userface=np.asarray(mesh_obj.indices, dtype=np.int32).flatten(),
+                maxhullvert=mesh_obj.maxhullvert,
+            )
+
+        self.mj_model = spec.compile()
+        self.mj_spec = spec
+        self.mj_data = mujoco.MjData(self.mj_model)
+
+        if not meshes:
             return
 
-        shape_types = model.shape_type.numpy()
-        shape_scales = model.shape_scale.numpy()
-
-        def bounding_radius(verts):
+        mesh_count = len(meshes)
+        mesh_to_dataid = np.full(mesh_count, -1, dtype=np.int32)
+        mesh_to_rbound = np.zeros(mesh_count, dtype=np.float32)
+        for mid, mesh_obj in enumerate(meshes):
+            scale = scales[mid] if mid < len(scales) else np.ones(3, dtype=np.float32)
+            mesh_to_dataid[mid] = mujoco.mj_name2id(
+                self.mj_model, mujoco.mjtObj.mjOBJ_MESH, f"newton_pool_mesh_{mid}",
+            )
+            verts = np.asarray(mesh_obj.vertices, dtype=np.float32) * scale
             center = (verts.min(0) + verts.max(0)) / 2
-            return float(np.max(np.linalg.norm(verts - center, axis=1)))
-
-        def get_mesh_for_variant(shape_idx, variant_idx):
-            """Return the Mesh for variant_idx (0 = default), or None if disabled."""
-            if variant_idx == 0:
-                return model.shape_source[shape_idx]
-            variants = model.shape_mesh_variants[shape_idx]
-            if variant_idx - 1 < len(variants):
-                return variants[variant_idx - 1]
-            return None
-
-        # ---- shape cache: dataid + rbound per (template_shape, variant) ----
-
-        max_shape_variants = 0
-        for s in range(first_shape, first_shape + shapes_per_world):
-            variants = model.shape_mesh_variants[s]
-            if variants and shape_types[s] in MESH_TYPES:
-                max_shape_variants = max(max_shape_variants, 1 + len(variants))
-
-        if max_shape_variants == 0:
-            self._has_mesh_variants = False
-            return
-
-        self._has_mesh_variants = True
-        counts = np.zeros(shapes_per_world, dtype=np.int32)
-        dataid = np.full((shapes_per_world, max_shape_variants), -1, dtype=np.int32)
-        rbound = np.zeros((shapes_per_world, max_shape_variants), dtype=np.float32)
-
-        for s in range(first_shape, first_shape + shapes_per_world):
-            t = s - first_shape
-            variants = model.shape_mesh_variants[s]
-            if not variants or shape_types[s] not in MESH_TYPES:
-                continue
-
-            counts[t] = 1 + len(variants)
-            scale = shape_scales[s].astype(np.float32)
-
-            all_meshes = [model.shape_source[s]] + list(variants)
-            all_names = self._mesh_variant_names[s]
-            for vi, (mesh, mname) in enumerate(zip(all_meshes, all_names)):
-                dataid[t, vi] = mujoco.mj_name2id(
-                    self.mj_model, mujoco.mjtObj.mjOBJ_MESH, mname,
-                )
-                verts = np.asarray(mesh.vertices, dtype=np.float32) * scale
-                rbound[t, vi] = bounding_radius(verts)
+            mesh_to_rbound[mid] = float(np.max(np.linalg.norm(verts - center, axis=1)))
 
         dev = model.device
-        self._sv_counts = wp.array(counts, dtype=wp.int32, device=dev)
-        self._sv_dataid = wp.array(dataid, dtype=wp.int32, device=dev)
-        self._sv_rbound = wp.array(rbound, dtype=float, device=dev)
+        self._mesh_to_dataid = wp.array(mesh_to_dataid, dtype=wp.int32, device=dev)
+        self._mesh_to_rbound = wp.array(mesh_to_rbound, dtype=wp.float32, device=dev)
 
-        # ---- body cache: mass/com/inertia per (template_body, variant) ----
-
-        bodies_per_world = model.body_count // model.world_count
-        self._bodies_per_world = bodies_per_world
-        density = 1000.0
-
-        # Identify bodies with at least one variant shape.
-        # For each: (n_variants, [mesh_shape_ids], representative_shape)
-        variant_bodies: dict[int, tuple[int, list[int], int]] = {}
-        max_body_variants = 0
-        for body_id in range(bodies_per_world):
-            shapes = model.body_shapes.get(body_id, [])
-            mesh_shapes = [s for s in shapes if shape_types[s] in MESH_TYPES]
-            with_variants = [s for s in mesh_shapes if model.shape_mesh_variants[s]]
-            if not with_variants:
-                continue
-            n = 1 + max(len(model.shape_mesh_variants[s]) for s in with_variants)
-            max_body_variants = max(max_body_variants, n)
-            variant_bodies[body_id] = (n, mesh_shapes, with_variants[0])
-
-        if max_body_variants == 0:
-            max_body_variants = 1
-        body_counts = np.zeros(bodies_per_world, dtype=np.int32)
-        body_repr = np.zeros(bodies_per_world, dtype=np.int32)
-        body_mass = np.zeros((bodies_per_world, max_body_variants), dtype=np.float32)
-        body_com = np.zeros((bodies_per_world, max_body_variants, 3), dtype=np.float32)
-        body_inertia = np.zeros(
-            (bodies_per_world, max_body_variants, 3, 3), dtype=np.float32,
-        )
-
-        for body_id, (n_variants, mesh_shapes, repr_shape) in variant_bodies.items():
-            body_counts[body_id] = n_variants
-            body_repr[body_id] = repr_shape - first_shape
-
-            for vi in range(n_variants):
-                masses, coms, inertias = [], [], []
-                for s in mesh_shapes:
-                    mesh = get_mesh_for_variant(s, vi)
-                    if mesh is None:
-                        masses.append(0.0)
-                        coms.append(np.zeros(3))
-                        inertias.append(np.zeros((3, 3)))
-                        continue
-                    scale = shape_scales[s].astype(np.float32)
-                    verts = np.asarray(mesh.vertices, dtype=np.float32) * scale
-                    indices = np.asarray(mesh.indices, dtype=np.int32)
-                    m, c, I, _ = compute_inertia_mesh(density, verts, indices)
-                    masses.append(float(m))
-                    coms.append(np.asarray(c))
-                    inertias.append(np.asarray(I).reshape(3, 3))
-
-                total_mass = sum(masses)
-                com = (
-                    sum(m * c for m, c in zip(masses, coms)) / total_mass
-                    if total_mass > 0
-                    else np.zeros(3)
-                )
-                combined_I = np.zeros((3, 3))
-                for m, c, I in zip(masses, coms, inertias):
-                    if m > 0:
-                        r = c - com
-                        combined_I += I + m * (np.dot(r, r) * np.eye(3) - np.outer(r, r))
-
-                body_mass[body_id, vi] = total_mass
-                body_com[body_id, vi] = com
-                body_inertia[body_id, vi] = combined_I
-
-        self._bv_counts = wp.array(body_counts, dtype=wp.int32, device=dev)
-        self._bv_repr_shape = wp.array(body_repr, dtype=wp.int32, device=dev)
-        self._bv_mass = wp.array(body_mass, dtype=float, device=dev)
-        self._bv_com = wp.array(body_com, dtype=wp.vec3, device=dev)
-        self._bv_inertia = wp.array(body_inertia, dtype=wp.mat33, device=dev)
-
-    def _apply_mesh_variants(self):
-        """Scatter pre-computed variant properties based on
-        :attr:`~newton.Model.shape_active_variant`.
-
-        Updates ``mjw_model.geom_dataid`` / ``geom_rbound`` and
-        Newton ``body_mass`` / ``body_com`` / ``body_inertia``.
-        """
-        if not self._has_mesh_variants:
+    def _apply_mesh_pool_swap(self):
+        """Sync geom_dataid/geom_rbound from :attr:`~newton.Model.shape_mesh_id`."""
+        if self._mesh_to_dataid is None:
             return
 
         nworld = self.mjc_geom_to_newton_shape.shape[0]
         ngeom = self.mj_model.ngeom
-        nbody = self.mjc_body_to_newton.shape[1]
-
         wp.launch(
-            apply_shape_variants_kernel,
+            apply_mesh_pool_swap_kernel,
             dim=(nworld, ngeom),
             inputs=[
-                self.model.shape_active_variant,
+                self.model.shape_mesh_id,
                 self.mjc_geom_to_newton_shape,
-                self._first_env_shape_base,
-                self._shapes_per_world,
-                self._sv_counts,
-                self._sv_dataid,
-                self._sv_rbound,
+                self._mesh_to_dataid,
+                self._mesh_to_rbound,
                 self.mjw_model.geom_dataid,
                 self.mjw_model.geom_rbound,
-            ],
-            device=self.model.device,
-        )
-
-        wp.launch(
-            apply_body_variants_kernel,
-            dim=(nworld, nbody),
-            inputs=[
-                self.model.shape_active_variant,
-                self.mjc_body_to_newton,
-                self._bodies_per_world,
-                self._first_env_shape_base,
-                self._shapes_per_world,
-                self._bv_counts,
-                self._bv_repr_shape,
-                self._bv_mass,
-                self._bv_com,
-                self._bv_inertia,
-                self.model.body_mass,
-                self.model.body_com,
-                self.model.body_inertia,
             ],
             device=self.model.device,
         )

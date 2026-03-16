@@ -817,7 +817,11 @@ class ModelBuilder:
         self.shape_type = []
         self.shape_scale = []
         self.shape_source = []
-        self.shape_mesh_variants = []  # list[list[Mesh]] per shape, for domain randomization
+        self.meshes: list = []
+        """Standalone mesh pool. Meshes registered via :meth:`add_mesh` live here."""
+        self.mesh_scales: list = []
+        """Per-pool-mesh scale [3], one entry per :attr:`meshes` element."""
+        self.shape_mesh_id: list[int] = []
         self.shape_is_solid = []
         self.shape_margin = []
         self.shape_material_ke = []
@@ -2636,6 +2640,21 @@ class ModelBuilder:
             else:
                 self.body_shapes[b + start_body_idx] = [s + start_shape_idx for s in shapes]
 
+        mesh_id_remap: dict[int, int] = {}
+        for old_mid, mesh_obj in enumerate(builder.meshes):
+            existing_id = next(
+                (i for i, m in enumerate(self.meshes) if m is mesh_obj), None,
+            )
+            if existing_id is not None:
+                mesh_id_remap[old_mid] = existing_id
+            else:
+                mesh_id_remap[old_mid] = len(self.meshes)
+                self.meshes.append(mesh_obj)
+                self.mesh_scales.append(builder.mesh_scales[old_mid])
+        self.shape_mesh_id.extend(
+            mesh_id_remap[mid] if mid >= 0 else -1 for mid in builder.shape_mesh_id
+        )
+
         if builder.joint_count:
             start_q = len(self.joint_q)
             start_X_p = len(self.joint_X_p)
@@ -2819,7 +2838,6 @@ class ModelBuilder:
             "shape_type",
             "shape_scale",
             "shape_source",
-            "shape_mesh_variants",
             "shape_is_solid",
             "shape_margin",
             "shape_material_ke",
@@ -4914,7 +4932,7 @@ class ModelBuilder:
         self.shape_type.append(type)
         self.shape_scale.append((scale[0], scale[1], scale[2]))
         self.shape_source.append(src)
-        self.shape_mesh_variants.append([])
+        self.shape_mesh_id.append(-1)
         self.shape_margin.append(cfg.margin)
         self.shape_is_solid.append(cfg.is_solid)
         self.shape_material_ke.append(cfg.ke)
@@ -5354,35 +5372,59 @@ class ModelBuilder:
             custom_attributes=custom_attributes,
         )
 
+    def add_mesh(self, mesh: "Mesh", scale: Vec3 | None = None) -> int:
+        """Register a :class:`Mesh` in the mesh pool and return its pool index.
+
+        The returned index can be passed to :meth:`add_shape_mesh` and later
+        written to :attr:`~newton.Model.shape_mesh_id` for runtime mesh
+        swapping.
+
+        Args:
+            mesh: The :class:`Mesh` object to register.
+            scale: Scale applied when the mesh is compiled into the solver.
+                Defaults to ``(1, 1, 1)``.
+
+        Returns:
+            int: The mesh pool index.
+        """
+        idx = len(self.meshes)
+        self.meshes.append(mesh)
+        self.mesh_scales.append(
+            np.array(scale, dtype=np.float32) if scale is not None else np.ones(3, dtype=np.float32)
+        )
+        return idx
+
     def add_shape_mesh(
         self,
         body: int,
         xform: Transform | None = None,
-        mesh: Mesh | None = None,
+        mesh: "Mesh | int | None" = None,
         scale: Vec3 | None = None,
         cfg: ShapeConfig | None = None,
         label: str | None = None,
         custom_attributes: dict[str, Any] | None = None,
-        mesh_variants: list["Mesh"] | None = None,
     ) -> int:
         """Adds a triangle mesh collision shape to a body.
 
         Args:
             body (int): The index of the parent body this shape belongs to. Use -1 for shapes not attached to any specific body.
             xform (Transform | None): The transform of the mesh in the parent body's local frame. If `None`, the identity transform `wp.transform()` is used. Defaults to `None`.
-            mesh (Mesh | None): The :class:`Mesh` object containing the vertex and triangle data. Defaults to `None`.
+            mesh (Mesh | int | None): The :class:`Mesh` object or a mesh pool
+                index returned by :meth:`add_mesh`. Defaults to `None`.
             scale (Vec3 | None): The scale of the mesh. Defaults to `None`, in which case the scale is `(1.0, 1.0, 1.0)`.
             cfg (ShapeConfig | None): The configuration for the shape's physical and collision properties. If `None`, :attr:`default_shape_cfg` is used. Defaults to `None`.
             label (str | None): An optional unique label for identifying the shape. If `None`, a default label is automatically generated. Defaults to `None`.
             custom_attributes: Dictionary of custom attribute values for SHAPE frequency attributes.
-            mesh_variants: Alternative :class:`Mesh` objects for domain randomization.
-                When provided, the solver can swap between the primary *mesh* and
-                these variants at runtime (e.g. per-world mesh randomization with
-                :class:`~newton.solvers.SolverMuJoCo`).
 
         Returns:
             int: The index of the newly added shape.
         """
+        if isinstance(mesh, int):
+            mesh_id = mesh
+            mesh_obj = self.meshes[mesh_id]
+        else:
+            mesh_obj = mesh
+            mesh_id = self.add_mesh(mesh_obj, scale=scale) if mesh_obj is not None else -1
 
         if cfg is None:
             cfg = self.default_shape_cfg
@@ -5392,12 +5434,11 @@ class ModelBuilder:
             xform=xform,
             cfg=cfg,
             scale=scale,
-            src=mesh,
+            src=mesh_obj,
             label=label,
             custom_attributes=custom_attributes,
         )
-        if mesh_variants:
-            self.shape_mesh_variants[shape_idx] = list(mesh_variants)
+        self.shape_mesh_id[shape_idx] = mesh_id
         return shape_idx
 
     def add_shape_convex_hull(
@@ -5425,7 +5466,8 @@ class ModelBuilder:
 
         if cfg is None:
             cfg = self.default_shape_cfg
-        return self.add_shape(
+        mesh_id = self.add_mesh(mesh, scale=scale) if mesh is not None else -1
+        shape_idx = self.add_shape(
             body=body,
             type=GeoType.CONVEX_MESH,
             xform=xform,
@@ -5434,6 +5476,8 @@ class ModelBuilder:
             src=mesh,
             label=label,
         )
+        self.shape_mesh_id[shape_idx] = mesh_id
+        return shape_idx
 
     def add_shape_heightfield(
         self,
@@ -8877,8 +8921,10 @@ class ModelBuilder:
             m.shape_world = wp.array(self.shape_world, dtype=wp.int32)
 
             m.shape_source = self.shape_source  # used for rendering
-            m.shape_mesh_variants = self.shape_mesh_variants
-            m.shape_active_variant = wp.zeros(len(self.shape_scale), dtype=wp.int32)
+
+            m.meshes = self.meshes
+            m.mesh_scales = self.mesh_scales
+            m.shape_mesh_id = wp.array(self.shape_mesh_id, dtype=wp.int32, device=device)
 
             m.shape_material_ke = wp.array(self.shape_material_ke, dtype=wp.float32, requires_grad=requires_grad)
             m.shape_material_kd = wp.array(self.shape_material_kd, dtype=wp.float32, requires_grad=requires_grad)
