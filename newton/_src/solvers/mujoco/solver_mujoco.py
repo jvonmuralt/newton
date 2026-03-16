@@ -4107,7 +4107,7 @@ class SolverMuJoCo(SolverBase):
                         tf.q,
                     )
                 elif stype == GeoType.MESH or stype == GeoType.CONVEX_MESH:
-                    geom_params["meshname"] = f"newton_pool_mesh_{shape_mesh_id_np[shape]}"
+                    geom_params["meshname"] = f"newton_mesh_{shape_mesh_id_np[shape]}"
                 geom_params["pos"] = tf.p
                 geom_params["quat"] = quat_to_mjc(tf.q)
                 size = shape_size[shape]
@@ -4736,7 +4736,6 @@ class SolverMuJoCo(SolverBase):
         self._add_pool_meshes_to_spec(model, spec)
 
         self.mj_model = spec.compile()
-        self.mj_spec = spec
         self.mj_data = mujoco.MjData(self.mj_model)
 
         self._build_mesh_pool_lookups(model)
@@ -5276,7 +5275,7 @@ class SolverMuJoCo(SolverBase):
         )
 
     def _add_pool_meshes_to_spec(self, model, spec):
-        """Add every mesh in ``model.meshes`` to the spec as ``newton_pool_mesh_{id}``.
+        """Add every mesh in ``model.meshes`` to the spec as ``newton_mesh_{id}``.
 
         Must be called before ``spec.compile()`` so that geoms referencing
         pool mesh names resolve correctly.
@@ -5286,7 +5285,7 @@ class SolverMuJoCo(SolverBase):
         for mid, mesh_obj in enumerate(meshes):
             scale = scales[mid] if mid < len(scales) else np.ones(3, dtype=np.float32)
             spec.add_mesh(
-                name=f"newton_pool_mesh_{mid}",
+                name=f"newton_mesh_{mid}",
                 uservert=(np.asarray(mesh_obj.vertices, dtype=np.float32) * scale).flatten(),
                 userface=np.asarray(mesh_obj.indices, dtype=np.int32).flatten(),
                 maxhullvert=mesh_obj.maxhullvert,
@@ -5312,7 +5311,7 @@ class SolverMuJoCo(SolverBase):
         for mid, mesh_obj in enumerate(meshes):
             scale = scales[mid] if mid < len(scales) else np.ones(3, dtype=np.float32)
             mesh_to_dataid[mid] = mujoco.mj_name2id(
-                self.mj_model, mujoco.mjtObj.mjOBJ_MESH, f"newton_pool_mesh_{mid}",
+                self.mj_model, mujoco.mjtObj.mjOBJ_MESH, f"newton_mesh_{mid}",
             )
             verts = np.asarray(mesh_obj.vertices, dtype=np.float32) * scale
             center = (verts.min(0) + verts.max(0)) / 2
