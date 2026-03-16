@@ -4733,7 +4733,13 @@ class SolverMuJoCo(SolverBase):
             self.mjc_actuator_ctrl_source = None
             self.mjc_actuator_to_newton_idx = None
 
-        self._register_mesh_pool(model, spec)
+        self._add_pool_meshes_to_spec(model, spec)
+
+        self.mj_model = spec.compile()
+        self.mj_spec = spec
+        self.mj_data = mujoco.MjData(self.mj_model)
+
+        self._build_mesh_pool_lookups(model)
 
         self._update_mjc_data(self.mj_data, model, state)
 
@@ -5269,23 +5275,14 @@ class SolverMuJoCo(SolverBase):
             device=self.model.device,
         )
 
-    def _register_mesh_pool(self, model, spec):
-        """Add all pool meshes to the spec, compile, and build lookup arrays.
+    def _add_pool_meshes_to_spec(self, model, spec):
+        """Add every mesh in ``model.meshes`` to the spec as ``newton_pool_mesh_{id}``.
 
-        Every mesh in ``model.meshes`` is added to the spec under the name
-        ``newton_pool_mesh_{id}`` so that geoms can reference them and the user
-        can swap to any pool mesh at runtime.
-
-        After compilation, builds two 1-D GPU arrays the swap kernel indexes
-        into:
-
-        - ``_mesh_to_dataid[mesh_id]`` → MuJoCo ``geom_dataid`` value
-        - ``_mesh_to_rbound[mesh_id]`` → bounding-sphere radius
+        Must be called before ``spec.compile()`` so that geoms referencing
+        pool mesh names resolve correctly.
         """
-        mujoco = self._mujoco
         meshes = getattr(model, "meshes", None) or []
         scales = getattr(model, "mesh_scales", None) or []
-
         for mid, mesh_obj in enumerate(meshes):
             scale = scales[mid] if mid < len(scales) else np.ones(3, dtype=np.float32)
             spec.add_mesh(
@@ -5295,10 +5292,17 @@ class SolverMuJoCo(SolverBase):
                 maxhullvert=mesh_obj.maxhullvert,
             )
 
-        self.mj_model = spec.compile()
-        self.mj_spec = spec
-        self.mj_data = mujoco.MjData(self.mj_model)
+    def _build_mesh_pool_lookups(self, model):
+        """Build GPU lookup arrays that map pool mesh index to MuJoCo dataid/rbound.
 
+        Must be called after ``spec.compile()``.  Populates:
+
+        - ``_mesh_to_dataid[mesh_id]`` → MuJoCo ``geom_dataid`` value
+        - ``_mesh_to_rbound[mesh_id]`` → bounding-sphere radius
+        """
+        mujoco = self._mujoco
+        meshes = getattr(model, "meshes", None) or []
+        scales = getattr(model, "mesh_scales", None) or []
         if not meshes:
             return
 
