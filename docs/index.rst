@@ -27,6 +27,7 @@ Newton Physics
    
    Worlds <concepts/worlds>
    Articulations <concepts/articulations>
+   Actuators <concepts/actuators>
    Mass and Inertia <concepts/mass_inertia>
    Sites <concepts/sites>
    Sensors <concepts/sensors>

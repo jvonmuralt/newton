@@ -116,7 +116,7 @@ class ControllerNetMLP(Controller):
         velocities: wp.array,
         target_pos: wp.array,
         target_vel: wp.array,
-        act_input: wp.array | None,
+        feedforward: wp.array | None,
         input_indices: wp.array,
         target_indices: wp.array,
         forces: wp.array,

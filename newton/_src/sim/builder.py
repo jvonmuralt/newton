@@ -10335,8 +10335,8 @@ class ModelBuilder:
 
                 actuator = Actuator(
                     indices=indices,
-                    controller=controller,
                     delay=delay_obj,
+                    controller=controller,
                     clamping=clamping_objs if clamping_objs else None,
                 )
                 m.actuators.append(actuator)
