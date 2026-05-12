@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-05-12 00:29:11 Pacific Daylight Time",
+  "generated_at": "2026-05-12 10:13:08 Pacific Daylight Time",
   "config": {
     "runs": 2,
     "num_steps": 60,
@@ -137,7 +137,7 @@
           "value": "2.801e-04 m/s"
         }
       ],
-      "duration_s": 15.01253859999997,
+      "duration_s": 36.74904460000107,
       "summary": "2/2 subprocess replays matched byte-for-byte with CUDA graph enabled."
     },
     {
@@ -207,7 +207,7 @@
           "value": "0.859 m/s"
         }
       ],
-      "duration_s": 32.16257900000346,
+      "duration_s": 30.744703500007745,
       "summary": "2/2 subprocess replays matched byte-for-byte with CUDA graph enabled."
     },
     {
@@ -277,7 +277,7 @@
           "value": "0.842 m/s"
         }
       ],
-      "duration_s": 18.84229050000431,
+      "duration_s": 18.376833599992096,
       "summary": "2/2 subprocess replays matched byte-for-byte with CUDA graph enabled."
     },
     {
@@ -347,7 +347,7 @@
           "value": "6.262e-06 m/s"
         }
       ],
-      "duration_s": 77.88564860000042,
+      "duration_s": 76.30130079999799,
       "summary": "2/2 subprocess replays matched byte-for-byte with CUDA graph enabled."
     },
     {
@@ -416,7 +416,7 @@
           "value": "38"
         }
       ],
-      "duration_s": 16.561317599996983,
+      "duration_s": 13.589492800005246,
       "summary": "2/2 subprocess replays matched byte-for-byte with CUDA graph enabled."
     },
     {
@@ -485,7 +485,7 @@
           "value": "38"
         }
       ],
-      "duration_s": 77.44210680000106,
+      "duration_s": 44.15592449999531,
       "summary": "2/2 subprocess replays matched byte-for-byte with CUDA graph enabled."
     },
     {
@@ -551,7 +551,7 @@
           "value": "0"
         }
       ],
-      "duration_s": 14.383987699999125,
+      "duration_s": 13.623163600001135,
       "summary": "2/2 subprocess replays matched byte-for-byte with CUDA graph enabled."
     },
     {
@@ -617,7 +617,7 @@
           "value": "0"
         }
       ],
-      "duration_s": 42.15220930000214,
+      "duration_s": 43.048399999999674,
       "summary": "2/2 subprocess replays matched byte-for-byte with CUDA graph enabled."
     },
     {
@@ -689,7 +689,7 @@
           "value": "0"
         }
       ],
-      "duration_s": 38.68972309999663,
+      "duration_s": 43.700389500008896,
       "summary": "2/2 subprocess replays matched byte-for-byte with CUDA graph enabled."
     },
     {
@@ -761,7 +761,7 @@
           "value": "0"
         }
       ],
-      "duration_s": 26.121146000004956,
+      "duration_s": 24.51279710000381,
       "summary": "2/2 subprocess replays matched byte-for-byte with CUDA graph enabled."
     },
     {
@@ -833,7 +833,7 @@
           "value": "64"
         }
       ],
-      "duration_s": 73.3386268999966,
+      "duration_s": 58.73087739999755,
       "summary": "2/2 subprocess replays matched byte-for-byte with CUDA graph enabled."
     },
     {
@@ -904,7 +904,7 @@
           "value": "28"
         }
       ],
-      "duration_s": 27.061357400001725,
+      "duration_s": 27.769746799996938,
       "summary": "2/2 subprocess replays matched byte-for-byte with CUDA graph enabled."
     },
     {
@@ -975,7 +975,7 @@
           "value": "28"
         }
       ],
-      "duration_s": 27.468262800000957,
+      "duration_s": 23.61003460000211,
       "summary": "2/2 subprocess replays matched byte-for-byte with CUDA graph enabled."
     },
     {
@@ -1046,7 +1046,7 @@
           "value": "28"
         }
       ],
-      "duration_s": 67.63919880000321,
+      "duration_s": 55.08286469998711,
       "summary": "2/2 subprocess replays matched byte-for-byte with CUDA graph enabled."
     },
     {
@@ -1099,7 +1099,7 @@
         "diffsim": true
       },
       "metrics": [],
-      "duration_s": 13.663079399993876,
+      "duration_s": 16.632244499996887,
       "summary": "2/2 subprocess replays matched byte-for-byte with CUDA graph enabled."
     },
     {
@@ -1108,23 +1108,23 @@
       "variant_id": "default",
       "variant_label": "Default",
       "variant_order": 0,
-      "status": "non_deterministic",
-      "all_equal": false,
+      "status": "bit_exact",
+      "all_equal": true,
       "hashes": [
-        "1ac3eb5e5ca6c617",
-        "ee66762bd10913e4"
+        "bb313ef995f9e942",
+        "bb313ef995f9e942"
       ],
-      "unique_hashes": 2,
+      "unique_hashes": 1,
       "max_core_diff": {
         "final_particle_q": 0.0,
         "final_particle_qd": 0.0,
-        "initial_particle_qd_grad": 2.2351741790771484e-08,
+        "initial_particle_qd_grad": 0.0,
         "com": 0.0,
         "loss": 0.0
       },
-      "max_core_diff_overall": 2.2351741790771484e-08,
-      "dominant_core_signal": "initial_particle_qd_grad",
-      "dominant_core_value": 2.2351741790771484e-08,
+      "max_core_diff_overall": 0.0,
+      "dominant_core_signal": "final_particle_q",
+      "dominant_core_value": 0.0,
       "extras_diff": {
         "loss_history": 0.0,
         "target": 0.0
@@ -1150,8 +1150,8 @@
         "diffsim": true
       },
       "metrics": [],
-      "duration_s": 11.325184100001934,
-      "summary": "2 unique hashes across 2 subprocess runs; largest core drift in initial_particle_qd_grad (2.235e-08); CUDA graph."
+      "duration_s": 12.0581208000076,
+      "summary": "2/2 subprocess replays matched byte-for-byte with CUDA graph enabled."
     },
     {
       "scenario": "diffsim_spring_cage",
@@ -1162,8 +1162,8 @@
       "status": "bit_exact",
       "all_equal": true,
       "hashes": [
-        "60224c5c5a7d340d",
-        "60224c5c5a7d340d"
+        "809570f092412b7f",
+        "809570f092412b7f"
       ],
       "unique_hashes": 1,
       "max_core_diff": {
@@ -1200,7 +1200,7 @@
         "diffsim": true
       },
       "metrics": [],
-      "duration_s": 10.163171899999725,
+      "duration_s": 12.316491699995822,
       "summary": "2/2 subprocess replays matched byte-for-byte with CUDA graph enabled."
     }
   ],
@@ -1233,7 +1233,7 @@
       "width": 960,
       "height": 540,
       "first_mean": 42.26835583847737,
-      "last_mean": 43.865737525720164
+      "last_mean": 42.8705999228395
     },
     {
       "scenario": "domino_chain",
@@ -1248,7 +1248,7 @@
       "width": 960,
       "height": 540,
       "first_mean": 46.60653420781893,
-      "last_mean": 46.82295781893004
+      "last_mean": 46.814940200617286
     },
     {
       "scenario": "arm_7dof",
@@ -1335,18 +1335,18 @@
         "body": "All 17 solver pairs completed 2 independent subprocess replays."
       },
       {
-        "tone": "warn",
+        "tone": "ok",
         "title": "Run-to-run verdict",
-        "body": "1 of 17 solver pair(s) still diverged under wp.config.deterministic='run_to_run'."
+        "body": "Every tested solver pair was bit-exact under wp.config.deterministic='run_to_run'."
       },
       {
-        "tone": "warn",
+        "tone": "ok",
         "title": "Largest remaining gap",
-        "body": "Diffsim Cloth COM / semi_implicit drifts the most: initial_particle_qd_grad = 2.235e-08."
+        "body": "No remaining run-to-run gap was observed in the tested harness slice on this GPU/software stack."
       }
     ],
     "observed_gaps": [
-      "Diffsim Cloth COM / semi_implicit: 2 unique hashes across 2 runs; dominant core drift in initial_particle_qd_grad = 2.235e-08; execution = CUDA graph."
+      "No observed run-to-run determinism gaps remain in this tested report slice."
     ],
     "scope_limits": [
       "This report only checks repeated runs on the same machine, driver, GPU, and Warp/Newton build; it does not prove cross-GPU or cross-driver reproducibility.",

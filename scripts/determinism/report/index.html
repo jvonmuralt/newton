@@ -395,8 +395,8 @@
       <div class="summary-grid">
         <div class="summary-tile emphasis"><span>Scenarios</span><strong>8</strong></div>
         <div class="summary-tile"><span>Solver pairs</span><strong>17</strong></div>
-        <div class="summary-tile"><span>Bit-exact</span><strong>16</strong></div>
-        <div class="summary-tile"><span>Drift</span><strong>1</strong></div>
+        <div class="summary-tile"><span>Bit-exact</span><strong>17</strong></div>
+        <div class="summary-tile"><span>Drift</span><strong>0</strong></div>
         <div class="summary-tile"><span>Failures</span><strong>0</strong></div>
       </div>
     </div>
@@ -413,16 +413,16 @@
           <p>All 17 solver pairs completed 2 independent subprocess replays.</p>
         </article>
 
-        <article class="finding warn">
+        <article class="finding ok">
           <p class="eyebrow">Key finding</p>
           <h3>Run-to-run verdict</h3>
-          <p>1 of 17 solver pair(s) still diverged under wp.config.deterministic=&#x27;run_to_run&#x27;.</p>
+          <p>Every tested solver pair was bit-exact under wp.config.deterministic=&#x27;run_to_run&#x27;.</p>
         </article>
 
-        <article class="finding warn">
+        <article class="finding ok">
           <p class="eyebrow">Key finding</p>
           <h3>Largest remaining gap</h3>
-          <p>Diffsim Cloth COM / semi_implicit drifts the most: initial_particle_qd_grad = 2.235e-08.</p>
+          <p>No remaining run-to-run gap was observed in the tested harness slice on this GPU/software stack.</p>
         </article>
       </div>
     </section>
@@ -511,7 +511,7 @@
         <div><span>Dominant core drift</span><strong>body_q (0)</strong></div>
         <div><span>Dominant extra drift</span><strong>none</strong></div>
         <div><span>Max core diff</span><strong>0</strong></div>
-        <div><span>Duration</span><strong>32.163 s</strong></div>
+        <div><span>Duration</span><strong>30.745 s</strong></div>
       </div>
       
     </article>
@@ -530,7 +530,7 @@
         <div><span>Dominant core drift</span><strong>body_q (0)</strong></div>
         <div><span>Dominant extra drift</span><strong>none</strong></div>
         <div><span>Max core diff</span><strong>0</strong></div>
-        <div><span>Duration</span><strong>77.886 s</strong></div>
+        <div><span>Duration</span><strong>76.301 s</strong></div>
       </div>
       
     </article>
@@ -549,7 +549,7 @@
         <div><span>Dominant core drift</span><strong>body_q (0)</strong></div>
         <div><span>Dominant extra drift</span><strong>none</strong></div>
         <div><span>Max core diff</span><strong>0</strong></div>
-        <div><span>Duration</span><strong>18.842 s</strong></div>
+        <div><span>Duration</span><strong>18.377 s</strong></div>
       </div>
       
     </article>
@@ -568,7 +568,7 @@
         <div><span>Dominant core drift</span><strong>body_q (0)</strong></div>
         <div><span>Dominant extra drift</span><strong>none</strong></div>
         <div><span>Max core diff</span><strong>0</strong></div>
-        <div><span>Duration</span><strong>15.013 s</strong></div>
+        <div><span>Duration</span><strong>36.749 s</strong></div>
       </div>
       
     </article>
@@ -631,7 +631,7 @@
         <div><span>Dominant core drift</span><strong>body_q (0)</strong></div>
         <div><span>Dominant extra drift</span><strong>none</strong></div>
         <div><span>Max core diff</span><strong>0</strong></div>
-        <div><span>Duration</span><strong>77.442 s</strong></div>
+        <div><span>Duration</span><strong>44.156 s</strong></div>
       </div>
       
     </article>
@@ -650,7 +650,7 @@
         <div><span>Dominant core drift</span><strong>body_q (0)</strong></div>
         <div><span>Dominant extra drift</span><strong>none</strong></div>
         <div><span>Max core diff</span><strong>0</strong></div>
-        <div><span>Duration</span><strong>16.561 s</strong></div>
+        <div><span>Duration</span><strong>13.589 s</strong></div>
       </div>
       
     </article>
@@ -713,7 +713,7 @@
         <div><span>Dominant core drift</span><strong>body_q (0)</strong></div>
         <div><span>Dominant extra drift</span><strong>none</strong></div>
         <div><span>Max core diff</span><strong>0</strong></div>
-        <div><span>Duration</span><strong>42.152 s</strong></div>
+        <div><span>Duration</span><strong>43.048 s</strong></div>
       </div>
       
     </article>
@@ -732,7 +732,7 @@
         <div><span>Dominant core drift</span><strong>body_q (0)</strong></div>
         <div><span>Dominant extra drift</span><strong>none</strong></div>
         <div><span>Max core diff</span><strong>0</strong></div>
-        <div><span>Duration</span><strong>14.384 s</strong></div>
+        <div><span>Duration</span><strong>13.623 s</strong></div>
       </div>
       
     </article>
@@ -795,7 +795,7 @@
         <div><span>Dominant core drift</span><strong>body_q (0)</strong></div>
         <div><span>Dominant extra drift</span><strong>none</strong></div>
         <div><span>Max core diff</span><strong>0</strong></div>
-        <div><span>Duration</span><strong>26.121 s</strong></div>
+        <div><span>Duration</span><strong>24.513 s</strong></div>
       </div>
       
     </article>
@@ -814,7 +814,7 @@
         <div><span>Dominant core drift</span><strong>body_q (0)</strong></div>
         <div><span>Dominant extra drift</span><strong>none</strong></div>
         <div><span>Max core diff</span><strong>0</strong></div>
-        <div><span>Duration</span><strong>73.339 s</strong></div>
+        <div><span>Duration</span><strong>58.731 s</strong></div>
       </div>
       
     </article>
@@ -833,7 +833,7 @@
         <div><span>Dominant core drift</span><strong>body_q (0)</strong></div>
         <div><span>Dominant extra drift</span><strong>none</strong></div>
         <div><span>Max core diff</span><strong>0</strong></div>
-        <div><span>Duration</span><strong>38.69 s</strong></div>
+        <div><span>Duration</span><strong>43.7 s</strong></div>
       </div>
       
     </article>
@@ -896,7 +896,7 @@
         <div><span>Dominant core drift</span><strong>body_q (0)</strong></div>
         <div><span>Dominant extra drift</span><strong>none</strong></div>
         <div><span>Max core diff</span><strong>0</strong></div>
-        <div><span>Duration</span><strong>27.468 s</strong></div>
+        <div><span>Duration</span><strong>23.61 s</strong></div>
       </div>
       
     </article>
@@ -915,7 +915,7 @@
         <div><span>Dominant core drift</span><strong>body_q (0)</strong></div>
         <div><span>Dominant extra drift</span><strong>none</strong></div>
         <div><span>Max core diff</span><strong>0</strong></div>
-        <div><span>Duration</span><strong>67.639 s</strong></div>
+        <div><span>Duration</span><strong>55.083 s</strong></div>
       </div>
       
     </article>
@@ -934,7 +934,7 @@
         <div><span>Dominant core drift</span><strong>body_q (0)</strong></div>
         <div><span>Dominant extra drift</span><strong>none</strong></div>
         <div><span>Max core diff</span><strong>0</strong></div>
-        <div><span>Duration</span><strong>27.061 s</strong></div>
+        <div><span>Duration</span><strong>27.77 s</strong></div>
       </div>
       
     </article>
@@ -978,7 +978,7 @@
         <div><span>Dominant core drift</span><strong>final_particle_q (0)</strong></div>
         <div><span>Dominant extra drift</span><strong>none</strong></div>
         <div><span>Max core diff</span><strong>0</strong></div>
-        <div><span>Duration</span><strong>13.663 s</strong></div>
+        <div><span>Duration</span><strong>16.632 s</strong></div>
       </div>
       
     </article>
@@ -1008,21 +1008,21 @@
                 </div>
                 <div class="solver-cards">
                   
-    <article class="solver-card warn">
+    <article class="solver-card ok">
       <div class="solver-card-head">
         <div>
           <h3><code>semi_implicit</code></h3>
         </div>
-        <span class="pill warn">DRIFT</span>
+        <span class="pill ok">BIT-EXACT</span>
       </div>
-      <p class="solver-summary">2 unique hashes across 2 subprocess runs; largest core drift in initial_particle_qd_grad (2.235e-08); CUDA graph.</p>
+      <p class="solver-summary">2/2 subprocess replays matched byte-for-byte with CUDA graph enabled.</p>
       <div class="solver-stats">
         <div><span>Execution</span><strong>CUDA graph</strong></div>
-        <div><span>Unique hashes</span><strong>2</strong></div>
-        <div><span>Dominant core drift</span><strong>initial_particle_qd_grad (2.235e-08)</strong></div>
+        <div><span>Unique hashes</span><strong>1</strong></div>
+        <div><span>Dominant core drift</span><strong>final_particle_q (0)</strong></div>
         <div><span>Dominant extra drift</span><strong>none</strong></div>
-        <div><span>Max core diff</span><strong>2.235e-08</strong></div>
-        <div><span>Duration</span><strong>11.325 s</strong></div>
+        <div><span>Max core diff</span><strong>0</strong></div>
+        <div><span>Duration</span><strong>12.058 s</strong></div>
       </div>
       
     </article>
@@ -1066,7 +1066,7 @@
         <div><span>Dominant core drift</span><strong>final_particle_q (0)</strong></div>
         <div><span>Dominant extra drift</span><strong>none</strong></div>
         <div><span>Max core diff</span><strong>0</strong></div>
-        <div><span>Duration</span><strong>10.163 s</strong></div>
+        <div><span>Duration</span><strong>12.316 s</strong></div>
       </div>
       
     </article>
@@ -1103,7 +1103,7 @@
               <td>0</td>
               <td>-</td>
               <td>0</td>
-              <td>26.121 s</td>
+              <td>24.513 s</td>
             </tr>
 
             <tr>
@@ -1115,7 +1115,7 @@
               <td>0</td>
               <td>-</td>
               <td>0</td>
-              <td>73.339 s</td>
+              <td>58.731 s</td>
             </tr>
 
             <tr>
@@ -1127,7 +1127,7 @@
               <td>0</td>
               <td>-</td>
               <td>0</td>
-              <td>38.69 s</td>
+              <td>43.7 s</td>
             </tr>
 
             <tr>
@@ -1139,7 +1139,7 @@
               <td>0</td>
               <td>-</td>
               <td>0</td>
-              <td>77.442 s</td>
+              <td>44.156 s</td>
             </tr>
 
             <tr>
@@ -1151,7 +1151,7 @@
               <td>0</td>
               <td>-</td>
               <td>0</td>
-              <td>16.561 s</td>
+              <td>13.589 s</td>
             </tr>
 
             <tr>
@@ -1163,19 +1163,19 @@
               <td>0</td>
               <td>-</td>
               <td>0</td>
-              <td>13.663 s</td>
+              <td>16.632 s</td>
             </tr>
 
             <tr>
               <td>Diffsim Cloth COM</td>
               <td><code>semi_implicit</code></td>
-              <td><span class="pill warn">DRIFT</span></td>
-              <td>2</td>
-              <td>initial_particle_qd_grad (2.235e-08)</td>
-              <td>2.235e-08</td>
+              <td><span class="pill ok">BIT-EXACT</span></td>
+              <td>1</td>
+              <td>final_particle_q (0)</td>
+              <td>0</td>
               <td>-</td>
               <td>0</td>
-              <td>11.325 s</td>
+              <td>12.058 s</td>
             </tr>
 
             <tr>
@@ -1187,7 +1187,7 @@
               <td>0</td>
               <td>-</td>
               <td>0</td>
-              <td>10.163 s</td>
+              <td>12.316 s</td>
             </tr>
 
             <tr>
@@ -1199,7 +1199,7 @@
               <td>0</td>
               <td>-</td>
               <td>0</td>
-              <td>42.152 s</td>
+              <td>43.048 s</td>
             </tr>
 
             <tr>
@@ -1211,7 +1211,7 @@
               <td>0</td>
               <td>-</td>
               <td>0</td>
-              <td>14.384 s</td>
+              <td>13.623 s</td>
             </tr>
 
             <tr>
@@ -1223,7 +1223,7 @@
               <td>0</td>
               <td>-</td>
               <td>0</td>
-              <td>32.163 s</td>
+              <td>30.745 s</td>
             </tr>
 
             <tr>
@@ -1235,7 +1235,7 @@
               <td>0</td>
               <td>-</td>
               <td>0</td>
-              <td>77.886 s</td>
+              <td>76.301 s</td>
             </tr>
 
             <tr>
@@ -1247,7 +1247,7 @@
               <td>0</td>
               <td>-</td>
               <td>0</td>
-              <td>18.842 s</td>
+              <td>18.377 s</td>
             </tr>
 
             <tr>
@@ -1259,7 +1259,7 @@
               <td>0</td>
               <td>-</td>
               <td>0</td>
-              <td>15.013 s</td>
+              <td>36.749 s</td>
             </tr>
 
             <tr>
@@ -1271,7 +1271,7 @@
               <td>0</td>
               <td>-</td>
               <td>0</td>
-              <td>27.468 s</td>
+              <td>23.61 s</td>
             </tr>
 
             <tr>
@@ -1283,7 +1283,7 @@
               <td>0</td>
               <td>-</td>
               <td>0</td>
-              <td>67.639 s</td>
+              <td>55.083 s</td>
             </tr>
 
             <tr>
@@ -1295,7 +1295,7 @@
               <td>0</td>
               <td>-</td>
               <td>0</td>
-              <td>27.061 s</td>
+              <td>27.77 s</td>
             </tr>
           </tbody>
         </table>
@@ -1309,7 +1309,7 @@
           <h3>Observed gaps in this run</h3>
           <p>These notes are generated from the actual solver results above rather than a static message.</p>
           <ul>
-            <li>Diffsim Cloth COM / semi_implicit: 2 unique hashes across 2 runs; dominant core drift in initial_particle_qd_grad = 2.235e-08; execution = CUDA graph.</li>
+            <li>No observed run-to-run determinism gaps remain in this tested report slice.</li>
           </ul>
         </div>
         <div class="list-card">
@@ -1334,7 +1334,7 @@
   </main>
 
   <footer>
-    Generated 2026-05-12 00:29:11 Pacific Daylight Time. Raw machine-readable data: <code>determinism_report.json</code>.
+    Generated 2026-05-12 10:13:08 Pacific Daylight Time. Raw machine-readable data: <code>determinism_report.json</code>.
   </footer>
 </body>
 </html>
