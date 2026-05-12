@@ -80,6 +80,7 @@ class DiffsimBallScenario(Scenario):
             self.model,
             broad_phase="explicit",
             soft_contact_margin=10.0,
+            deterministic=True,
             requires_grad=True,
         )
         self.contacts = self.collision_pipeline.contacts()
@@ -161,6 +162,9 @@ class DiffsimBallScenario(Scenario):
             "substeps": self.args.substeps,
             "warp_version": wp.__version__,
             "wp_deterministic": wp.config.deterministic,
+            "collision_pipeline_deterministic": bool(getattr(self.collision_pipeline, "deterministic", False)),
+            "collision_pipeline_wp_deterministic": wp.config.deterministic,
+            "custom_collision_pipeline": True,
             "graph_capture_enabled": False,
             "diffsim": True,
         }

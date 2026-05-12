@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-05-12 00:06:01 Pacific Daylight Time",
+  "generated_at": "2026-05-12 00:29:11 Pacific Daylight Time",
   "config": {
     "runs": 2,
     "num_steps": 60,
@@ -17,12 +17,7 @@
     "humanoid",
     "diffsim_ball",
     "diffsim_cloth_com",
-    "diffsim_spring_cage",
-    "warp_argmax_exchange",
-    "warp_counter_indexed",
-    "warp_counter_sliced",
-    "warp_counter_static_index",
-    "warp_custom_adjoint"
+    "diffsim_spring_cage"
   ],
   "scenarios": {
     "falling_cube": {
@@ -72,36 +67,6 @@
       "doc": "Spring rest-length gradient inspired by ``example_diffsim_spring_cage``.",
       "note": "Differentiable spring-cage target; core includes loss and spring rest-length gradients.",
       "representative_solver": "semi_implicit"
-    },
-    "warp_argmax_exchange": {
-      "title": "warp_argmax_exchange",
-      "doc": "Consumed-return ``atomic_max`` followed by an ``atomic_exch`` winner.",
-      "note": "",
-      "representative_solver": "xpbd"
-    },
-    "warp_counter_indexed": {
-      "title": "warp_counter_indexed",
-      "doc": "Consumed-return ``atomic_add`` with a dynamic counter index.",
-      "note": "",
-      "representative_solver": "xpbd"
-    },
-    "warp_counter_sliced": {
-      "title": "warp_counter_sliced",
-      "doc": "Consumed-return ``atomic_add`` through a sliced per-world counter view.",
-      "note": "",
-      "representative_solver": "xpbd"
-    },
-    "warp_counter_static_index": {
-      "title": "warp_counter_static_index",
-      "doc": "Consumed-return ``atomic_add`` with a nonzero ``wp.static`` index.",
-      "note": "",
-      "representative_solver": "xpbd"
-    },
-    "warp_custom_adjoint": {
-      "title": "warp_custom_adjoint",
-      "doc": "Custom ``@wp.func_grad`` that accumulates into ``wp.adjoint[array]``.",
-      "note": "",
-      "representative_solver": "xpbd"
     }
   },
   "solver_results": [
@@ -136,7 +101,7 @@
       "dominant_extra_signal": "final_pose",
       "dominant_extra_value": 0.0,
       "disable_graph": false,
-      "collision_pipeline_deterministic": false,
+      "collision_pipeline_deterministic": true,
       "collision_pipeline_wp_deterministic": "run_to_run",
       "graph_capture_enabled": true,
       "meta": {
@@ -149,9 +114,9 @@
         "substeps": 4,
         "warp_version": "1.14.0.dev0",
         "wp_deterministic": "run_to_run",
-        "collision_pipeline_deterministic": false,
+        "collision_pipeline_deterministic": true,
         "collision_pipeline_wp_deterministic": "run_to_run",
-        "custom_collision_pipeline": false,
+        "custom_collision_pipeline": true,
         "graph_capture_enabled": true
       },
       "metrics": [
@@ -172,7 +137,7 @@
           "value": "2.801e-04 m/s"
         }
       ],
-      "duration_s": 16.643363399998634,
+      "duration_s": 15.01253859999997,
       "summary": "2/2 subprocess replays matched byte-for-byte with CUDA graph enabled."
     },
     {
@@ -206,7 +171,7 @@
       "dominant_extra_signal": "final_pose",
       "dominant_extra_value": 0.0,
       "disable_graph": false,
-      "collision_pipeline_deterministic": false,
+      "collision_pipeline_deterministic": true,
       "collision_pipeline_wp_deterministic": "run_to_run",
       "graph_capture_enabled": true,
       "meta": {
@@ -219,9 +184,9 @@
         "substeps": 4,
         "warp_version": "1.14.0.dev0",
         "wp_deterministic": "run_to_run",
-        "collision_pipeline_deterministic": false,
+        "collision_pipeline_deterministic": true,
         "collision_pipeline_wp_deterministic": "run_to_run",
-        "custom_collision_pipeline": false,
+        "custom_collision_pipeline": true,
         "graph_capture_enabled": true
       },
       "metrics": [
@@ -242,7 +207,7 @@
           "value": "0.859 m/s"
         }
       ],
-      "duration_s": 17.3473690000028,
+      "duration_s": 32.16257900000346,
       "summary": "2/2 subprocess replays matched byte-for-byte with CUDA graph enabled."
     },
     {
@@ -276,7 +241,7 @@
       "dominant_extra_signal": "final_pose",
       "dominant_extra_value": 0.0,
       "disable_graph": false,
-      "collision_pipeline_deterministic": false,
+      "collision_pipeline_deterministic": true,
       "collision_pipeline_wp_deterministic": "run_to_run",
       "graph_capture_enabled": true,
       "meta": {
@@ -289,9 +254,9 @@
         "substeps": 4,
         "warp_version": "1.14.0.dev0",
         "wp_deterministic": "run_to_run",
-        "collision_pipeline_deterministic": false,
+        "collision_pipeline_deterministic": true,
         "collision_pipeline_wp_deterministic": "run_to_run",
-        "custom_collision_pipeline": false,
+        "custom_collision_pipeline": true,
         "graph_capture_enabled": true
       },
       "metrics": [
@@ -312,7 +277,7 @@
           "value": "0.842 m/s"
         }
       ],
-      "duration_s": 16.03301069999725,
+      "duration_s": 18.84229050000431,
       "summary": "2/2 subprocess replays matched byte-for-byte with CUDA graph enabled."
     },
     {
@@ -346,7 +311,7 @@
       "dominant_extra_signal": "final_pose",
       "dominant_extra_value": 0.0,
       "disable_graph": false,
-      "collision_pipeline_deterministic": false,
+      "collision_pipeline_deterministic": true,
       "collision_pipeline_wp_deterministic": "run_to_run",
       "graph_capture_enabled": true,
       "meta": {
@@ -359,9 +324,9 @@
         "substeps": 4,
         "warp_version": "1.14.0.dev0",
         "wp_deterministic": "run_to_run",
-        "collision_pipeline_deterministic": false,
+        "collision_pipeline_deterministic": true,
         "collision_pipeline_wp_deterministic": "run_to_run",
-        "custom_collision_pipeline": false,
+        "custom_collision_pipeline": true,
         "graph_capture_enabled": true
       },
       "metrics": [
@@ -382,7 +347,7 @@
           "value": "6.262e-06 m/s"
         }
       ],
-      "duration_s": 71.49126139999862,
+      "duration_s": 77.88564860000042,
       "summary": "2/2 subprocess replays matched byte-for-byte with CUDA graph enabled."
     },
     {
@@ -415,7 +380,7 @@
       "dominant_extra_signal": "stack_order_world0",
       "dominant_extra_value": 0.0,
       "disable_graph": false,
-      "collision_pipeline_deterministic": false,
+      "collision_pipeline_deterministic": true,
       "collision_pipeline_wp_deterministic": "run_to_run",
       "graph_capture_enabled": true,
       "meta": {
@@ -428,9 +393,9 @@
         "substeps": 4,
         "warp_version": "1.14.0.dev0",
         "wp_deterministic": "run_to_run",
-        "collision_pipeline_deterministic": false,
+        "collision_pipeline_deterministic": true,
         "collision_pipeline_wp_deterministic": "run_to_run",
-        "custom_collision_pipeline": false,
+        "custom_collision_pipeline": true,
         "graph_capture_enabled": true
       },
       "metrics": [
@@ -451,7 +416,7 @@
           "value": "38"
         }
       ],
-      "duration_s": 17.119356800001697,
+      "duration_s": 16.561317599996983,
       "summary": "2/2 subprocess replays matched byte-for-byte with CUDA graph enabled."
     },
     {
@@ -484,7 +449,7 @@
       "dominant_extra_signal": "stack_order_world0",
       "dominant_extra_value": 0.0,
       "disable_graph": false,
-      "collision_pipeline_deterministic": false,
+      "collision_pipeline_deterministic": true,
       "collision_pipeline_wp_deterministic": "run_to_run",
       "graph_capture_enabled": true,
       "meta": {
@@ -497,9 +462,9 @@
         "substeps": 4,
         "warp_version": "1.14.0.dev0",
         "wp_deterministic": "run_to_run",
-        "collision_pipeline_deterministic": false,
+        "collision_pipeline_deterministic": true,
         "collision_pipeline_wp_deterministic": "run_to_run",
-        "custom_collision_pipeline": false,
+        "custom_collision_pipeline": true,
         "graph_capture_enabled": true
       },
       "metrics": [
@@ -520,7 +485,7 @@
           "value": "38"
         }
       ],
-      "duration_s": 47.58276509999996,
+      "duration_s": 77.44210680000106,
       "summary": "2/2 subprocess replays matched byte-for-byte with CUDA graph enabled."
     },
     {
@@ -550,7 +515,7 @@
       "dominant_extra_signal": null,
       "dominant_extra_value": 0.0,
       "disable_graph": false,
-      "collision_pipeline_deterministic": false,
+      "collision_pipeline_deterministic": true,
       "collision_pipeline_wp_deterministic": "run_to_run",
       "graph_capture_enabled": true,
       "meta": {
@@ -563,9 +528,9 @@
         "substeps": 4,
         "warp_version": "1.14.0.dev0",
         "wp_deterministic": "run_to_run",
-        "collision_pipeline_deterministic": false,
+        "collision_pipeline_deterministic": true,
         "collision_pipeline_wp_deterministic": "run_to_run",
-        "custom_collision_pipeline": false,
+        "custom_collision_pipeline": true,
         "graph_capture_enabled": true
       },
       "metrics": [
@@ -586,7 +551,7 @@
           "value": "0"
         }
       ],
-      "duration_s": 13.88288289999764,
+      "duration_s": 14.383987699999125,
       "summary": "2/2 subprocess replays matched byte-for-byte with CUDA graph enabled."
     },
     {
@@ -616,7 +581,7 @@
       "dominant_extra_signal": null,
       "dominant_extra_value": 0.0,
       "disable_graph": false,
-      "collision_pipeline_deterministic": false,
+      "collision_pipeline_deterministic": true,
       "collision_pipeline_wp_deterministic": "run_to_run",
       "graph_capture_enabled": true,
       "meta": {
@@ -629,9 +594,9 @@
         "substeps": 4,
         "warp_version": "1.14.0.dev0",
         "wp_deterministic": "run_to_run",
-        "collision_pipeline_deterministic": false,
+        "collision_pipeline_deterministic": true,
         "collision_pipeline_wp_deterministic": "run_to_run",
-        "custom_collision_pipeline": false,
+        "custom_collision_pipeline": true,
         "graph_capture_enabled": true
       },
       "metrics": [
@@ -652,7 +617,7 @@
           "value": "0"
         }
       ],
-      "duration_s": 46.13770349999686,
+      "duration_s": 42.15220930000214,
       "summary": "2/2 subprocess replays matched byte-for-byte with CUDA graph enabled."
     },
     {
@@ -688,7 +653,7 @@
       "dominant_extra_signal": "joint_q_history",
       "dominant_extra_value": 0.0,
       "disable_graph": false,
-      "collision_pipeline_deterministic": false,
+      "collision_pipeline_deterministic": true,
       "collision_pipeline_wp_deterministic": "run_to_run",
       "graph_capture_enabled": true,
       "meta": {
@@ -701,9 +666,9 @@
         "substeps": 4,
         "warp_version": "1.14.0.dev0",
         "wp_deterministic": "run_to_run",
-        "collision_pipeline_deterministic": false,
+        "collision_pipeline_deterministic": true,
         "collision_pipeline_wp_deterministic": "run_to_run",
-        "custom_collision_pipeline": false,
+        "custom_collision_pipeline": true,
         "graph_capture_enabled": true
       },
       "metrics": [
@@ -724,7 +689,7 @@
           "value": "0"
         }
       ],
-      "duration_s": 23.46446080000169,
+      "duration_s": 38.68972309999663,
       "summary": "2/2 subprocess replays matched byte-for-byte with CUDA graph enabled."
     },
     {
@@ -796,7 +761,7 @@
           "value": "0"
         }
       ],
-      "duration_s": 25.622713199998543,
+      "duration_s": 26.121146000004956,
       "summary": "2/2 subprocess replays matched byte-for-byte with CUDA graph enabled."
     },
     {
@@ -832,7 +797,7 @@
       "dominant_extra_signal": "joint_q_history",
       "dominant_extra_value": 0.0,
       "disable_graph": false,
-      "collision_pipeline_deterministic": false,
+      "collision_pipeline_deterministic": true,
       "collision_pipeline_wp_deterministic": "run_to_run",
       "graph_capture_enabled": true,
       "meta": {
@@ -845,9 +810,9 @@
         "substeps": 4,
         "warp_version": "1.14.0.dev0",
         "wp_deterministic": "run_to_run",
-        "collision_pipeline_deterministic": false,
+        "collision_pipeline_deterministic": true,
         "collision_pipeline_wp_deterministic": "run_to_run",
-        "custom_collision_pipeline": false,
+        "custom_collision_pipeline": true,
         "graph_capture_enabled": true
       },
       "metrics": [
@@ -868,7 +833,7 @@
           "value": "64"
         }
       ],
-      "duration_s": 53.244152800005395,
+      "duration_s": 73.3386268999966,
       "summary": "2/2 subprocess replays matched byte-for-byte with CUDA graph enabled."
     },
     {
@@ -903,7 +868,7 @@
       "dominant_extra_signal": "com_history",
       "dominant_extra_value": 0.0,
       "disable_graph": false,
-      "collision_pipeline_deterministic": false,
+      "collision_pipeline_deterministic": true,
       "collision_pipeline_wp_deterministic": "run_to_run",
       "graph_capture_enabled": true,
       "meta": {
@@ -916,9 +881,9 @@
         "substeps": 4,
         "warp_version": "1.14.0.dev0",
         "wp_deterministic": "run_to_run",
-        "collision_pipeline_deterministic": false,
+        "collision_pipeline_deterministic": true,
         "collision_pipeline_wp_deterministic": "run_to_run",
-        "custom_collision_pipeline": false,
+        "custom_collision_pipeline": true,
         "graph_capture_enabled": true
       },
       "metrics": [
@@ -939,7 +904,7 @@
           "value": "28"
         }
       ],
-      "duration_s": 18.376230800000485,
+      "duration_s": 27.061357400001725,
       "summary": "2/2 subprocess replays matched byte-for-byte with CUDA graph enabled."
     },
     {
@@ -974,7 +939,7 @@
       "dominant_extra_signal": "com_history",
       "dominant_extra_value": 0.0,
       "disable_graph": false,
-      "collision_pipeline_deterministic": false,
+      "collision_pipeline_deterministic": true,
       "collision_pipeline_wp_deterministic": "run_to_run",
       "graph_capture_enabled": true,
       "meta": {
@@ -987,9 +952,9 @@
         "substeps": 4,
         "warp_version": "1.14.0.dev0",
         "wp_deterministic": "run_to_run",
-        "collision_pipeline_deterministic": false,
+        "collision_pipeline_deterministic": true,
         "collision_pipeline_wp_deterministic": "run_to_run",
-        "custom_collision_pipeline": false,
+        "custom_collision_pipeline": true,
         "graph_capture_enabled": true
       },
       "metrics": [
@@ -1010,7 +975,7 @@
           "value": "28"
         }
       ],
-      "duration_s": 23.28351880000264,
+      "duration_s": 27.468262800000957,
       "summary": "2/2 subprocess replays matched byte-for-byte with CUDA graph enabled."
     },
     {
@@ -1045,7 +1010,7 @@
       "dominant_extra_signal": "com_history",
       "dominant_extra_value": 0.0,
       "disable_graph": false,
-      "collision_pipeline_deterministic": false,
+      "collision_pipeline_deterministic": true,
       "collision_pipeline_wp_deterministic": "run_to_run",
       "graph_capture_enabled": true,
       "meta": {
@@ -1058,9 +1023,9 @@
         "substeps": 4,
         "warp_version": "1.14.0.dev0",
         "wp_deterministic": "run_to_run",
-        "collision_pipeline_deterministic": false,
+        "collision_pipeline_deterministic": true,
         "collision_pipeline_wp_deterministic": "run_to_run",
-        "custom_collision_pipeline": false,
+        "custom_collision_pipeline": true,
         "graph_capture_enabled": true
       },
       "metrics": [
@@ -1081,7 +1046,7 @@
           "value": "28"
         }
       ],
-      "duration_s": 46.80628609999985,
+      "duration_s": 67.63919880000321,
       "summary": "2/2 subprocess replays matched byte-for-byte with CUDA graph enabled."
     },
     {
@@ -1114,8 +1079,8 @@
       "dominant_extra_signal": "loss_history",
       "dominant_extra_value": 0.0,
       "disable_graph": false,
-      "collision_pipeline_deterministic": false,
-      "collision_pipeline_wp_deterministic": null,
+      "collision_pipeline_deterministic": true,
+      "collision_pipeline_wp_deterministic": "run_to_run",
       "graph_capture_enabled": false,
       "meta": {
         "scenario": "diffsim_ball",
@@ -1127,11 +1092,14 @@
         "substeps": 4,
         "warp_version": "1.14.0.dev0",
         "wp_deterministic": "run_to_run",
+        "collision_pipeline_deterministic": true,
+        "collision_pipeline_wp_deterministic": "run_to_run",
+        "custom_collision_pipeline": true,
         "graph_capture_enabled": false,
         "diffsim": true
       },
       "metrics": [],
-      "duration_s": 12.929425900001661,
+      "duration_s": 13.663079399993876,
       "summary": "2/2 subprocess replays matched byte-for-byte with CUDA graph enabled."
     },
     {
@@ -1143,20 +1111,20 @@
       "status": "non_deterministic",
       "all_equal": false,
       "hashes": [
-        "03bd098146615165",
-        "59bb108a536d5fda"
+        "1ac3eb5e5ca6c617",
+        "ee66762bd10913e4"
       ],
       "unique_hashes": 2,
       "max_core_diff": {
         "final_particle_q": 0.0,
         "final_particle_qd": 0.0,
-        "initial_particle_qd_grad": 2.9802322387695312e-08,
+        "initial_particle_qd_grad": 2.2351741790771484e-08,
         "com": 0.0,
         "loss": 0.0
       },
-      "max_core_diff_overall": 2.9802322387695312e-08,
+      "max_core_diff_overall": 2.2351741790771484e-08,
       "dominant_core_signal": "initial_particle_qd_grad",
-      "dominant_core_value": 2.9802322387695312e-08,
+      "dominant_core_value": 2.2351741790771484e-08,
       "extras_diff": {
         "loss_history": 0.0,
         "target": 0.0
@@ -1182,8 +1150,8 @@
         "diffsim": true
       },
       "metrics": [],
-      "duration_s": 9.23029860000679,
-      "summary": "2 unique hashes across 2 subprocess runs; largest core drift in initial_particle_qd_grad (2.980e-08); CUDA graph."
+      "duration_s": 11.325184100001934,
+      "summary": "2 unique hashes across 2 subprocess runs; largest core drift in initial_particle_qd_grad (2.235e-08); CUDA graph."
     },
     {
       "scenario": "diffsim_spring_cage",
@@ -1232,202 +1200,7 @@
         "diffsim": true
       },
       "metrics": [],
-      "duration_s": 9.059742099998402,
-      "summary": "2/2 subprocess replays matched byte-for-byte with CUDA graph enabled."
-    },
-    {
-      "scenario": "warp_argmax_exchange",
-      "solver": "xpbd",
-      "variant_id": "default",
-      "variant_label": "Default",
-      "variant_order": 0,
-      "collision_pipeline_deterministic": false,
-      "collision_pipeline_wp_deterministic": null,
-      "status": "failed",
-      "all_equal": false,
-      "disable_graph": false,
-      "duration_s": 4.218241600006877,
-      "error": "    return emit_node(adj, node)\n           ^^^^^^^^^^^^^^^^^^^^\n  File \"C:\\Users\\eric-\\source\\repos\\warp\\warp\\_src\\codegen.py\", line 2547, in emit_FunctionDef\n    adj.eval(f)\n  File \"C:\\Users\\eric-\\source\\repos\\warp\\warp\\_src\\codegen.py\", line 4462, in eval\n    return emit_node(adj, node)\n           ^^^^^^^^^^^^^^^^^^^^\n  File \"C:\\Users\\eric-\\source\\repos\\warp\\warp\\_src\\codegen.py\", line 3667, in emit_Assign\n    rhs = adj.eval(node.value)\n          ^^^^^^^^^^^^^^^^^^^^\n  File \"C:\\Users\\eric-\\source\\repos\\warp\\warp\\_src\\codegen.py\", line 4462, in eval\n    return emit_node(adj, node)\n           ^^^^^^^^^^^^^^^^^^^^\n  File \"C:\\Users\\eric-\\source\\repos\\warp\\warp\\_src\\codegen.py\", line 3449, in emit_Call\n    out = adj.add_call(func, args, kwargs, type_args, min_outputs=min_outputs)\n          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"C:\\Users\\eric-\\source\\repos\\warp\\warp\\_src\\codegen.py\", line 1890, in add_call\n    det_output = adj._emit_deterministic_atomic(func, bound_args, return_type, output, output_list)\n                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"C:\\Users\\eric-\\source\\repos\\warp\\warp\\_src\\codegen.py\", line 2120, in _emit_deterministic_atomic\n    raise WarpCodegenError(\nwarp._src.codegen.WarpCodegenError: Error while parsing function \"_argmax_exchange_kernel\" at C:\\Users\\eric-\\source\\repos\\newton5\\scripts\\determinism\\scenarios\\warp_argmax_exchange.py:19:\n    previous = wp.atomic_max(best_score, 0, score)\n;Deterministic mode currently supports consumed-return counter atomics only for atomic_add, got atomic_max.\nWarp 1.14.0.dev0 initialized:\n   CUDA Toolkit 12.8, Driver 13.2\n   Devices:\n     \"cpu\"      : \"Intel64 Family 6 Model 151 Stepping 2, GenuineIntel\"\n     \"cuda:0\"   : \"NVIDIA GeForce RTX 4090\" (24 GiB, sm_89, mempool enabled)\n   Kernel cache:\n     \\\\?\\C:\\Users\\eric-\\AppData\\Local\\NVIDIA\\warp\\Cache\\1.14.0.dev0",
-      "summary": "Subprocess failed before a verdict could be produced: \\\\?\\C:\\Users\\eric-\\AppData\\Local\\NVIDIA\\warp\\Cache\\1.14.0.dev0"
-    },
-    {
-      "scenario": "warp_counter_indexed",
-      "solver": "xpbd",
-      "variant_id": "default",
-      "variant_label": "Default",
-      "variant_order": 0,
-      "status": "bit_exact",
-      "all_equal": true,
-      "hashes": [
-        "42ca8064268e46c5",
-        "42ca8064268e46c5"
-      ],
-      "unique_hashes": 1,
-      "max_core_diff": {
-        "counts": 0.0,
-        "slots": 0.0
-      },
-      "max_core_diff_overall": 0.0,
-      "dominant_core_signal": "counts",
-      "dominant_core_value": 0.0,
-      "extras_diff": {},
-      "max_extras_diff_overall": 0.0,
-      "dominant_extra_signal": null,
-      "dominant_extra_value": 0.0,
-      "disable_graph": false,
-      "collision_pipeline_deterministic": false,
-      "collision_pipeline_wp_deterministic": null,
-      "graph_capture_enabled": true,
-      "meta": {
-        "scenario": "warp_counter_indexed",
-        "solver": "xpbd",
-        "world_count": 2,
-        "num_steps": 60,
-        "seed": 0,
-        "fps": 60,
-        "substeps": 4,
-        "warp_version": "1.14.0.dev0",
-        "wp_deterministic": "run_to_run",
-        "graph_capture_enabled": true,
-        "micro_scenario": true
-      },
-      "metrics": [],
-      "duration_s": 8.377714299997024,
-      "summary": "2/2 subprocess replays matched byte-for-byte with CUDA graph enabled."
-    },
-    {
-      "scenario": "warp_counter_sliced",
-      "solver": "xpbd",
-      "variant_id": "default",
-      "variant_label": "Default",
-      "variant_order": 0,
-      "status": "bit_exact",
-      "all_equal": true,
-      "hashes": [
-        "3bc49e119048f0dc",
-        "3bc49e119048f0dc"
-      ],
-      "unique_hashes": 1,
-      "max_core_diff": {
-        "counts": 0.0,
-        "slots": 0.0
-      },
-      "max_core_diff_overall": 0.0,
-      "dominant_core_signal": "counts",
-      "dominant_core_value": 0.0,
-      "extras_diff": {},
-      "max_extras_diff_overall": 0.0,
-      "dominant_extra_signal": null,
-      "dominant_extra_value": 0.0,
-      "disable_graph": false,
-      "collision_pipeline_deterministic": false,
-      "collision_pipeline_wp_deterministic": null,
-      "graph_capture_enabled": true,
-      "meta": {
-        "scenario": "warp_counter_sliced",
-        "solver": "xpbd",
-        "world_count": 2,
-        "num_steps": 60,
-        "seed": 0,
-        "fps": 60,
-        "substeps": 4,
-        "warp_version": "1.14.0.dev0",
-        "wp_deterministic": "run_to_run",
-        "graph_capture_enabled": true,
-        "micro_scenario": true
-      },
-      "metrics": [],
-      "duration_s": 8.59482399999979,
-      "summary": "2/2 subprocess replays matched byte-for-byte with CUDA graph enabled."
-    },
-    {
-      "scenario": "warp_counter_static_index",
-      "solver": "xpbd",
-      "variant_id": "default",
-      "variant_label": "Default",
-      "variant_order": 0,
-      "status": "bit_exact",
-      "all_equal": true,
-      "hashes": [
-        "d3ef61c9d2fe33a6",
-        "d3ef61c9d2fe33a6"
-      ],
-      "unique_hashes": 1,
-      "max_core_diff": {
-        "counts": 0.0,
-        "slots": 0.0
-      },
-      "max_core_diff_overall": 0.0,
-      "dominant_core_signal": "counts",
-      "dominant_core_value": 0.0,
-      "extras_diff": {},
-      "max_extras_diff_overall": 0.0,
-      "dominant_extra_signal": null,
-      "dominant_extra_value": 0.0,
-      "disable_graph": false,
-      "collision_pipeline_deterministic": false,
-      "collision_pipeline_wp_deterministic": null,
-      "graph_capture_enabled": true,
-      "meta": {
-        "scenario": "warp_counter_static_index",
-        "solver": "xpbd",
-        "world_count": 2,
-        "num_steps": 60,
-        "seed": 0,
-        "fps": 60,
-        "substeps": 4,
-        "warp_version": "1.14.0.dev0",
-        "wp_deterministic": "run_to_run",
-        "graph_capture_enabled": true,
-        "micro_scenario": true
-      },
-      "metrics": [],
-      "duration_s": 8.793520300001546,
-      "summary": "2/2 subprocess replays matched byte-for-byte with CUDA graph enabled."
-    },
-    {
-      "scenario": "warp_custom_adjoint",
-      "solver": "xpbd",
-      "variant_id": "default",
-      "variant_label": "Default",
-      "variant_order": 0,
-      "status": "bit_exact",
-      "all_equal": true,
-      "hashes": [
-        "82fc3233f3d5dfbd",
-        "82fc3233f3d5dfbd"
-      ],
-      "unique_hashes": 1,
-      "max_core_diff": {
-        "y": 0.0,
-        "x_grad": 0.0
-      },
-      "max_core_diff_overall": 0.0,
-      "dominant_core_signal": "y",
-      "dominant_core_value": 0.0,
-      "extras_diff": {},
-      "max_extras_diff_overall": 0.0,
-      "dominant_extra_signal": null,
-      "dominant_extra_value": 0.0,
-      "disable_graph": false,
-      "collision_pipeline_deterministic": false,
-      "collision_pipeline_wp_deterministic": null,
-      "graph_capture_enabled": false,
-      "meta": {
-        "scenario": "warp_custom_adjoint",
-        "solver": "xpbd",
-        "world_count": 2,
-        "num_steps": 60,
-        "seed": 0,
-        "fps": 60,
-        "substeps": 4,
-        "warp_version": "1.14.0.dev0",
-        "wp_deterministic": "run_to_run",
-        "graph_capture_enabled": false,
-        "micro_scenario": true
-      },
-      "metrics": [],
-      "duration_s": 8.474877400003606,
+      "duration_s": 10.163171899999725,
       "summary": "2/2 subprocess replays matched byte-for-byte with CUDA graph enabled."
     }
   ],
@@ -1460,7 +1233,7 @@
       "width": 960,
       "height": 540,
       "first_mean": 42.26835583847737,
-      "last_mean": 42.75077610596708
+      "last_mean": 43.865737525720164
     },
     {
       "scenario": "domino_chain",
@@ -1475,7 +1248,7 @@
       "width": 960,
       "height": 540,
       "first_mean": 46.60653420781893,
-      "last_mean": 46.83148533950617
+      "last_mean": 46.82295781893004
     },
     {
       "scenario": "arm_7dof",
@@ -1557,24 +1330,23 @@
   "analysis": {
     "findings": [
       {
-        "tone": "warn",
+        "tone": "ok",
         "title": "Replay health",
-        "body": "1 solver pair(s) failed before a final verdict could be computed."
+        "body": "All 17 solver pairs completed 2 independent subprocess replays."
       },
       {
         "tone": "warn",
         "title": "Run-to-run verdict",
-        "body": "1 of 22 solver pair(s) still diverged under wp.config.deterministic='run_to_run'."
+        "body": "1 of 17 solver pair(s) still diverged under wp.config.deterministic='run_to_run'."
       },
       {
         "tone": "warn",
         "title": "Largest remaining gap",
-        "body": "Diffsim Cloth COM / semi_implicit drifts the most: initial_particle_qd_grad = 2.980e-08."
+        "body": "Diffsim Cloth COM / semi_implicit drifts the most: initial_particle_qd_grad = 2.235e-08."
       }
     ],
     "observed_gaps": [
-      "Diffsim Cloth COM / semi_implicit: 2 unique hashes across 2 runs; dominant core drift in initial_particle_qd_grad = 2.980e-08; execution = CUDA graph.",
-      "warp_argmax_exchange / xpbd: subprocess failure prevented analysis. Last log line: \\\\?\\C:\\Users\\eric-\\AppData\\Local\\NVIDIA\\warp\\Cache\\1.14.0.dev0"
+      "Diffsim Cloth COM / semi_implicit: 2 unique hashes across 2 runs; dominant core drift in initial_particle_qd_grad = 2.235e-08; execution = CUDA graph."
     ],
     "scope_limits": [
       "This report only checks repeated runs on the same machine, driver, GPU, and Warp/Newton build; it does not prove cross-GPU or cross-driver reproducibility.",

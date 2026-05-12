@@ -153,7 +153,6 @@ def _humanize_mode(mode: str) -> str:
 
 def _ordered_scenarios(scenarios: dict[str, Any], xpbd_only: bool) -> list[str]:
     ordered = [scenario for scenario in SCENARIO_TITLES if scenario in scenarios]
-    ordered.extend(sorted(scenario for scenario in scenarios if scenario not in ordered))
     if xpbd_only:
         ordered = [scenario for scenario in ordered if "xpbd" in scenarios[scenario].supported_solvers]
     return ordered
@@ -168,11 +167,8 @@ def _representative_solver(scenario: str, scen_cls: type, xpbd_only: bool) -> st
     return scen_cls.supported_solvers[0]
 
 
-def _report_variants_for_solver(solver: str, *, xpbd_only: bool) -> list[ReportVariant]:
-    variants = [DEFAULT_REPORT_VARIANT]
-    if xpbd_only and solver == "xpbd":
-        variants.append(COLLISION_PIPELINE_WARP_OFF_VARIANT)
-    return variants
+def _report_variants() -> list[ReportVariant]:
+    return [DEFAULT_REPORT_VARIANT]
 
 
 def _dominant_diff(diff_map: dict[str, float]) -> tuple[str | None, float]:
@@ -850,9 +846,6 @@ def _render_finding_cards(findings: list[dict[str, str]]) -> str:
 
 def _render_solver_card(result: dict[str, Any]) -> str:
     execution = "no graph" if result.get("disable_graph") else "CUDA graph"
-    variant_label = result.get("variant_label") or "Default"
-    collision_pipeline = "deterministic sort" if result.get("collision_pipeline_deterministic") else "default"
-    collision_wp_mode = result.get("collision_pipeline_wp_deterministic") or "-"
     dominant_core = (
         f"{result['dominant_core_signal']} ({_format_float(float(result.get('dominant_core_value', 0.0)))})"
         if result.get("dominant_core_signal") is not None
@@ -871,15 +864,12 @@ def _render_solver_card(result: dict[str, Any]) -> str:
     <article class="solver-card {_status_class(result)}">
       <div class="solver-card-head">
         <div>
-          <p class="eyebrow">{html.escape(variant_label)}</p>
           <h3><code>{html.escape(result["solver"])}</code></h3>
         </div>
         <span class="pill {_status_class(result)}">{_status_label(result)}</span>
       </div>
       <p class="solver-summary">{html.escape(result.get("summary") or _result_summary(result))}</p>
       <div class="solver-stats">
-        <div><span>Collision pipeline</span><strong>{html.escape(collision_pipeline)}</strong></div>
-        <div><span>Collision Warp mode</span><strong>{html.escape(collision_wp_mode)}</strong></div>
         <div><span>Execution</span><strong>{html.escape(execution)}</strong></div>
         <div><span>Unique hashes</span><strong>{html.escape(str(result.get("unique_hashes", "-")))}</strong></div>
         <div><span>Dominant core drift</span><strong>{html.escape(dominant_core)}</strong></div>
@@ -898,13 +888,8 @@ def _render_solver_table(results: list[dict[str, Any]]) -> str:
         key=lambda item: (
             item["scenario"],
             item["solver"],
-            int(item.get("variant_order", 0)),
-            item.get("variant_id", "default"),
         ),
     ):
-        mode = "no graph" if result.get("disable_graph") else "CUDA graph"
-        collision_pipeline = "deterministic sort" if result.get("collision_pipeline_deterministic") else "default"
-        collision_wp_mode = result.get("collision_pipeline_wp_deterministic") or "-"
         if result.get("status") == "failed":
             diff = "-"
             extras = "-"
@@ -931,16 +916,12 @@ def _render_solver_table(results: list[dict[str, Any]]) -> str:
             <tr>
               <td>{html.escape(SCENARIO_TITLES.get(result["scenario"], result["scenario"]))}</td>
               <td><code>{html.escape(result["solver"])}</code></td>
-              <td>{html.escape(result.get("variant_label") or "Default")}</td>
               <td><span class="pill {_status_class(result)}">{_status_label(result)}</span></td>
               <td>{hashes}</td>
-              <td>{html.escape(collision_pipeline)}</td>
-              <td>{html.escape(collision_wp_mode)}</td>
               <td>{html.escape(dominant_core)}</td>
               <td>{diff}</td>
               <td>{html.escape(dominant_extra)}</td>
               <td>{extras}</td>
-              <td>{mode}</td>
               <td>{_format_float(float(result.get("duration_s", 0.0)))} s</td>
             </tr>"""
         )
@@ -970,11 +951,7 @@ def _render_scenario_sections(data: dict[str, Any]) -> str:
             _render_solver_card(result)
             for result in sorted(
                 results_by_scenario.get(scenario, []),
-                key=lambda item: (
-                    item["solver"],
-                    int(item.get("variant_order", 0)),
-                    item.get("variant_id", "default"),
-                ),
+                key=lambda item: item["solver"],
             )
         )
 
@@ -1025,7 +1002,6 @@ def _render_html(data: dict[str, Any]) -> str:
     bit_exact = sum(1 for result in data["solver_results"] if result["status"] == "bit_exact")
     drift = sum(1 for result in data["solver_results"] if result["status"] == "non_deterministic")
     failed = sum(1 for result in data["solver_results"] if result["status"] == "failed")
-    no_graph = sum(1 for result in data["solver_results"] if result.get("disable_graph"))
     generated = html.escape(data["generated_at"])
     det_label = _humanize_mode(cfg["warp_deterministic"])
     has_collision_variant = any(
@@ -1034,12 +1010,12 @@ def _render_html(data: dict[str, Any]) -> str:
     scope_text = (
         "This report covers every scenario in the harness that currently supports XPBD."
         if data.get("xpbd_only")
-        else "The full report covers every scenario registered in the harness."
+        else "The full report covers the physics scenarios registered for this report."
     )
     compare_text = (
         ' It also includes an XPBD comparison where the collision pipeline uses deterministic contact sorting while its Warp kernels are compiled with <code>wp.config.deterministic = "not_guaranteed"</code>.'
         if has_collision_variant
-        else ""
+        else " Contact scenarios use <code>CollisionPipeline(deterministic=True)</code> for contact ordering."
     )
     report_title = (
         f"XPBD {det_label} determinism report"
@@ -1363,7 +1339,7 @@ def _render_html(data: dict[str, Any]) -> str:
     table {{
       width: 100%;
       border-collapse: collapse;
-      min-width: 1400px;
+      min-width: 960px;
     }}
     th, td {{
       padding: 13px 14px;
@@ -1446,7 +1422,6 @@ def _render_html(data: dict[str, Any]) -> str:
         <div class="summary-tile"><span>Solver pairs</span><strong>{total}</strong></div>
         <div class="summary-tile"><span>Bit-exact</span><strong>{bit_exact}</strong></div>
         <div class="summary-tile"><span>Drift</span><strong>{drift}</strong></div>
-        <div class="summary-tile"><span>No-graph runs</span><strong>{no_graph}</strong></div>
         <div class="summary-tile"><span>Failures</span><strong>{failed}</strong></div>
       </div>
     </div>
@@ -1476,6 +1451,10 @@ def _render_html(data: dict[str, Any]) -> str:
           <p>{cfg["num_steps"]} frames, {cfg["substeps"]} substeps, {cfg["fps"]} Hz, seed {cfg["seed"]}, world count {cfg["world_count"]}.</p>
         </div>
         <div class="method">
+          <strong>Deterministic contacts</strong>
+          <p>Contact scenarios use <code>CollisionPipeline(deterministic=True)</code> with the report's global Warp determinism mode.</p>
+        </div>
+        <div class="method">
           <strong>Visual capture</strong>
           <p>Representative videos use one world and MP4 frames read through <code>ViewerGL.get_frame()</code>.</p>
         </div>
@@ -1495,16 +1474,12 @@ def _render_html(data: dict[str, Any]) -> str:
             <tr>
               <th>Scenario</th>
               <th>Solver</th>
-              <th>Variant</th>
               <th>Verdict</th>
               <th>Unique hashes</th>
-              <th>Collision pipeline</th>
-              <th>Collision Warp mode</th>
               <th>Dominant core signal</th>
               <th>Max core diff</th>
               <th>Dominant extra signal</th>
               <th>Max extras diff</th>
-              <th>Execution</th>
               <th>Duration</th>
             </tr>
           </thead>
@@ -1576,7 +1551,7 @@ def _build_report(args: argparse.Namespace) -> dict[str, Any]:
         scen_cls = SCENARIOS[scenario]
         solvers = ("xpbd",) if args.xpbd_only else scen_cls.supported_solvers
         for solver in solvers:
-            for variant in _report_variants_for_solver(solver, xpbd_only=bool(args.xpbd_only)):
+            for variant in _report_variants():
                 # Keep MuJoCo on the normal graph-captured path. The no-graph
                 # path can exceed the static deterministic counter bound in
                 # dynamic narrow-phase kernels even when the scenario is

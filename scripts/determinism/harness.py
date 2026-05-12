@@ -273,10 +273,16 @@ class Scenario(ABC):
         """Return whether the standard build pipeline should add a ground plane."""
         return True
 
+    def use_deterministic_collision_pipeline(self) -> bool:
+        """Return whether the scenario should sort generated contacts deterministically."""
+        return self.use_ground_plane()
+
     def _uses_custom_collision_pipeline(self) -> bool:
         """Return whether this run needs a non-default collision pipeline."""
         return bool(
-            self.args.collision_pipeline_deterministic or self.args.collision_pipeline_warp_deterministic is not None
+            self.use_deterministic_collision_pipeline()
+            or self.args.collision_pipeline_deterministic
+            or self.args.collision_pipeline_warp_deterministic is not None
         )
 
     def _configure_collision_pipeline(self) -> None:
@@ -300,15 +306,16 @@ class Scenario(ABC):
             self.collision_pipeline = newton.CollisionPipeline(
                 self.model,
                 broad_phase="explicit",
-                deterministic=self.args.collision_pipeline_deterministic,
+                deterministic=self.use_deterministic_collision_pipeline() or self.args.collision_pipeline_deterministic,
             )
             self.model._collision_pipeline = self.collision_pipeline
             self.contacts = self.collision_pipeline.contacts()
-
-            # Warm one collide() call so this pipeline keeps its own compiled
-            # kernels even after we restore the process-global solver mode.
-            self.collision_pipeline.collide(self.state_0, self.contacts)
             self._collision_pipeline_warp_deterministic = compile_mode
+
+            if compile_mode != original_mode:
+                # Warm one collide() call so this pipeline keeps its own compiled
+                # kernels even after we restore the process-global solver mode.
+                self.collision_pipeline.collide(self.state_0, self.contacts)
         finally:
             if original_mode is not None:
                 wp.config.deterministic = original_mode
