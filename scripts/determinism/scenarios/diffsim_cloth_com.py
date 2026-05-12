@@ -52,8 +52,8 @@ class DiffsimClothComScenario(Scenario):
         self.sim_dt = 1.0 / self.args.fps / self.horizon_substeps
         self.loss_history: list[float] = []
 
-        scene = newton.ModelBuilder()
-        scene.default_particle_radius = 0.01
+        scene = newton.ModelBuilder(gravity=0.0)
+        scene.default_particle_radius = 0.025
         targets = []
 
         for world in range(self.args.world_count):
@@ -67,11 +67,11 @@ class DiffsimClothComScenario(Scenario):
                 cell_x=1.0 / self.DIM_X,
                 cell_y=1.0 / self.DIM_Y,
                 mass=1.0,
-                tri_ke=10000.0,
-                tri_ka=10000.0,
-                tri_kd=100.0,
-                tri_lift=10.0,
-                tri_drag=5.0,
+                tri_ke=500.0,
+                tri_ka=500.0,
+                tri_kd=20.0,
+                tri_lift=0.0,
+                tri_drag=0.5,
             )
             targets.append((x, 2.0, 0.0))
 

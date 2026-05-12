@@ -50,6 +50,9 @@ CAMERAS = {
     "domino_chain": ((1.15, -2.2, 1.1), -15.0, 105.0, 52.0),
     "arm_7dof": ((1.6, -1.8, 1.15), -20.0, 135.0, 54.0),
     "humanoid": ((3.0, -4.0, 2.0), -18.0, 130.0, 52.0),
+    "diffsim_ball": ((2.5, -4.0, 2.2), -24.0, 125.0, 52.0),
+    "diffsim_cloth_com": ((2.8, -3.8, 2.0), -22.0, 126.0, 52.0),
+    "diffsim_spring_cage": ((2.1, -2.8, 1.6), -24.0, 128.0, 50.0),
 }
 
 SCENARIO_TITLES = {
@@ -624,6 +627,7 @@ def _capture_video(
     width: int,
     height: int,
     video_fps: int,
+    video_warp_deterministic: str,
 ) -> dict[str, Any]:
     try:
         import imageio.v2 as imageio
@@ -636,7 +640,7 @@ def _capture_video(
 
     from scripts import run_determinism
 
-    run_determinism._apply_warp_deterministic(config.warp_deterministic)
+    run_determinism._apply_warp_deterministic(video_warp_deterministic)
 
     import warp as wp
 
@@ -656,7 +660,7 @@ def _capture_video(
         fps=config.fps,
         seed=config.seed,
         viewer="gl",
-        warp_deterministic=config.warp_deterministic,
+        warp_deterministic=video_warp_deterministic,
         collision_pipeline_deterministic=False,
         collision_pipeline_warp_deterministic=None,
     )
@@ -664,6 +668,9 @@ def _capture_video(
     scene._maybe_capture_graph = lambda: None
     viewer = newton.viewer.ViewerGL(width=width, height=height, headless=True, vsync=False)
     scene.build(viewer)
+    if scene.model is not None and scene.model.particle_count:
+        viewer.show_particles = True
+        viewer.show_springs = True
 
     pos, pitch, yaw, fov = CAMERAS[scenario]
     viewer.set_camera(wp.vec3(*pos), pitch, yaw)
@@ -713,6 +720,7 @@ def _capture_video(
         "sim_steps": config.num_steps,
         "frame_stride": frame_stride,
         "fps": video_fps,
+        "warp_deterministic": video_warp_deterministic,
         "width": width,
         "height": height,
         "first_mean": float(first_frame.mean()) if first_frame is not None else 0.0,
@@ -729,6 +737,7 @@ def _capture_video_subprocess(
     width: int,
     height: int,
     video_fps: int,
+    video_warp_deterministic: str,
 ) -> dict[str, Any]:
     with tempfile.TemporaryDirectory(prefix="newton-det-video-") as tmp_name:
         metadata_path = Path(tmp_name) / "video.json"
@@ -753,7 +762,7 @@ def _capture_video_subprocess(
             "--seed",
             str(config.seed),
             "--warp-deterministic",
-            config.warp_deterministic,
+            video_warp_deterministic,
             "--video-stride",
             str(frame_stride),
             "--video-width",
@@ -790,6 +799,7 @@ def _run_video_subprocess(args: argparse.Namespace) -> int:
         width=args.video_width,
         height=args.video_height,
         video_fps=args.video_fps,
+        video_warp_deterministic=args.warp_deterministic,
     )
     Path(args.metadata_out).write_text(json.dumps(metadata, indent=2), encoding="utf-8")
     return 0
@@ -1583,6 +1593,11 @@ def _build_report(args: argparse.Namespace) -> dict[str, Any]:
                 )
 
     videos = []
+    video_steps = config.num_steps
+    if args.video_seconds is not None:
+        video_steps = max(1, math.ceil(float(args.video_seconds) * args.video_fps * args.video_stride))
+    video_config = dataclasses.replace(config, num_steps=video_steps)
+    video_warp_deterministic = args.video_warp_deterministic or config.warp_deterministic
     for scenario in [scenario for scenario in scenario_order if scenario in CAMERAS]:
         solver = _representative_solver(scenario, SCENARIOS[scenario], xpbd_only=bool(args.xpbd_only))
         print(f"[video] {scenario}/{solver}", flush=True)
@@ -1590,12 +1605,13 @@ def _build_report(args: argparse.Namespace) -> dict[str, Any]:
             _capture_video_subprocess(
                 scenario,
                 solver,
-                config,
+                video_config,
                 out_dir,
                 frame_stride=args.video_stride,
                 width=args.video_width,
                 height=args.video_height,
                 video_fps=args.video_fps,
+                video_warp_deterministic=video_warp_deterministic,
             )
         )
 
@@ -1659,6 +1675,18 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--video-width", type=int, default=960, help="Video width.")
     parser.add_argument("--video-height", type=int, default=540, help="Video height.")
     parser.add_argument("--video-fps", type=int, default=24, help="Encoded video frame rate.")
+    parser.add_argument(
+        "--video-seconds",
+        type=float,
+        default=None,
+        help="Encoded video duration. When set, video sim steps are derived from duration, stride, and video fps.",
+    )
+    parser.add_argument(
+        "--video-warp-deterministic",
+        default=None,
+        choices=["not_guaranteed", "run_to_run", "gpu_to_gpu"],
+        help="Warp deterministic mode used only for video capture. Defaults to --warp-deterministic.",
+    )
     parser.add_argument("--xpbd-only", action="store_true", help="Only run XPBD-supported scenarios with XPBD.")
 
     subrun = parser.add_subparsers(dest="command")

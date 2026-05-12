@@ -1,0 +1,1964 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Newton Determinism Report</title>
+  <link rel="icon" href="data:,">
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #1b1f27;
+      --muted: #5c6675;
+      --line: #d9dee7;
+      --paper: #f7f5f0;
+      --panel: #ffffff;
+      --ok: #087f5b;
+      --ok-bg: #dff7ed;
+      --warn: #a15c00;
+      --warn-bg: #fff2cc;
+      --bad: #a33a3a;
+      --bad-bg: #ffe2df;
+      --blue: #2456a6;
+      --teal: #0f766e;
+      --shadow: 0 18px 50px rgba(37, 43, 56, 0.12);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--paper);
+      color: var(--ink);
+    }
+    header {
+      padding: 46px clamp(18px, 4vw, 64px) 28px;
+      border-bottom: 1px solid var(--line);
+      background:
+        linear-gradient(120deg, rgba(36, 86, 166, 0.13), transparent 34%),
+        linear-gradient(300deg, rgba(15, 118, 110, 0.12), transparent 38%),
+        #fffdf8;
+    }
+    .hero {
+      max-width: 1180px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: minmax(0, 1.15fr) minmax(280px, 0.85fr);
+      gap: 32px;
+      align-items: end;
+    }
+    .eyebrow {
+      margin: 0 0 8px;
+      color: var(--teal);
+      font-size: 0.78rem;
+      font-weight: 800;
+      text-transform: uppercase;
+    }
+    h1 {
+      margin: 0;
+      max-width: 860px;
+      font-size: clamp(2.45rem, 6vw, 5.2rem);
+      line-height: 0.95;
+    }
+    .lead {
+      margin: 20px 0 0;
+      max-width: 780px;
+      color: var(--muted);
+      font-size: clamp(1rem, 2vw, 1.18rem);
+      line-height: 1.55;
+    }
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+    }
+    .summary-tile {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 15px;
+      box-shadow: var(--shadow);
+    }
+    .summary-tile.emphasis {
+      border-color: rgba(36, 86, 166, 0.32);
+      background: linear-gradient(180deg, rgba(36, 86, 166, 0.06), rgba(255, 255, 255, 0.98));
+    }
+    .summary-tile span {
+      display: block;
+      color: var(--muted);
+      font-size: 0.78rem;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+    .summary-tile strong {
+      display: block;
+      margin-top: 6px;
+      font-size: 1.75rem;
+      line-height: 1;
+    }
+    main {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 34px clamp(18px, 4vw, 64px) 64px;
+    }
+    .band {
+      margin: 0 0 34px;
+      padding: 24px 0;
+      border-bottom: 1px solid var(--line);
+    }
+    .band h2, .section-title {
+      margin: 0 0 14px;
+      font-size: clamp(1.6rem, 3vw, 2.2rem);
+    }
+    .findings-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+    }
+    .finding {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 18px;
+      box-shadow: var(--shadow);
+    }
+    .finding.ok { border-left: 5px solid var(--ok); }
+    .finding.warn { border-left: 5px solid var(--warn); }
+    .finding.bad { border-left: 5px solid var(--bad); }
+    .finding h3 {
+      margin: 0 0 8px;
+      font-size: 1.12rem;
+    }
+    .finding p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.55;
+    }
+    .method-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 14px;
+    }
+    .method {
+      border-left: 4px solid var(--blue);
+      padding: 12px 14px;
+      background: rgba(255, 255, 255, 0.72);
+    }
+    .method strong { display: block; margin-bottom: 5px; }
+    .method p { margin: 0; color: var(--muted); line-height: 1.45; }
+    .scenario {
+      display: grid;
+      grid-template-columns: minmax(320px, 1.05fr) minmax(320px, 0.95fr);
+      gap: 22px;
+      align-items: stretch;
+      margin: 0 0 24px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: var(--shadow);
+    }
+    .media {
+      min-height: 320px;
+      background: #151821;
+      display: flex;
+      flex-direction: column;
+    }
+    video {
+      display: block;
+      width: 100%;
+      height: auto;
+      min-height: 320px;
+      object-fit: cover;
+      background: #151821;
+    }
+    .video-caption {
+      margin: 0;
+      padding: 10px 14px 14px;
+      color: #d7dbe7;
+      background: #151821;
+      font-size: 0.88rem;
+      line-height: 1.45;
+    }
+    .scenario-body {
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .scenario-heading h2 {
+      margin: 0;
+      font-size: clamp(1.45rem, 2.7vw, 2rem);
+    }
+    .scenario-body p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.55;
+    }
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+    .metric {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 12px;
+      min-height: 78px;
+      background: #fbfcfd;
+    }
+    .metric span {
+      display: block;
+      color: var(--muted);
+      font-size: 0.78rem;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+    .metric strong {
+      display: block;
+      margin-top: 7px;
+      font-size: 1.18rem;
+      overflow-wrap: anywhere;
+    }
+    .solver-cards {
+      display: grid;
+      gap: 10px;
+    }
+    .solver-card {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 14px;
+      background: #fbfcfd;
+    }
+    .solver-card.ok { border-left: 5px solid var(--ok); }
+    .solver-card.warn { border-left: 5px solid var(--warn); }
+    .solver-card.bad { border-left: 5px solid var(--bad); }
+    .solver-card-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: start;
+    }
+    .solver-card-head h3 {
+      margin: 0;
+      font-size: 1.05rem;
+    }
+    .solver-summary {
+      margin: 10px 0 0;
+      color: var(--muted);
+      line-height: 1.55;
+    }
+    .solver-stats {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 14px;
+    }
+    .solver-stats div {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 10px;
+      background: #fff;
+      min-height: 74px;
+    }
+    .solver-stats span {
+      display: block;
+      color: var(--muted);
+      font-size: 0.76rem;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+    .solver-stats strong {
+      display: block;
+      margin-top: 6px;
+      font-size: 1rem;
+      line-height: 1.35;
+      overflow-wrap: anywhere;
+    }
+    .error-log {
+      margin: 14px 0 0;
+      padding: 12px;
+      background: #161923;
+      color: #f4f7ff;
+      border-radius: 8px;
+      overflow-x: auto;
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-size: 0.83rem;
+      line-height: 1.45;
+    }
+    code {
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+      font-size: 0.92em;
+    }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 78px;
+      border-radius: 999px;
+      padding: 4px 9px;
+      font-size: 0.72rem;
+      font-weight: 800;
+      text-transform: uppercase;
+    }
+    .pill.ok { color: var(--ok); background: var(--ok-bg); }
+    .pill.warn { color: var(--warn); background: var(--warn-bg); }
+    .pill.bad { color: var(--bad); background: var(--bad-bg); }
+    .table-wrap {
+      overflow-x: auto;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 1400px;
+    }
+    th, td {
+      padding: 13px 14px;
+      text-align: left;
+      border-bottom: 1px solid var(--line);
+      vertical-align: middle;
+    }
+    th {
+      color: var(--muted);
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      background: #fbfcfd;
+    }
+    tr:last-child td { border-bottom: 0; }
+    .list-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 24px;
+    }
+    .list-card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 20px;
+      box-shadow: var(--shadow);
+    }
+    .list-card h3 {
+      margin: 0 0 10px;
+      font-size: 1.15rem;
+    }
+    .list-card p {
+      margin: 0 0 10px;
+      color: var(--muted);
+      line-height: 1.55;
+    }
+    .list-card ul {
+      margin: 0;
+      padding-left: 20px;
+      color: var(--muted);
+      line-height: 1.55;
+    }
+    footer {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 0 clamp(18px, 4vw, 64px) 42px;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+    @media (max-width: 980px) {
+      .hero, .scenario, .list-grid { grid-template-columns: 1fr; }
+      .findings-grid { grid-template-columns: 1fr; }
+      .method-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .solver-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    @media (max-width: 560px) {
+      header { padding-top: 34px; }
+      main { padding-top: 24px; }
+      .method-grid, .metrics, .summary-grid, .solver-stats { grid-template-columns: 1fr; }
+      .scenario-body { padding: 18px; }
+      .media, video { min-height: 230px; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="hero">
+      <div>
+        <p class="eyebrow">Newton determinism harness</p>
+        <h1>Run to run physics determinism report</h1>
+        <p class="lead">
+          13 Newton scenarios were replayed in independent subprocesses with
+          <code>wp.config.deterministic = "run_to_run"</code>.
+          The videos are captured from headless <code>ViewerGL.get_frame()</code>; the verdicts
+          come from byte hashes of final physics state arrays. The full report covers every scenario registered in the harness.
+        </p>
+      </div>
+      <div class="summary-grid">
+        <div class="summary-tile emphasis"><span>Scenarios</span><strong>13</strong></div>
+        <div class="summary-tile"><span>Solver pairs</span><strong>22</strong></div>
+        <div class="summary-tile"><span>Bit-exact</span><strong>14</strong></div>
+        <div class="summary-tile"><span>Drift</span><strong>1</strong></div>
+        <div class="summary-tile"><span>No-graph runs</span><strong>5</strong></div>
+        <div class="summary-tile"><span>Failures</span><strong>7</strong></div>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section class="band">
+      <h2>What This Run Shows</h2>
+      <div class="findings-grid">
+        
+        <article class="finding warn">
+          <p class="eyebrow">Key finding</p>
+          <h3>Replay health</h3>
+          <p>7 solver pair(s) failed before a final verdict could be computed.</p>
+        </article>
+
+        <article class="finding warn">
+          <p class="eyebrow">Key finding</p>
+          <h3>Run-to-run verdict</h3>
+          <p>1 of 22 solver pair(s) still diverged under wp.config.deterministic=&#x27;run_to_run&#x27;.</p>
+        </article>
+
+        <article class="finding warn">
+          <p class="eyebrow">Key finding</p>
+          <h3>Largest remaining gap</h3>
+          <p>Diffsim Cloth COM / semi_implicit drifts the most: initial_particle_qd_grad = 1.490e-08.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="band">
+      <h2>Method</h2>
+      <div class="method-grid">
+        <div class="method">
+          <strong>Independent replays</strong>
+          <p>2 subprocess runs per supported scenario/solver pair.</p>
+        </div>
+        <div class="method">
+          <strong>Canonical hash</strong>
+          <p>Hashes include <code>body_q</code>, <code>body_qd</code>, <code>joint_q</code>, and <code>joint_qd</code>.</p>
+        </div>
+        <div class="method">
+          <strong>Fixed workload</strong>
+          <p>60 frames, 4 substeps, 60 Hz, seed 0, world count 2.</p>
+        </div>
+        <div class="method">
+          <strong>Visual capture</strong>
+          <p>Representative videos use one world and MP4 frames read through <code>ViewerGL.get_frame()</code>.</p>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2 class="section-title">Scenario Videos And Statistics</h2>
+      
+            <article class="scenario">
+              <div class="media">
+                
+            <video controls muted loop playsinline preload="metadata" poster="assets/falling_cube_xpbd_poster.png">
+              <source src="assets/falling_cube_xpbd.mp4" type="video/mp4">
+            </video>
+            <p class="video-caption">
+              xpbd video, 240 frames encoded at 24 fps
+              (960x540, stride 1).
+            </p>
+              </div>
+              <div class="scenario-body">
+                <div class="scenario-heading">
+                  <p class="eyebrow">falling_cube</p>
+                  <h2>Falling Cube</h2>
+                </div>
+                <p>Single free rigid body floor contact. Useful for detecting tiny contact drift after impact.</p>
+                <div class="metrics">
+                  
+        <div class="metric">
+          <span>Final height mean</span>
+          <strong>0.15 m</strong>
+        </div>
+
+        <div class="metric">
+          <span>Final height range</span>
+          <strong>0.15-0.15 m</strong>
+        </div>
+
+        <div class="metric">
+          <span>Awake bodies</span>
+          <strong>0</strong>
+        </div>
+
+        <div class="metric">
+          <span>Mean speed</span>
+          <strong>2.801e-04 m/s</strong>
+        </div>
+                </div>
+                <div class="solver-cards">
+                  
+    <article class="solver-card ok">
+      <div class="solver-card-head">
+        <div>
+          <p class="eyebrow">Default</p>
+          <h3><code>featherstone</code></h3>
+        </div>
+        <span class="pill ok">BIT-EXACT</span>
+      </div>
+      <p class="solver-summary">2/2 subprocess replays matched byte-for-byte with CUDA graph enabled.</p>
+      <div class="solver-stats">
+        <div><span>Collision pipeline</span><strong>default</strong></div>
+        <div><span>Collision Warp mode</span><strong>run_to_run</strong></div>
+        <div><span>Execution</span><strong>CUDA graph</strong></div>
+        <div><span>Unique hashes</span><strong>1</strong></div>
+        <div><span>Dominant core drift</span><strong>body_q (0)</strong></div>
+        <div><span>Dominant extra drift</span><strong>none</strong></div>
+        <div><span>Max core diff</span><strong>0</strong></div>
+        <div><span>Duration</span><strong>15.758 s</strong></div>
+      </div>
+      
+    </article>
+
+    <article class="solver-card bad">
+      <div class="solver-card-head">
+        <div>
+          <p class="eyebrow">Default</p>
+          <h3><code>mujoco</code></h3>
+        </div>
+        <span class="pill bad">FAILED</span>
+      </div>
+      <p class="solver-summary">Subprocess failed before a verdict could be produced: Module _tile_cholesky_factorize__locals__cholesky_factorize_031ac41c 9ae5da0 load on device &#x27;cuda:0&#x27; took 584.79 ms  (error)</p>
+      <div class="solver-stats">
+        <div><span>Collision pipeline</span><strong>default</strong></div>
+        <div><span>Collision Warp mode</span><strong>-</strong></div>
+        <div><span>Execution</span><strong>no graph</strong></div>
+        <div><span>Unique hashes</span><strong>-</strong></div>
+        <div><span>Dominant core drift</span><strong>none</strong></div>
+        <div><span>Dominant extra drift</span><strong>none</strong></div>
+        <div><span>Max core diff</span><strong>0</strong></div>
+        <div><span>Duration</span><strong>8.095 s</strong></div>
+      </div>
+      <pre class="error-log">           ^^^^^^^^^^^^^^^^^^^^
+  File &quot;C:\Users\eric-\source\repos\warp\warp\_src\codegen.py&quot;, line 3662, in emit_Assign
+    rhs = adj.eval(node.value)
+          ^^^^^^^^^^^^^^^^^^^^
+  File &quot;C:\Users\eric-\source\repos\warp\warp\_src\codegen.py&quot;, line 4457, in eval
+    return emit_node(adj, node)
+           ^^^^^^^^^^^^^^^^^^^^
+  File &quot;C:\Users\eric-\source\repos\warp\warp\_src\codegen.py&quot;, line 3444, in emit_Call
+    out = adj.add_call(func, args, kwargs, type_args, min_outputs=min_outputs)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File &quot;C:\Users\eric-\source\repos\warp\warp\_src\codegen.py&quot;, line 1903, in add_call
+    func_args, template_args, _ltoirs, extra_shared_memory = func.lto_dispatch_func(
+                                                             ^^^^^^^^^^^^^^^^^^^^^^^
+  File &quot;C:\Users\eric-\source\repos\warp\warp\_src\builtins.py&quot;, line 13464, in tile_cholesky_generic_lto_dispatch_func
+    return _tile_cholesky_generic_lto_dispatch_func(False, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File &quot;C:\Users\eric-\source\repos\warp\warp\_src\builtins.py&quot;, line 13374, in _tile_cholesky_generic_lto_dispatch_func
+    lto_symbol, lto_code_data = warp._src.build.build_lto_solver(
+                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File &quot;C:\Users\eric-\source\repos\warp\warp\_src\build.py&quot;, line 588, in build_lto_solver
+    raise RuntimeError(
+RuntimeError: Error while parsing function &quot;cholesky_factorize&quot; at C:\Users\eric-\source\repos\newton5\.venv\Lib\site-packages\mujoco_warp\_src\smooth.py:1085:
+  L_tile = wp.tile_cholesky(M_tile)
+;cuSolverDx requires CUDA Toolkit 12.6.3 or later. This version of Warp was built against CUDA Toolkit 12.4. Upgrade your CUDA Toolkit and rebuild Warp, or install a Warp wheel built with CUDA &gt;= 12.6.3.
+Module repeat_array_kernel_0c10b976 6166d01 load on device &#x27;cuda:0&#x27; took 2.21 ms  (cached)
+Module repeat_array_kernel_0c10b976 e7db2bf load on device &#x27;cuda:0&#x27; took 1.68 ms  (cached)
+Module repeat_array_kernel_0c10b976 8f968f4 load on device &#x27;cuda:0&#x27; took 1.45 ms  (cached)
+Module repeat_array_kernel_0c10b976 321868f load on device &#x27;cuda:0&#x27; took 1.64 ms  (cached)
+Module repeat_array_kernel_0c10b976 8c017b4 load on device &#x27;cuda:0&#x27; took 2.46 ms  (cached)
+Module mujoco_warp._src.io 7cc74e7 load on device &#x27;cuda:0&#x27; took 6.68 ms  (cached)
+Module mujoco_warp._src.smooth cccd978 load on device &#x27;cuda:0&#x27; took 5.56 ms  (cached)
+Module _tile_cholesky_factorize__locals__cholesky_factorize_031ac41c 9ae5da0 load on device &#x27;cuda:0&#x27; took 584.79 ms  (error)</pre>
+    </article>
+
+    <article class="solver-card ok">
+      <div class="solver-card-head">
+        <div>
+          <p class="eyebrow">Default</p>
+          <h3><code>semi_implicit</code></h3>
+        </div>
+        <span class="pill ok">BIT-EXACT</span>
+      </div>
+      <p class="solver-summary">2/2 subprocess replays matched byte-for-byte with CUDA graph enabled.</p>
+      <div class="solver-stats">
+        <div><span>Collision pipeline</span><strong>default</strong></div>
+        <div><span>Collision Warp mode</span><strong>run_to_run</strong></div>
+        <div><span>Execution</span><strong>CUDA graph</strong></div>
+        <div><span>Unique hashes</span><strong>1</strong></div>
+        <div><span>Dominant core drift</span><strong>body_q (0)</strong></div>
+        <div><span>Dominant extra drift</span><strong>none</strong></div>
+        <div><span>Max core diff</span><strong>0</strong></div>
+        <div><span>Duration</span><strong>15.037 s</strong></div>
+      </div>
+      
+    </article>
+
+    <article class="solver-card ok">
+      <div class="solver-card-head">
+        <div>
+          <p class="eyebrow">Default</p>
+          <h3><code>xpbd</code></h3>
+        </div>
+        <span class="pill ok">BIT-EXACT</span>
+      </div>
+      <p class="solver-summary">2/2 subprocess replays matched byte-for-byte with CUDA graph enabled.</p>
+      <div class="solver-stats">
+        <div><span>Collision pipeline</span><strong>default</strong></div>
+        <div><span>Collision Warp mode</span><strong>run_to_run</strong></div>
+        <div><span>Execution</span><strong>CUDA graph</strong></div>
+        <div><span>Unique hashes</span><strong>1</strong></div>
+        <div><span>Dominant core drift</span><strong>body_q (0)</strong></div>
+        <div><span>Dominant extra drift</span><strong>none</strong></div>
+        <div><span>Max core diff</span><strong>0</strong></div>
+        <div><span>Duration</span><strong>16.517 s</strong></div>
+      </div>
+      
+    </article>
+                </div>
+              </div>
+            </article>
+
+            <article class="scenario">
+              <div class="media">
+                
+            <video controls muted loop playsinline preload="metadata" poster="assets/box_stack_xpbd_poster.png">
+              <source src="assets/box_stack_xpbd.mp4" type="video/mp4">
+            </video>
+            <p class="video-caption">
+              xpbd video, 240 frames encoded at 24 fps
+              (960x540, stride 1).
+            </p>
+              </div>
+              <div class="scenario-body">
+                <div class="scenario-heading">
+                  <p class="eyebrow">box_stack</p>
+                  <h2>Box Stack</h2>
+                </div>
+                <p>Twenty jittered boxes with many contacts. A compact stress case for ordering and reductions.</p>
+                <div class="metrics">
+                  
+        <div class="metric">
+          <span>COM drift</span>
+          <strong>0.002 m</strong>
+        </div>
+
+        <div class="metric">
+          <span>Kinetic energy proxy</span>
+          <strong>1924.727</strong>
+        </div>
+
+        <div class="metric">
+          <span>Contact samples</span>
+          <strong>6</strong>
+        </div>
+
+        <div class="metric">
+          <span>Peak contacts</span>
+          <strong>38</strong>
+        </div>
+                </div>
+                <div class="solver-cards">
+                  
+    <article class="solver-card bad">
+      <div class="solver-card-head">
+        <div>
+          <p class="eyebrow">Default</p>
+          <h3><code>mujoco</code></h3>
+        </div>
+        <span class="pill bad">FAILED</span>
+      </div>
+      <p class="solver-summary">Subprocess failed before a verdict could be produced: Module narrow_phase_gjk_mpr_True_write_contact_support_map_lean_post_process_minkowski_only bf1f580 load on device &#x27;cuda:0&#x27; took 3.13 ms  (cached)</p>
+      <div class="solver-stats">
+        <div><span>Collision pipeline</span><strong>default</strong></div>
+        <div><span>Collision Warp mode</span><strong>-</strong></div>
+        <div><span>Execution</span><strong>no graph</strong></div>
+        <div><span>Unique hashes</span><strong>-</strong></div>
+        <div><span>Dominant core drift</span><strong>none</strong></div>
+        <div><span>Dominant extra drift</span><strong>none</strong></div>
+        <div><span>Max core diff</span><strong>0</strong></div>
+        <div><span>Duration</span><strong>9.282 s</strong></div>
+      </div>
+      <pre class="error-log">    raise SystemExit(main())
+                     ^^^^^^
+  File &quot;C:\Users\eric-\source\repos\newton5\scripts\generate_determinism_report.py&quot;, line 1729, in main
+    return _run_snapshot_subprocess(args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File &quot;C:\Users\eric-\source\repos\newton5\scripts\generate_determinism_report.py&quot;, line 504, in _run_snapshot_subprocess
+    scenario.step()
+  File &quot;C:\Users\eric-\source\repos\newton5\scripts\determinism\scenarios\box_stack.py&quot;, line 59, in step
+    super().step()
+  File &quot;C:\Users\eric-\source\repos\newton5\scripts\determinism\harness.py&quot;, line 368, in step
+    self._simulate()
+  File &quot;C:\Users\eric-\source\repos\newton5\scripts\determinism\harness.py&quot;, line 355, in _simulate
+    model.collide(state_in, contacts)
+  File &quot;C:\Users\eric-\source\repos\newton5\newton\_src\sim\model.py&quot;, line 1002, in collide
+    self._collision_pipeline.collide(state, contacts)
+  File &quot;C:\Users\eric-\source\repos\newton5\newton\_src\sim\collide.py&quot;, line 950, in collide
+    self.narrow_phase.launch_custom_write(
+  File &quot;C:\Users\eric-\source\repos\newton5\newton\_src\geometry\narrow_phase.py&quot;, line 1808, in launch_custom_write
+    wp.launch(
+  File &quot;C:\Users\eric-\source\repos\warp\warp\_src\context.py&quot;, line 8975, in launch
+    _launch_deterministic(
+  File &quot;C:\Users\eric-\source\repos\warp\warp\_src\context.py&quot;, line 8831, in _launch_deterministic
+    raise RuntimeError(
+RuntimeError: Deterministic counter buffer overflow in kernel &#x27;create_narrow_phase_kernel_gjk_mpr__locals__narrow_phase_kernel_gjk_mpr&#x27;. Increase &#x27;deterministic_max_records&#x27; or reduce the per-thread atomic count.
+Module mujoco_warp._src.smooth cccd978 load on device &#x27;cuda:0&#x27; took 5.71 ms  (cached)
+Module _solve_LD_sparse_fused__locals__kernel_7b9e81d0 1fa1a63 load on device &#x27;cuda:0&#x27; took 12.05 ms  (cached)
+Module newton._src.sim.articulation 1a91072 load on device &#x27;cuda:0&#x27; took 9.62 ms  (cached)
+Module newton._src.viewer.kernels abadff2 load on device &#x27;cuda:0&#x27; took 3.65 ms  (cached)
+Module newton._src.sim.collide 103f6ca load on device &#x27;cuda:0&#x27; took 3.45 ms  (cached)
+Module newton._src.geometry.broad_phase_nxn 0c78823 load on device &#x27;cuda:0&#x27; took 1.81 ms  (cached)
+Module narrow_phase_primitive_write_contact 3268b62 load on device &#x27;cuda:0&#x27; took 2.58 ms  (cached)
+Module narrow_phase_gjk_mpr_True_write_contact_support_map_lean_post_process_minkowski_only bf1f580 load on device &#x27;cuda:0&#x27; took 3.13 ms  (cached)</pre>
+    </article>
+
+    <article class="solver-card ok">
+      <div class="solver-card-head">
+        <div>
+          <p class="eyebrow">Default</p>
+          <h3><code>xpbd</code></h3>
+        </div>
+        <span class="pill ok">BIT-EXACT</span>
+      </div>
+      <p class="solver-summary">2/2 subprocess replays matched byte-for-byte with CUDA graph enabled.</p>
+      <div class="solver-stats">
+        <div><span>Collision pipeline</span><strong>default</strong></div>
+        <div><span>Collision Warp mode</span><strong>run_to_run</strong></div>
+        <div><span>Execution</span><strong>CUDA graph</strong></div>
+        <div><span>Unique hashes</span><strong>1</strong></div>
+        <div><span>Dominant core drift</span><strong>body_q (0)</strong></div>
+        <div><span>Dominant extra drift</span><strong>none</strong></div>
+        <div><span>Max core diff</span><strong>0</strong></div>
+        <div><span>Duration</span><strong>16.379 s</strong></div>
+      </div>
+      
+    </article>
+                </div>
+              </div>
+            </article>
+
+            <article class="scenario">
+              <div class="media">
+                
+            <video controls muted loop playsinline preload="metadata" poster="assets/domino_chain_xpbd_poster.png">
+              <source src="assets/domino_chain_xpbd.mp4" type="video/mp4">
+            </video>
+            <p class="video-caption">
+              xpbd video, 240 frames encoded at 24 fps
+              (960x540, stride 1).
+            </p>
+              </div>
+              <div class="scenario-body">
+                <div class="scenario-heading">
+                  <p class="eyebrow">domino_chain</p>
+                  <h2>Domino Chain</h2>
+                </div>
+                <p>Sequential impacts amplify small timing changes into visible propagation differences.</p>
+                <div class="metrics">
+                  
+        <div class="metric">
+          <span>Fallen dominos</span>
+          <strong>0</strong>
+        </div>
+
+        <div class="metric">
+          <span>Last-domino time</span>
+          <strong>not reached</strong>
+        </div>
+
+        <div class="metric">
+          <span>First angle</span>
+          <strong>14.324 deg</strong>
+        </div>
+
+        <div class="metric">
+          <span>Tracked fall events</span>
+          <strong>0</strong>
+        </div>
+                </div>
+                <div class="solver-cards">
+                  
+    <article class="solver-card bad">
+      <div class="solver-card-head">
+        <div>
+          <p class="eyebrow">Default</p>
+          <h3><code>mujoco</code></h3>
+        </div>
+        <span class="pill bad">FAILED</span>
+      </div>
+      <p class="solver-summary">Subprocess failed before a verdict could be produced: Module narrow_phase_gjk_mpr_True_write_contact_support_map_lean_post_process_minkowski_only bf1f580 load on device &#x27;cuda:0&#x27; took 3.15 ms  (cached)</p>
+      <div class="solver-stats">
+        <div><span>Collision pipeline</span><strong>default</strong></div>
+        <div><span>Collision Warp mode</span><strong>-</strong></div>
+        <div><span>Execution</span><strong>no graph</strong></div>
+        <div><span>Unique hashes</span><strong>-</strong></div>
+        <div><span>Dominant core drift</span><strong>none</strong></div>
+        <div><span>Dominant extra drift</span><strong>none</strong></div>
+        <div><span>Max core diff</span><strong>0</strong></div>
+        <div><span>Duration</span><strong>9.286 s</strong></div>
+      </div>
+      <pre class="error-log">    raise SystemExit(main())
+                     ^^^^^^
+  File &quot;C:\Users\eric-\source\repos\newton5\scripts\generate_determinism_report.py&quot;, line 1729, in main
+    return _run_snapshot_subprocess(args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File &quot;C:\Users\eric-\source\repos\newton5\scripts\generate_determinism_report.py&quot;, line 504, in _run_snapshot_subprocess
+    scenario.step()
+  File &quot;C:\Users\eric-\source\repos\newton5\scripts\determinism\scenarios\domino_chain.py&quot;, line 63, in step
+    super().step()
+  File &quot;C:\Users\eric-\source\repos\newton5\scripts\determinism\harness.py&quot;, line 368, in step
+    self._simulate()
+  File &quot;C:\Users\eric-\source\repos\newton5\scripts\determinism\harness.py&quot;, line 355, in _simulate
+    model.collide(state_in, contacts)
+  File &quot;C:\Users\eric-\source\repos\newton5\newton\_src\sim\model.py&quot;, line 1002, in collide
+    self._collision_pipeline.collide(state, contacts)
+  File &quot;C:\Users\eric-\source\repos\newton5\newton\_src\sim\collide.py&quot;, line 950, in collide
+    self.narrow_phase.launch_custom_write(
+  File &quot;C:\Users\eric-\source\repos\newton5\newton\_src\geometry\narrow_phase.py&quot;, line 1808, in launch_custom_write
+    wp.launch(
+  File &quot;C:\Users\eric-\source\repos\warp\warp\_src\context.py&quot;, line 8975, in launch
+    _launch_deterministic(
+  File &quot;C:\Users\eric-\source\repos\warp\warp\_src\context.py&quot;, line 8831, in _launch_deterministic
+    raise RuntimeError(
+RuntimeError: Deterministic counter buffer overflow in kernel &#x27;create_narrow_phase_kernel_gjk_mpr__locals__narrow_phase_kernel_gjk_mpr&#x27;. Increase &#x27;deterministic_max_records&#x27; or reduce the per-thread atomic count.
+Module mujoco_warp._src.smooth cccd978 load on device &#x27;cuda:0&#x27; took 5.80 ms  (cached)
+Module _solve_LD_sparse_fused__locals__kernel_71fc989b 60fa9de load on device &#x27;cuda:0&#x27; took 12.45 ms  (cached)
+Module newton._src.sim.articulation 1a91072 load on device &#x27;cuda:0&#x27; took 6.59 ms  (cached)
+Module newton._src.viewer.kernels abadff2 load on device &#x27;cuda:0&#x27; took 3.59 ms  (cached)
+Module newton._src.sim.collide 103f6ca load on device &#x27;cuda:0&#x27; took 1.92 ms  (cached)
+Module newton._src.geometry.broad_phase_nxn 0c78823 load on device &#x27;cuda:0&#x27; took 1.74 ms  (cached)
+Module narrow_phase_primitive_write_contact 3268b62 load on device &#x27;cuda:0&#x27; took 2.58 ms  (cached)
+Module narrow_phase_gjk_mpr_True_write_contact_support_map_lean_post_process_minkowski_only bf1f580 load on device &#x27;cuda:0&#x27; took 3.15 ms  (cached)</pre>
+    </article>
+
+    <article class="solver-card ok">
+      <div class="solver-card-head">
+        <div>
+          <p class="eyebrow">Default</p>
+          <h3><code>xpbd</code></h3>
+        </div>
+        <span class="pill ok">BIT-EXACT</span>
+      </div>
+      <p class="solver-summary">2/2 subprocess replays matched byte-for-byte with CUDA graph enabled.</p>
+      <div class="solver-stats">
+        <div><span>Collision pipeline</span><strong>default</strong></div>
+        <div><span>Collision Warp mode</span><strong>run_to_run</strong></div>
+        <div><span>Execution</span><strong>CUDA graph</strong></div>
+        <div><span>Unique hashes</span><strong>1</strong></div>
+        <div><span>Dominant core drift</span><strong>body_q (0)</strong></div>
+        <div><span>Dominant extra drift</span><strong>none</strong></div>
+        <div><span>Max core diff</span><strong>0</strong></div>
+        <div><span>Duration</span><strong>15.718 s</strong></div>
+      </div>
+      
+    </article>
+                </div>
+              </div>
+            </article>
+
+            <article class="scenario">
+              <div class="media">
+                
+            <video controls muted loop playsinline preload="metadata" poster="assets/arm_7dof_featherstone_poster.png">
+              <source src="assets/arm_7dof_featherstone.mp4" type="video/mp4">
+            </video>
+            <p class="video-caption">
+              featherstone video, 240 frames encoded at 24 fps
+              (960x540, stride 1).
+            </p>
+              </div>
+              <div class="scenario-body">
+                <div class="scenario-heading">
+                  <p class="eyebrow">arm_7dof</p>
+                  <h2>7-DOF Arm</h2>
+                </div>
+                <p>Franka arm tracks deterministic sinusoidal PD targets from a fixed base.</p>
+                <div class="metrics">
+                  
+        <div class="metric">
+          <span>Max target error</span>
+          <strong>0.14 rad</strong>
+        </div>
+
+        <div class="metric">
+          <span>Mean target error</span>
+          <strong>0.14 rad</strong>
+        </div>
+
+        <div class="metric">
+          <span>Peak PD torque</span>
+          <strong>4.751 N*m</strong>
+        </div>
+
+        <div class="metric">
+          <span>Peak contacts</span>
+          <strong>0</strong>
+        </div>
+                </div>
+                <div class="solver-cards">
+                  
+    <article class="solver-card ok">
+      <div class="solver-card-head">
+        <div>
+          <p class="eyebrow">Default</p>
+          <h3><code>featherstone</code></h3>
+        </div>
+        <span class="pill ok">BIT-EXACT</span>
+      </div>
+      <p class="solver-summary">2/2 subprocess replays matched byte-for-byte with CUDA graph enabled.</p>
+      <div class="solver-stats">
+        <div><span>Collision pipeline</span><strong>default</strong></div>
+        <div><span>Collision Warp mode</span><strong>run_to_run</strong></div>
+        <div><span>Execution</span><strong>CUDA graph</strong></div>
+        <div><span>Unique hashes</span><strong>1</strong></div>
+        <div><span>Dominant core drift</span><strong>body_q (0)</strong></div>
+        <div><span>Dominant extra drift</span><strong>none</strong></div>
+        <div><span>Max core diff</span><strong>0</strong></div>
+        <div><span>Duration</span><strong>28.971 s</strong></div>
+      </div>
+      
+    </article>
+
+    <article class="solver-card bad">
+      <div class="solver-card-head">
+        <div>
+          <p class="eyebrow">Default</p>
+          <h3><code>mujoco</code></h3>
+        </div>
+        <span class="pill bad">FAILED</span>
+      </div>
+      <p class="solver-summary">Subprocess failed before a verdict could be produced: Module _tile_cholesky_factorize__locals__cholesky_factorize_6360f775 974d52a load on device &#x27;cuda:0&#x27; took 550.77 ms  (error)</p>
+      <div class="solver-stats">
+        <div><span>Collision pipeline</span><strong>default</strong></div>
+        <div><span>Collision Warp mode</span><strong>-</strong></div>
+        <div><span>Execution</span><strong>no graph</strong></div>
+        <div><span>Unique hashes</span><strong>-</strong></div>
+        <div><span>Dominant core drift</span><strong>none</strong></div>
+        <div><span>Dominant extra drift</span><strong>none</strong></div>
+        <div><span>Max core diff</span><strong>0</strong></div>
+        <div><span>Duration</span><strong>13.385 s</strong></div>
+      </div>
+      <pre class="error-log">           ^^^^^^^^^^^^^^^^^^^^
+  File &quot;C:\Users\eric-\source\repos\warp\warp\_src\codegen.py&quot;, line 3662, in emit_Assign
+    rhs = adj.eval(node.value)
+          ^^^^^^^^^^^^^^^^^^^^
+  File &quot;C:\Users\eric-\source\repos\warp\warp\_src\codegen.py&quot;, line 4457, in eval
+    return emit_node(adj, node)
+           ^^^^^^^^^^^^^^^^^^^^
+  File &quot;C:\Users\eric-\source\repos\warp\warp\_src\codegen.py&quot;, line 3444, in emit_Call
+    out = adj.add_call(func, args, kwargs, type_args, min_outputs=min_outputs)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File &quot;C:\Users\eric-\source\repos\warp\warp\_src\codegen.py&quot;, line 1903, in add_call
+    func_args, template_args, _ltoirs, extra_shared_memory = func.lto_dispatch_func(
+                                                             ^^^^^^^^^^^^^^^^^^^^^^^
+  File &quot;C:\Users\eric-\source\repos\warp\warp\_src\builtins.py&quot;, line 13464, in tile_cholesky_generic_lto_dispatch_func
+    return _tile_cholesky_generic_lto_dispatch_func(False, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File &quot;C:\Users\eric-\source\repos\warp\warp\_src\builtins.py&quot;, line 13374, in _tile_cholesky_generic_lto_dispatch_func
+    lto_symbol, lto_code_data = warp._src.build.build_lto_solver(
+                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File &quot;C:\Users\eric-\source\repos\warp\warp\_src\build.py&quot;, line 588, in build_lto_solver
+    raise RuntimeError(
+RuntimeError: Error while parsing function &quot;cholesky_factorize&quot; at C:\Users\eric-\source\repos\newton5\.venv\Lib\site-packages\mujoco_warp\_src\smooth.py:1085:
+  L_tile = wp.tile_cholesky(M_tile)
+;cuSolverDx requires CUDA Toolkit 12.6.3 or later. This version of Warp was built against CUDA Toolkit 12.4. Upgrade your CUDA Toolkit and rebuild Warp, or install a Warp wheel built with CUDA &gt;= 12.6.3.
+Module repeat_array_kernel_0c10b976 321868f load on device &#x27;cuda:0&#x27; took 1.53 ms  (cached)
+Module repeat_array_kernel_0c10b976 8c017b4 load on device &#x27;cuda:0&#x27; took 1.82 ms  (cached)
+Module repeat_array_kernel_0c10b976 3093137 load on device &#x27;cuda:0&#x27; took 12.30 ms  (cached)
+Module repeat_array_kernel_0c10b976 c7197d6 load on device &#x27;cuda:0&#x27; took 10.85 ms  (cached)
+Module repeat_array_kernel_0c10b976 c100a36 load on device &#x27;cuda:0&#x27; took 11.35 ms  (cached)
+Module mujoco_warp._src.io 7cc74e7 load on device &#x27;cuda:0&#x27; took 4.74 ms  (cached)
+Module mujoco_warp._src.smooth cccd978 load on device &#x27;cuda:0&#x27; took 5.70 ms  (cached)
+Module _tile_cholesky_factorize__locals__cholesky_factorize_6360f775 974d52a load on device &#x27;cuda:0&#x27; took 550.77 ms  (error)</pre>
+    </article>
+
+    <article class="solver-card ok">
+      <div class="solver-card-head">
+        <div>
+          <p class="eyebrow">Default</p>
+          <h3><code>xpbd</code></h3>
+        </div>
+        <span class="pill ok">BIT-EXACT</span>
+      </div>
+      <p class="solver-summary">2/2 subprocess replays matched byte-for-byte with CUDA graph enabled.</p>
+      <div class="solver-stats">
+        <div><span>Collision pipeline</span><strong>default</strong></div>
+        <div><span>Collision Warp mode</span><strong>run_to_run</strong></div>
+        <div><span>Execution</span><strong>CUDA graph</strong></div>
+        <div><span>Unique hashes</span><strong>1</strong></div>
+        <div><span>Dominant core drift</span><strong>body_q (0)</strong></div>
+        <div><span>Dominant extra drift</span><strong>none</strong></div>
+        <div><span>Max core diff</span><strong>0</strong></div>
+        <div><span>Duration</span><strong>28.072 s</strong></div>
+      </div>
+      
+    </article>
+                </div>
+              </div>
+            </article>
+
+            <article class="scenario">
+              <div class="media">
+                
+            <video controls muted loop playsinline preload="metadata" poster="assets/humanoid_featherstone_poster.png">
+              <source src="assets/humanoid_featherstone.mp4" type="video/mp4">
+            </video>
+            <p class="video-caption">
+              featherstone video, 240 frames encoded at 24 fps
+              (960x540, stride 1).
+            </p>
+              </div>
+              <div class="scenario-body">
+                <div class="scenario-heading">
+                  <p class="eyebrow">humanoid</p>
+                  <h2>Humanoid Standing</h2>
+                </div>
+                <p>Unitree H1 holds a standing pose; drift or falling exposes articulated-contact robustness issues.</p>
+                <div class="metrics">
+                  
+        <div class="metric">
+          <span>Final root height</span>
+          <strong>0.723 m</strong>
+        </div>
+
+        <div class="metric">
+          <span>Fell worlds</span>
+          <strong>0</strong>
+        </div>
+
+        <div class="metric">
+          <span>Max COM XY drift</span>
+          <strong>0.198 m</strong>
+        </div>
+
+        <div class="metric">
+          <span>Peak contacts</span>
+          <strong>28</strong>
+        </div>
+                </div>
+                <div class="solver-cards">
+                  
+    <article class="solver-card ok">
+      <div class="solver-card-head">
+        <div>
+          <p class="eyebrow">Default</p>
+          <h3><code>featherstone</code></h3>
+        </div>
+        <span class="pill ok">BIT-EXACT</span>
+      </div>
+      <p class="solver-summary">2/2 subprocess replays matched byte-for-byte with CUDA graph enabled.</p>
+      <div class="solver-stats">
+        <div><span>Collision pipeline</span><strong>default</strong></div>
+        <div><span>Collision Warp mode</span><strong>run_to_run</strong></div>
+        <div><span>Execution</span><strong>CUDA graph</strong></div>
+        <div><span>Unique hashes</span><strong>1</strong></div>
+        <div><span>Dominant core drift</span><strong>body_q (0)</strong></div>
+        <div><span>Dominant extra drift</span><strong>none</strong></div>
+        <div><span>Max core diff</span><strong>0</strong></div>
+        <div><span>Duration</span><strong>29.687 s</strong></div>
+      </div>
+      
+    </article>
+
+    <article class="solver-card bad">
+      <div class="solver-card-head">
+        <div>
+          <p class="eyebrow">Default</p>
+          <h3><code>mujoco</code></h3>
+        </div>
+        <span class="pill bad">FAILED</span>
+      </div>
+      <p class="solver-summary">Subprocess failed before a verdict could be produced: Module _tile_cholesky_factorize__locals__cholesky_factorize_88d9a62d 184c4b0 load on device &#x27;cuda:0&#x27; took 566.80 ms  (error)</p>
+      <div class="solver-stats">
+        <div><span>Collision pipeline</span><strong>default</strong></div>
+        <div><span>Collision Warp mode</span><strong>-</strong></div>
+        <div><span>Execution</span><strong>no graph</strong></div>
+        <div><span>Unique hashes</span><strong>-</strong></div>
+        <div><span>Dominant core drift</span><strong>none</strong></div>
+        <div><span>Dominant extra drift</span><strong>none</strong></div>
+        <div><span>Max core diff</span><strong>0</strong></div>
+        <div><span>Duration</span><strong>9.968 s</strong></div>
+      </div>
+      <pre class="error-log">           ^^^^^^^^^^^^^^^^^^^^
+  File &quot;C:\Users\eric-\source\repos\warp\warp\_src\codegen.py&quot;, line 3662, in emit_Assign
+    rhs = adj.eval(node.value)
+          ^^^^^^^^^^^^^^^^^^^^
+  File &quot;C:\Users\eric-\source\repos\warp\warp\_src\codegen.py&quot;, line 4457, in eval
+    return emit_node(adj, node)
+           ^^^^^^^^^^^^^^^^^^^^
+  File &quot;C:\Users\eric-\source\repos\warp\warp\_src\codegen.py&quot;, line 3444, in emit_Call
+    out = adj.add_call(func, args, kwargs, type_args, min_outputs=min_outputs)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File &quot;C:\Users\eric-\source\repos\warp\warp\_src\codegen.py&quot;, line 1903, in add_call
+    func_args, template_args, _ltoirs, extra_shared_memory = func.lto_dispatch_func(
+                                                             ^^^^^^^^^^^^^^^^^^^^^^^
+  File &quot;C:\Users\eric-\source\repos\warp\warp\_src\builtins.py&quot;, line 13464, in tile_cholesky_generic_lto_dispatch_func
+    return _tile_cholesky_generic_lto_dispatch_func(False, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File &quot;C:\Users\eric-\source\repos\warp\warp\_src\builtins.py&quot;, line 13374, in _tile_cholesky_generic_lto_dispatch_func
+    lto_symbol, lto_code_data = warp._src.build.build_lto_solver(
+                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File &quot;C:\Users\eric-\source\repos\warp\warp\_src\build.py&quot;, line 588, in build_lto_solver
+    raise RuntimeError(
+RuntimeError: Error while parsing function &quot;cholesky_factorize&quot; at C:\Users\eric-\source\repos\newton5\.venv\Lib\site-packages\mujoco_warp\_src\smooth.py:1085:
+  L_tile = wp.tile_cholesky(M_tile)
+;cuSolverDx requires CUDA Toolkit 12.6.3 or later. This version of Warp was built against CUDA Toolkit 12.4. Upgrade your CUDA Toolkit and rebuild Warp, or install a Warp wheel built with CUDA &gt;= 12.6.3.
+Module repeat_array_kernel_0c10b976 8f968f4 load on device &#x27;cuda:0&#x27; took 1.54 ms  (cached)
+Module repeat_array_kernel_0c10b976 321868f load on device &#x27;cuda:0&#x27; took 1.56 ms  (cached)
+Module repeat_array_kernel_0c10b976 8c017b4 load on device &#x27;cuda:0&#x27; took 1.56 ms  (cached)
+Module repeat_array_kernel_0c10b976 3b8a9c7 load on device &#x27;cuda:0&#x27; took 9.85 ms  (cached)
+Module repeat_array_kernel_0c10b976 21664ed load on device &#x27;cuda:0&#x27; took 13.47 ms  (cached)
+Module mujoco_warp._src.io 7cc74e7 load on device &#x27;cuda:0&#x27; took 4.62 ms  (cached)
+Module mujoco_warp._src.smooth cccd978 load on device &#x27;cuda:0&#x27; took 5.43 ms  (cached)
+Module _tile_cholesky_factorize__locals__cholesky_factorize_88d9a62d 184c4b0 load on device &#x27;cuda:0&#x27; took 566.80 ms  (error)</pre>
+    </article>
+
+    <article class="solver-card ok">
+      <div class="solver-card-head">
+        <div>
+          <p class="eyebrow">Default</p>
+          <h3><code>xpbd</code></h3>
+        </div>
+        <span class="pill ok">BIT-EXACT</span>
+      </div>
+      <p class="solver-summary">2/2 subprocess replays matched byte-for-byte with CUDA graph enabled.</p>
+      <div class="solver-stats">
+        <div><span>Collision pipeline</span><strong>default</strong></div>
+        <div><span>Collision Warp mode</span><strong>run_to_run</strong></div>
+        <div><span>Execution</span><strong>CUDA graph</strong></div>
+        <div><span>Unique hashes</span><strong>1</strong></div>
+        <div><span>Dominant core drift</span><strong>body_q (0)</strong></div>
+        <div><span>Dominant extra drift</span><strong>none</strong></div>
+        <div><span>Max core diff</span><strong>0</strong></div>
+        <div><span>Duration</span><strong>22.926 s</strong></div>
+      </div>
+      
+    </article>
+                </div>
+              </div>
+            </article>
+
+            <article class="scenario">
+              <div class="media">
+                
+            <video controls muted loop playsinline preload="metadata" poster="assets/diffsim_ball_semi_implicit_poster.png">
+              <source src="assets/diffsim_ball_semi_implicit.mp4" type="video/mp4">
+            </video>
+            <p class="video-caption">
+              semi_implicit video, 240 frames encoded at 24 fps
+              (960x540, stride 1).
+            </p>
+              </div>
+              <div class="scenario-body">
+                <div class="scenario-heading">
+                  <p class="eyebrow">diffsim_ball</p>
+                  <h2>Diffsim Ball</h2>
+                </div>
+                <p>Differentiable particle target with wall and floor contacts; core includes loss and initial-velocity gradients. Diffsim ball target gradient inspired by ``example_diffsim_ball``.</p>
+                <div class="metrics">
+                  
+                </div>
+                <div class="solver-cards">
+                  
+    <article class="solver-card bad">
+      <div class="solver-card-head">
+        <div>
+          <p class="eyebrow">Default</p>
+          <h3><code>semi_implicit</code></h3>
+        </div>
+        <span class="pill bad">FAILED</span>
+      </div>
+      <p class="solver-summary">Subprocess failed before a verdict could be produced: Module newton._src.geometry.kernels 58b582a load on device &#x27;cuda:0&#x27; took 416.12 ms  (error)</p>
+      <div class="solver-stats">
+        <div><span>Collision pipeline</span><strong>default</strong></div>
+        <div><span>Collision Warp mode</span><strong>-</strong></div>
+        <div><span>Execution</span><strong>CUDA graph</strong></div>
+        <div><span>Unique hashes</span><strong>-</strong></div>
+        <div><span>Dominant core drift</span><strong>none</strong></div>
+        <div><span>Dominant extra drift</span><strong>none</strong></div>
+        <div><span>Max core diff</span><strong>0</strong></div>
+        <div><span>Duration</span><strong>7.272 s</strong></div>
+      </div>
+      <pre class="error-log">  File &quot;C:\Users\eric-\source\repos\newton5\scripts\generate_determinism_report.py&quot;, line 1729, in main
+    return _run_snapshot_subprocess(args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File &quot;C:\Users\eric-\source\repos\newton5\scripts\generate_determinism_report.py&quot;, line 502, in _run_snapshot_subprocess
+    scenario.build(viewer)
+  File &quot;C:\Users\eric-\source\repos\newton5\scripts\determinism\scenarios\diffsim_ball.py&quot;, line 86, in build
+    self.collision_pipeline.collide(self.states[0], self.contacts)
+  File &quot;C:\Users\eric-\source\repos\newton5\newton\_src\sim\collide.py&quot;, line 1007, in collide
+    wp.launch(
+  File &quot;C:\Users\eric-\source\repos\warp\warp\_src\context.py&quot;, line 8940, in launch
+    module_exec = kernel.module.load(device, block_dim)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File &quot;C:\Users\eric-\source\repos\warp\warp\_src\context.py&quot;, line 3360, in load
+    raise e
+  File &quot;C:\Users\eric-\source\repos\warp\warp\_src\context.py&quot;, line 3357, in load
+    compiled = self._compile(device, module_dir, output_name, output_arch, options=options)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File &quot;C:\Users\eric-\source\repos\warp\warp\_src\context.py&quot;, line 3225, in _compile
+    raise (e)
+  File &quot;C:\Users\eric-\source\repos\warp\warp\_src\context.py&quot;, line 3199, in _compile
+    warp._src.build.build_cuda(
+  File &quot;C:\Users\eric-\source\repos\warp\warp\_src\build.py&quot;, line 99, in build_cuda
+    raise Exception(f&quot;CUDA kernel build failed with error code {err}&quot;)
+Exception: CUDA kernel build failed with error code 6
+   Kernel cache:
+     \\?\C:\Users\eric-\AppData\Local\NVIDIA\warp\Cache\1.14.0.dev0
+Module newton._src.sim.collide 103f6ca load on device &#x27;cuda:0&#x27; took 2.43 ms  (cached)
+Module narrow_phase_primitive_write_contact 3268b62 load on device &#x27;cuda:0&#x27; took 11.16 ms  (cached)
+Module narrow_phase_gjk_mpr_True_write_contact_support_map_lean_post_process_minkowski_only bf1f580 load on device &#x27;cuda:0&#x27; took 3.40 ms  (cached)
+Module newton._src.geometry.narrow_phase 082b986 load on device &#x27;cuda:0&#x27; took 2.43 ms  (cached)
+Module newton._src.geometry.differentiable_contacts 012b6c2 load on device &#x27;cuda:0&#x27; took 2.32 ms  (cached)
+Module newton._src.geometry.kernels 58b582a load on device &#x27;cuda:0&#x27; took 416.12 ms  (error)</pre>
+    </article>
+                </div>
+              </div>
+            </article>
+
+            <article class="scenario">
+              <div class="media">
+                
+            <video controls muted loop playsinline preload="metadata" poster="assets/diffsim_cloth_com_semi_implicit_poster.png">
+              <source src="assets/diffsim_cloth_com_semi_implicit.mp4" type="video/mp4">
+            </video>
+            <p class="video-caption">
+              semi_implicit video, 240 frames encoded at 24 fps
+              (960x540, stride 1).
+            </p>
+              </div>
+              <div class="scenario-body">
+                <div class="scenario-heading">
+                  <p class="eyebrow">diffsim_cloth_com</p>
+                  <h2>Diffsim Cloth COM</h2>
+                </div>
+                <p>Small differentiable cloth target; COM uses an atomic accumulation before backpropagating gradients. Small cloth gradient scenario inspired by ``example_diffsim_cloth``.</p>
+                <div class="metrics">
+                  
+                </div>
+                <div class="solver-cards">
+                  
+    <article class="solver-card warn">
+      <div class="solver-card-head">
+        <div>
+          <p class="eyebrow">Default</p>
+          <h3><code>semi_implicit</code></h3>
+        </div>
+        <span class="pill warn">DRIFT</span>
+      </div>
+      <p class="solver-summary">2 unique hashes across 2 subprocess runs; largest core drift in initial_particle_qd_grad (1.490e-08); CUDA graph.</p>
+      <div class="solver-stats">
+        <div><span>Collision pipeline</span><strong>default</strong></div>
+        <div><span>Collision Warp mode</span><strong>-</strong></div>
+        <div><span>Execution</span><strong>CUDA graph</strong></div>
+        <div><span>Unique hashes</span><strong>2</strong></div>
+        <div><span>Dominant core drift</span><strong>initial_particle_qd_grad (1.490e-08)</strong></div>
+        <div><span>Dominant extra drift</span><strong>none</strong></div>
+        <div><span>Max core diff</span><strong>1.490e-08</strong></div>
+        <div><span>Duration</span><strong>11.142 s</strong></div>
+      </div>
+      
+    </article>
+                </div>
+              </div>
+            </article>
+
+            <article class="scenario">
+              <div class="media">
+                
+            <video controls muted loop playsinline preload="metadata" poster="assets/diffsim_spring_cage_semi_implicit_poster.png">
+              <source src="assets/diffsim_spring_cage_semi_implicit.mp4" type="video/mp4">
+            </video>
+            <p class="video-caption">
+              semi_implicit video, 240 frames encoded at 24 fps
+              (960x540, stride 1).
+            </p>
+              </div>
+              <div class="scenario-body">
+                <div class="scenario-heading">
+                  <p class="eyebrow">diffsim_spring_cage</p>
+                  <h2>Diffsim Spring Cage</h2>
+                </div>
+                <p>Differentiable spring-cage target; core includes loss and spring rest-length gradients. Spring rest-length gradient inspired by ``example_diffsim_spring_cage``.</p>
+                <div class="metrics">
+                  
+                </div>
+                <div class="solver-cards">
+                  
+    <article class="solver-card ok">
+      <div class="solver-card-head">
+        <div>
+          <p class="eyebrow">Default</p>
+          <h3><code>semi_implicit</code></h3>
+        </div>
+        <span class="pill ok">BIT-EXACT</span>
+      </div>
+      <p class="solver-summary">2/2 subprocess replays matched byte-for-byte with CUDA graph enabled.</p>
+      <div class="solver-stats">
+        <div><span>Collision pipeline</span><strong>default</strong></div>
+        <div><span>Collision Warp mode</span><strong>-</strong></div>
+        <div><span>Execution</span><strong>CUDA graph</strong></div>
+        <div><span>Unique hashes</span><strong>1</strong></div>
+        <div><span>Dominant core drift</span><strong>final_particle_q (0)</strong></div>
+        <div><span>Dominant extra drift</span><strong>none</strong></div>
+        <div><span>Max core diff</span><strong>0</strong></div>
+        <div><span>Duration</span><strong>11.741 s</strong></div>
+      </div>
+      
+    </article>
+                </div>
+              </div>
+            </article>
+
+            <article class="scenario">
+              <div class="media">
+                <div class="video-missing">Video capture failed</div>
+              </div>
+              <div class="scenario-body">
+                <div class="scenario-heading">
+                  <p class="eyebrow">warp_argmax_exchange</p>
+                  <h2>warp_argmax_exchange</h2>
+                </div>
+                <p>Consumed-return ``atomic_max`` followed by an ``atomic_exch`` winner.</p>
+                <div class="metrics">
+                  
+                </div>
+                <div class="solver-cards">
+                  
+    <article class="solver-card bad">
+      <div class="solver-card-head">
+        <div>
+          <p class="eyebrow">Default</p>
+          <h3><code>xpbd</code></h3>
+        </div>
+        <span class="pill bad">FAILED</span>
+      </div>
+      <p class="solver-summary">Subprocess failed before a verdict could be produced: \\?\C:\Users\eric-\AppData\Local\NVIDIA\warp\Cache\1.14.0.dev0</p>
+      <div class="solver-stats">
+        <div><span>Collision pipeline</span><strong>default</strong></div>
+        <div><span>Collision Warp mode</span><strong>-</strong></div>
+        <div><span>Execution</span><strong>CUDA graph</strong></div>
+        <div><span>Unique hashes</span><strong>-</strong></div>
+        <div><span>Dominant core drift</span><strong>none</strong></div>
+        <div><span>Dominant extra drift</span><strong>none</strong></div>
+        <div><span>Max core diff</span><strong>0</strong></div>
+        <div><span>Duration</span><strong>5.433 s</strong></div>
+      </div>
+      <pre class="error-log">    return emit_node(adj, node)
+           ^^^^^^^^^^^^^^^^^^^^
+  File &quot;C:\Users\eric-\source\repos\warp\warp\_src\codegen.py&quot;, line 2542, in emit_FunctionDef
+    adj.eval(f)
+  File &quot;C:\Users\eric-\source\repos\warp\warp\_src\codegen.py&quot;, line 4457, in eval
+    return emit_node(adj, node)
+           ^^^^^^^^^^^^^^^^^^^^
+  File &quot;C:\Users\eric-\source\repos\warp\warp\_src\codegen.py&quot;, line 3662, in emit_Assign
+    rhs = adj.eval(node.value)
+          ^^^^^^^^^^^^^^^^^^^^
+  File &quot;C:\Users\eric-\source\repos\warp\warp\_src\codegen.py&quot;, line 4457, in eval
+    return emit_node(adj, node)
+           ^^^^^^^^^^^^^^^^^^^^
+  File &quot;C:\Users\eric-\source\repos\warp\warp\_src\codegen.py&quot;, line 3444, in emit_Call
+    out = adj.add_call(func, args, kwargs, type_args, min_outputs=min_outputs)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File &quot;C:\Users\eric-\source\repos\warp\warp\_src\codegen.py&quot;, line 1890, in add_call
+    det_output = adj._emit_deterministic_atomic(func, bound_args, return_type, output, output_list)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File &quot;C:\Users\eric-\source\repos\warp\warp\_src\codegen.py&quot;, line 2115, in _emit_deterministic_atomic
+    raise WarpCodegenError(
+warp._src.codegen.WarpCodegenError: Error while parsing function &quot;_argmax_exchange_kernel&quot; at C:\Users\eric-\source\repos\newton5\scripts\determinism\scenarios\warp_argmax_exchange.py:19:
+    previous = wp.atomic_max(best_score, 0, score)
+;Deterministic mode currently supports consumed-return counter atomics only for atomic_add, got atomic_max.
+Warp 1.14.0.dev0 initialized:
+   CUDA Toolkit 12.4, Driver 13.2
+   Devices:
+     &quot;cpu&quot;      : &quot;Intel64 Family 6 Model 151 Stepping 2, GenuineIntel&quot;
+     &quot;cuda:0&quot;   : &quot;NVIDIA GeForce RTX 4090&quot; (24 GiB, sm_89, mempool enabled)
+   Kernel cache:
+     \\?\C:\Users\eric-\AppData\Local\NVIDIA\warp\Cache\1.14.0.dev0</pre>
+    </article>
+                </div>
+              </div>
+            </article>
+
+            <article class="scenario">
+              <div class="media">
+                <div class="video-missing">Video capture failed</div>
+              </div>
+              <div class="scenario-body">
+                <div class="scenario-heading">
+                  <p class="eyebrow">warp_counter_indexed</p>
+                  <h2>warp_counter_indexed</h2>
+                </div>
+                <p>Consumed-return ``atomic_add`` with a dynamic counter index.</p>
+                <div class="metrics">
+                  
+                </div>
+                <div class="solver-cards">
+                  
+    <article class="solver-card ok">
+      <div class="solver-card-head">
+        <div>
+          <p class="eyebrow">Default</p>
+          <h3><code>xpbd</code></h3>
+        </div>
+        <span class="pill ok">BIT-EXACT</span>
+      </div>
+      <p class="solver-summary">2/2 subprocess replays matched byte-for-byte with CUDA graph enabled.</p>
+      <div class="solver-stats">
+        <div><span>Collision pipeline</span><strong>default</strong></div>
+        <div><span>Collision Warp mode</span><strong>-</strong></div>
+        <div><span>Execution</span><strong>CUDA graph</strong></div>
+        <div><span>Unique hashes</span><strong>1</strong></div>
+        <div><span>Dominant core drift</span><strong>counts (0)</strong></div>
+        <div><span>Dominant extra drift</span><strong>none</strong></div>
+        <div><span>Max core diff</span><strong>0</strong></div>
+        <div><span>Duration</span><strong>10.993 s</strong></div>
+      </div>
+      
+    </article>
+                </div>
+              </div>
+            </article>
+
+            <article class="scenario">
+              <div class="media">
+                <div class="video-missing">Video capture failed</div>
+              </div>
+              <div class="scenario-body">
+                <div class="scenario-heading">
+                  <p class="eyebrow">warp_counter_sliced</p>
+                  <h2>warp_counter_sliced</h2>
+                </div>
+                <p>Consumed-return ``atomic_add`` through a sliced per-world counter view.</p>
+                <div class="metrics">
+                  
+                </div>
+                <div class="solver-cards">
+                  
+    <article class="solver-card ok">
+      <div class="solver-card-head">
+        <div>
+          <p class="eyebrow">Default</p>
+          <h3><code>xpbd</code></h3>
+        </div>
+        <span class="pill ok">BIT-EXACT</span>
+      </div>
+      <p class="solver-summary">2/2 subprocess replays matched byte-for-byte with CUDA graph enabled.</p>
+      <div class="solver-stats">
+        <div><span>Collision pipeline</span><strong>default</strong></div>
+        <div><span>Collision Warp mode</span><strong>-</strong></div>
+        <div><span>Execution</span><strong>CUDA graph</strong></div>
+        <div><span>Unique hashes</span><strong>1</strong></div>
+        <div><span>Dominant core drift</span><strong>counts (0)</strong></div>
+        <div><span>Dominant extra drift</span><strong>none</strong></div>
+        <div><span>Max core diff</span><strong>0</strong></div>
+        <div><span>Duration</span><strong>10.997 s</strong></div>
+      </div>
+      
+    </article>
+                </div>
+              </div>
+            </article>
+
+            <article class="scenario">
+              <div class="media">
+                <div class="video-missing">Video capture failed</div>
+              </div>
+              <div class="scenario-body">
+                <div class="scenario-heading">
+                  <p class="eyebrow">warp_counter_static_index</p>
+                  <h2>warp_counter_static_index</h2>
+                </div>
+                <p>Consumed-return ``atomic_add`` with a nonzero ``wp.static`` index.</p>
+                <div class="metrics">
+                  
+                </div>
+                <div class="solver-cards">
+                  
+    <article class="solver-card ok">
+      <div class="solver-card-head">
+        <div>
+          <p class="eyebrow">Default</p>
+          <h3><code>xpbd</code></h3>
+        </div>
+        <span class="pill ok">BIT-EXACT</span>
+      </div>
+      <p class="solver-summary">2/2 subprocess replays matched byte-for-byte with CUDA graph enabled.</p>
+      <div class="solver-stats">
+        <div><span>Collision pipeline</span><strong>default</strong></div>
+        <div><span>Collision Warp mode</span><strong>-</strong></div>
+        <div><span>Execution</span><strong>CUDA graph</strong></div>
+        <div><span>Unique hashes</span><strong>1</strong></div>
+        <div><span>Dominant core drift</span><strong>counts (0)</strong></div>
+        <div><span>Dominant extra drift</span><strong>none</strong></div>
+        <div><span>Max core diff</span><strong>0</strong></div>
+        <div><span>Duration</span><strong>10.187 s</strong></div>
+      </div>
+      
+    </article>
+                </div>
+              </div>
+            </article>
+
+            <article class="scenario">
+              <div class="media">
+                <div class="video-missing">Video capture failed</div>
+              </div>
+              <div class="scenario-body">
+                <div class="scenario-heading">
+                  <p class="eyebrow">warp_custom_adjoint</p>
+                  <h2>warp_custom_adjoint</h2>
+                </div>
+                <p>Custom ``@wp.func_grad`` that accumulates into ``wp.adjoint[array]``.</p>
+                <div class="metrics">
+                  
+                </div>
+                <div class="solver-cards">
+                  
+    <article class="solver-card ok">
+      <div class="solver-card-head">
+        <div>
+          <p class="eyebrow">Default</p>
+          <h3><code>xpbd</code></h3>
+        </div>
+        <span class="pill ok">BIT-EXACT</span>
+      </div>
+      <p class="solver-summary">2/2 subprocess replays matched byte-for-byte with CUDA graph enabled.</p>
+      <div class="solver-stats">
+        <div><span>Collision pipeline</span><strong>default</strong></div>
+        <div><span>Collision Warp mode</span><strong>-</strong></div>
+        <div><span>Execution</span><strong>CUDA graph</strong></div>
+        <div><span>Unique hashes</span><strong>1</strong></div>
+        <div><span>Dominant core drift</span><strong>y (0)</strong></div>
+        <div><span>Dominant extra drift</span><strong>none</strong></div>
+        <div><span>Max core diff</span><strong>0</strong></div>
+        <div><span>Duration</span><strong>9.923 s</strong></div>
+      </div>
+      
+    </article>
+                </div>
+              </div>
+            </article>
+    </section>
+
+    <section class="band">
+      <h2>Solver Matrix</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Scenario</th>
+              <th>Solver</th>
+              <th>Variant</th>
+              <th>Verdict</th>
+              <th>Unique hashes</th>
+              <th>Collision pipeline</th>
+              <th>Collision Warp mode</th>
+              <th>Dominant core signal</th>
+              <th>Max core diff</th>
+              <th>Dominant extra signal</th>
+              <th>Max extras diff</th>
+              <th>Execution</th>
+              <th>Duration</th>
+            </tr>
+          </thead>
+          <tbody>
+            
+            <tr>
+              <td>7-DOF Arm</td>
+              <td><code>featherstone</code></td>
+              <td>Default</td>
+              <td><span class="pill ok">BIT-EXACT</span></td>
+              <td>1</td>
+              <td>default</td>
+              <td>run_to_run</td>
+              <td>body_q (0)</td>
+              <td>0</td>
+              <td>-</td>
+              <td>0</td>
+              <td>CUDA graph</td>
+              <td>28.971 s</td>
+            </tr>
+
+            <tr>
+              <td>7-DOF Arm</td>
+              <td><code>mujoco</code></td>
+              <td>Default</td>
+              <td><span class="pill bad">FAILED</span></td>
+              <td>-</td>
+              <td>default</td>
+              <td>-</td>
+              <td>-</td>
+              <td>-</td>
+              <td>-</td>
+              <td>-</td>
+              <td>no graph</td>
+              <td>13.385 s</td>
+            </tr>
+
+            <tr>
+              <td>7-DOF Arm</td>
+              <td><code>xpbd</code></td>
+              <td>Default</td>
+              <td><span class="pill ok">BIT-EXACT</span></td>
+              <td>1</td>
+              <td>default</td>
+              <td>run_to_run</td>
+              <td>body_q (0)</td>
+              <td>0</td>
+              <td>-</td>
+              <td>0</td>
+              <td>CUDA graph</td>
+              <td>28.072 s</td>
+            </tr>
+
+            <tr>
+              <td>Box Stack</td>
+              <td><code>mujoco</code></td>
+              <td>Default</td>
+              <td><span class="pill bad">FAILED</span></td>
+              <td>-</td>
+              <td>default</td>
+              <td>-</td>
+              <td>-</td>
+              <td>-</td>
+              <td>-</td>
+              <td>-</td>
+              <td>no graph</td>
+              <td>9.282 s</td>
+            </tr>
+
+            <tr>
+              <td>Box Stack</td>
+              <td><code>xpbd</code></td>
+              <td>Default</td>
+              <td><span class="pill ok">BIT-EXACT</span></td>
+              <td>1</td>
+              <td>default</td>
+              <td>run_to_run</td>
+              <td>body_q (0)</td>
+              <td>0</td>
+              <td>-</td>
+              <td>0</td>
+              <td>CUDA graph</td>
+              <td>16.379 s</td>
+            </tr>
+
+            <tr>
+              <td>Diffsim Ball</td>
+              <td><code>semi_implicit</code></td>
+              <td>Default</td>
+              <td><span class="pill bad">FAILED</span></td>
+              <td>-</td>
+              <td>default</td>
+              <td>-</td>
+              <td>-</td>
+              <td>-</td>
+              <td>-</td>
+              <td>-</td>
+              <td>CUDA graph</td>
+              <td>7.272 s</td>
+            </tr>
+
+            <tr>
+              <td>Diffsim Cloth COM</td>
+              <td><code>semi_implicit</code></td>
+              <td>Default</td>
+              <td><span class="pill warn">DRIFT</span></td>
+              <td>2</td>
+              <td>default</td>
+              <td>-</td>
+              <td>initial_particle_qd_grad (1.490e-08)</td>
+              <td>1.490e-08</td>
+              <td>-</td>
+              <td>0</td>
+              <td>CUDA graph</td>
+              <td>11.142 s</td>
+            </tr>
+
+            <tr>
+              <td>Diffsim Spring Cage</td>
+              <td><code>semi_implicit</code></td>
+              <td>Default</td>
+              <td><span class="pill ok">BIT-EXACT</span></td>
+              <td>1</td>
+              <td>default</td>
+              <td>-</td>
+              <td>final_particle_q (0)</td>
+              <td>0</td>
+              <td>-</td>
+              <td>0</td>
+              <td>CUDA graph</td>
+              <td>11.741 s</td>
+            </tr>
+
+            <tr>
+              <td>Domino Chain</td>
+              <td><code>mujoco</code></td>
+              <td>Default</td>
+              <td><span class="pill bad">FAILED</span></td>
+              <td>-</td>
+              <td>default</td>
+              <td>-</td>
+              <td>-</td>
+              <td>-</td>
+              <td>-</td>
+              <td>-</td>
+              <td>no graph</td>
+              <td>9.286 s</td>
+            </tr>
+
+            <tr>
+              <td>Domino Chain</td>
+              <td><code>xpbd</code></td>
+              <td>Default</td>
+              <td><span class="pill ok">BIT-EXACT</span></td>
+              <td>1</td>
+              <td>default</td>
+              <td>run_to_run</td>
+              <td>body_q (0)</td>
+              <td>0</td>
+              <td>-</td>
+              <td>0</td>
+              <td>CUDA graph</td>
+              <td>15.718 s</td>
+            </tr>
+
+            <tr>
+              <td>Falling Cube</td>
+              <td><code>featherstone</code></td>
+              <td>Default</td>
+              <td><span class="pill ok">BIT-EXACT</span></td>
+              <td>1</td>
+              <td>default</td>
+              <td>run_to_run</td>
+              <td>body_q (0)</td>
+              <td>0</td>
+              <td>-</td>
+              <td>0</td>
+              <td>CUDA graph</td>
+              <td>15.758 s</td>
+            </tr>
+
+            <tr>
+              <td>Falling Cube</td>
+              <td><code>mujoco</code></td>
+              <td>Default</td>
+              <td><span class="pill bad">FAILED</span></td>
+              <td>-</td>
+              <td>default</td>
+              <td>-</td>
+              <td>-</td>
+              <td>-</td>
+              <td>-</td>
+              <td>-</td>
+              <td>no graph</td>
+              <td>8.095 s</td>
+            </tr>
+
+            <tr>
+              <td>Falling Cube</td>
+              <td><code>semi_implicit</code></td>
+              <td>Default</td>
+              <td><span class="pill ok">BIT-EXACT</span></td>
+              <td>1</td>
+              <td>default</td>
+              <td>run_to_run</td>
+              <td>body_q (0)</td>
+              <td>0</td>
+              <td>-</td>
+              <td>0</td>
+              <td>CUDA graph</td>
+              <td>15.037 s</td>
+            </tr>
+
+            <tr>
+              <td>Falling Cube</td>
+              <td><code>xpbd</code></td>
+              <td>Default</td>
+              <td><span class="pill ok">BIT-EXACT</span></td>
+              <td>1</td>
+              <td>default</td>
+              <td>run_to_run</td>
+              <td>body_q (0)</td>
+              <td>0</td>
+              <td>-</td>
+              <td>0</td>
+              <td>CUDA graph</td>
+              <td>16.517 s</td>
+            </tr>
+
+            <tr>
+              <td>Humanoid Standing</td>
+              <td><code>featherstone</code></td>
+              <td>Default</td>
+              <td><span class="pill ok">BIT-EXACT</span></td>
+              <td>1</td>
+              <td>default</td>
+              <td>run_to_run</td>
+              <td>body_q (0)</td>
+              <td>0</td>
+              <td>-</td>
+              <td>0</td>
+              <td>CUDA graph</td>
+              <td>29.687 s</td>
+            </tr>
+
+            <tr>
+              <td>Humanoid Standing</td>
+              <td><code>mujoco</code></td>
+              <td>Default</td>
+              <td><span class="pill bad">FAILED</span></td>
+              <td>-</td>
+              <td>default</td>
+              <td>-</td>
+              <td>-</td>
+              <td>-</td>
+              <td>-</td>
+              <td>-</td>
+              <td>no graph</td>
+              <td>9.968 s</td>
+            </tr>
+
+            <tr>
+              <td>Humanoid Standing</td>
+              <td><code>xpbd</code></td>
+              <td>Default</td>
+              <td><span class="pill ok">BIT-EXACT</span></td>
+              <td>1</td>
+              <td>default</td>
+              <td>run_to_run</td>
+              <td>body_q (0)</td>
+              <td>0</td>
+              <td>-</td>
+              <td>0</td>
+              <td>CUDA graph</td>
+              <td>22.926 s</td>
+            </tr>
+
+            <tr>
+              <td>warp_argmax_exchange</td>
+              <td><code>xpbd</code></td>
+              <td>Default</td>
+              <td><span class="pill bad">FAILED</span></td>
+              <td>-</td>
+              <td>default</td>
+              <td>-</td>
+              <td>-</td>
+              <td>-</td>
+              <td>-</td>
+              <td>-</td>
+              <td>CUDA graph</td>
+              <td>5.433 s</td>
+            </tr>
+
+            <tr>
+              <td>warp_counter_indexed</td>
+              <td><code>xpbd</code></td>
+              <td>Default</td>
+              <td><span class="pill ok">BIT-EXACT</span></td>
+              <td>1</td>
+              <td>default</td>
+              <td>-</td>
+              <td>counts (0)</td>
+              <td>0</td>
+              <td>-</td>
+              <td>0</td>
+              <td>CUDA graph</td>
+              <td>10.993 s</td>
+            </tr>
+
+            <tr>
+              <td>warp_counter_sliced</td>
+              <td><code>xpbd</code></td>
+              <td>Default</td>
+              <td><span class="pill ok">BIT-EXACT</span></td>
+              <td>1</td>
+              <td>default</td>
+              <td>-</td>
+              <td>counts (0)</td>
+              <td>0</td>
+              <td>-</td>
+              <td>0</td>
+              <td>CUDA graph</td>
+              <td>10.997 s</td>
+            </tr>
+
+            <tr>
+              <td>warp_counter_static_index</td>
+              <td><code>xpbd</code></td>
+              <td>Default</td>
+              <td><span class="pill ok">BIT-EXACT</span></td>
+              <td>1</td>
+              <td>default</td>
+              <td>-</td>
+              <td>counts (0)</td>
+              <td>0</td>
+              <td>-</td>
+              <td>0</td>
+              <td>CUDA graph</td>
+              <td>10.187 s</td>
+            </tr>
+
+            <tr>
+              <td>warp_custom_adjoint</td>
+              <td><code>xpbd</code></td>
+              <td>Default</td>
+              <td><span class="pill ok">BIT-EXACT</span></td>
+              <td>1</td>
+              <td>default</td>
+              <td>-</td>
+              <td>y (0)</td>
+              <td>0</td>
+              <td>-</td>
+              <td>0</td>
+              <td>CUDA graph</td>
+              <td>9.923 s</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="band">
+      <h2>Observed Gaps And Scope</h2>
+      <div class="list-grid">
+        <div class="list-card">
+          <h3>Observed gaps in this run</h3>
+          <p>These notes are generated from the actual solver results above rather than a static message.</p>
+          <ul>
+            <li>Diffsim Cloth COM / semi_implicit: 2 unique hashes across 2 runs; dominant core drift in initial_particle_qd_grad = 1.490e-08; execution = CUDA graph.</li>
+<li>Falling Cube / mujoco: subprocess failure prevented analysis. Last log line: Module _tile_cholesky_factorize__locals__cholesky_factorize_031ac41c 9ae5da0 load on device &#x27;cuda:0&#x27; took 584.79 ms  (error)</li>
+<li>Box Stack / mujoco: subprocess failure prevented analysis. Last log line: Module narrow_phase_gjk_mpr_True_write_contact_support_map_lean_post_process_minkowski_only bf1f580 load on device &#x27;cuda:0&#x27; took 3.13 ms  (cached)</li>
+<li>Domino Chain / mujoco: subprocess failure prevented analysis. Last log line: Module narrow_phase_gjk_mpr_True_write_contact_support_map_lean_post_process_minkowski_only bf1f580 load on device &#x27;cuda:0&#x27; took 3.15 ms  (cached)</li>
+<li>7-DOF Arm / mujoco: subprocess failure prevented analysis. Last log line: Module _tile_cholesky_factorize__locals__cholesky_factorize_6360f775 974d52a load on device &#x27;cuda:0&#x27; took 550.77 ms  (error)</li>
+<li>Humanoid Standing / mujoco: subprocess failure prevented analysis. Last log line: Module _tile_cholesky_factorize__locals__cholesky_factorize_88d9a62d 184c4b0 load on device &#x27;cuda:0&#x27; took 566.80 ms  (error)</li>
+<li>Diffsim Ball / semi_implicit: subprocess failure prevented analysis. Last log line: Module newton._src.geometry.kernels 58b582a load on device &#x27;cuda:0&#x27; took 416.12 ms  (error)</li>
+<li>warp_argmax_exchange / xpbd: subprocess failure prevented analysis. Last log line: \\?\C:\Users\eric-\AppData\Local\NVIDIA\warp\Cache\1.14.0.dev0</li>
+          </ul>
+        </div>
+        <div class="list-card">
+          <h3>What the report does and does not prove</h3>
+          <p>The current harness is precise about repeated local replays, but it intentionally stops short of broader claims.</p>
+          <ul>
+            <li>This report only checks repeated runs on the same machine, driver, GPU, and Warp/Newton build; it does not prove cross-GPU or cross-driver reproducibility.</li>
+<li>The verdict is based on final core state hashes. Videos and scenario extras are diagnostic evidence, not the primary pass/fail signal.</li>
+<li>Rows marked no graph were replayed outside the CUDA graph path, so their verdicts do not cover graph-capture behavior.</li>
+          </ul>
+        </div>
+        <div class="list-card">
+          <h3>Controls in this harness</h3>
+          <ul>
+            <li><code>wp.config.deterministic</code> is set before heavy Warp/Newton imports and propagated to subprocesses.</li>
+            <li>Each scenario owns a seeded NumPy RNG, so pose jitter and control trajectories are reproducible.</li>
+            <li>The comparison boundary is process-level: no Python or GPU state is reused between replays.</li>
+            <li>Only final core state decides the verdict; scenario extras are diagnostic and reported separately.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    Generated 2026-05-11 22:10:34 Pacific Daylight Time. Raw machine-readable data: <code>determinism_report.json</code>.
+  </footer>
+</body>
+</html>
