@@ -10,11 +10,11 @@ Public entry points:
 from __future__ import annotations
 
 from .harness import (
+    SOLVER_SPECS,
     Scenario,
     ScenarioArgs,
     ScenarioSnapshot,
     SolverSpec,
-    SOLVER_SPECS,
     compare_runs,
     hash_core,
     list_solvers,

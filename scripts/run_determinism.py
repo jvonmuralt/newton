@@ -42,6 +42,7 @@ Design
   each snapshot, and asserts bit-exact agreement.
 - ``_subrun`` is an internal flag; users don't call it directly.
 """
+# ruff: noqa: PLC0415
 
 from __future__ import annotations
 
@@ -67,52 +68,72 @@ def _build_parser() -> argparse.ArgumentParser:
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     parser.add_argument(
-        "--list", action="store_true",
+        "--list",
+        action="store_true",
         help="List available scenarios and solvers, then exit.",
     )
     parser.add_argument(
-        "--scenario", type=str, default="box_stack",
+        "--scenario",
+        type=str,
+        default="box_stack",
         help="Scenario id (see --list).",
     )
     parser.add_argument(
-        "--solver", type=str, default="xpbd",
+        "--solver",
+        type=str,
+        default="xpbd",
         help="Solver id (see --list).",
     )
     parser.add_argument(
-        "--world-count", type=int, default=1,
+        "--world-count",
+        type=int,
+        default=1,
         help="Number of replicated worlds in the scenario.",
     )
     parser.add_argument(
-        "--num-steps", type=int, default=300,
+        "--num-steps",
+        type=int,
+        default=300,
         help="Total simulation frames to step.",
     )
     parser.add_argument(
-        "--substeps", type=int, default=10,
+        "--substeps",
+        type=int,
+        default=10,
         help="Physics substeps per frame.",
     )
     parser.add_argument(
-        "--fps", type=int, default=60,
+        "--fps",
+        type=int,
+        default=60,
         help="Simulation frame rate used to derive dt = 1/fps/substeps.",
     )
     parser.add_argument(
-        "--seed", type=int, default=0,
+        "--seed",
+        type=int,
+        default=0,
         help="Seed for scenario-level RNG (pose jitter etc).",
     )
     parser.add_argument(
-        "--runs", type=int, default=1,
+        "--runs",
+        type=int,
+        default=1,
         help="Number of independent subprocess replays for determinism check. "
-             "1 = single-process run, no determinism comparison.",
+        "1 = single-process run, no determinism comparison.",
     )
     parser.add_argument(
-        "--viewer", type=str, default="gl",
+        "--viewer",
+        type=str,
+        default="gl",
         choices=["null", "gl", "usd", "rerun", "viser"],
         help="Viewer backend. Use 'null' for headless runs.",
     )
     parser.add_argument(
-        "--warp-deterministic", type=str, default="run_to_run",
+        "--warp-deterministic",
+        type=str,
+        default="run_to_run",
         choices=[None, "not_guaranteed", "run_to_run", "gpu_to_gpu"],
-        help="Set wp.config.deterministic before initializing Warp. "
-             "Propagated to subprocesses via env var.",
+        help="Set wp.config.deterministic before initializing Warp. Propagated to subprocesses via env var.",
     )
     parser.add_argument(
         "--collision-pipeline-deterministic",
@@ -125,23 +146,28 @@ def _build_parser() -> argparse.ArgumentParser:
         default=None,
         choices=["not_guaranteed", "run_to_run", "gpu_to_gpu"],
         help="Compile and warm the CollisionPipeline under a specific "
-             "wp.config.deterministic mode before restoring the global solver mode.",
+        "wp.config.deterministic mode before restoring the global solver mode.",
     )
     parser.add_argument(
-        "--render-every", type=int, default=1,
+        "--render-every",
+        type=int,
+        default=1,
         help="Render every N frames (applies to gl/usd/viser viewers).",
     )
     parser.add_argument(
-        "--print-extras", action="store_true",
+        "--print-extras",
+        action="store_true",
         help="Print scenario extras after the run.",
     )
     # Internal flag used by the determinism comparison path: the subrun
     # writes its pickled ScenarioSnapshot to this file. We pickle to a
     # file rather than stdout because Warp's init banner and kernel cache
     # chatter are written to stdout and would otherwise prefix the pickle
-    # stream with unparseable bytes (UnpicklingError: 'invalid load key').
+    # stream with unparsable bytes (UnpicklingError: 'invalid load key').
     parser.add_argument(
-        "--_snapshot-out", type=str, default=None,
+        "--_snapshot-out",
+        type=str,
+        default=None,
         dest="snapshot_out",
         help=argparse.SUPPRESS,
     )
@@ -184,15 +210,9 @@ def _build_scenario(args: argparse.Namespace):
     from scripts.determinism import SCENARIOS, SOLVER_SPECS, ScenarioArgs
 
     if args.scenario not in SCENARIOS:
-        raise SystemExit(
-            f"Unknown scenario '{args.scenario}'. "
-            f"Known: {sorted(SCENARIOS)}"
-        )
+        raise SystemExit(f"Unknown scenario '{args.scenario}'. Known: {sorted(SCENARIOS)}")
     if args.solver not in SOLVER_SPECS:
-        raise SystemExit(
-            f"Unknown solver '{args.solver}'. "
-            f"Known: {sorted(SOLVER_SPECS)}"
-        )
+        raise SystemExit(f"Unknown solver '{args.solver}'. Known: {sorted(SOLVER_SPECS)}")
     scen_cls = SCENARIOS[args.scenario]
     solver = SOLVER_SPECS[args.solver]
     if args.solver not in scen_cls.supported_solvers:
@@ -256,13 +276,20 @@ def _compare(args: argparse.Namespace) -> int:
 
     # Rebuild the subprocess CLI (drop --runs, --viewer; force --viewer null)
     sub_args: list[str] = [
-        "--scenario", args.scenario,
-        "--solver", args.solver,
-        "--world-count", str(args.world_count),
-        "--num-steps", str(args.num_steps),
-        "--substeps", str(args.substeps),
-        "--fps", str(args.fps),
-        "--seed", str(args.seed),
+        "--scenario",
+        args.scenario,
+        "--solver",
+        args.solver,
+        "--world-count",
+        str(args.world_count),
+        "--num-steps",
+        str(args.num_steps),
+        "--substeps",
+        str(args.substeps),
+        "--fps",
+        str(args.fps),
+        "--seed",
+        str(args.seed),
     ]
     if args.warp_deterministic:
         sub_args += ["--warp-deterministic", args.warp_deterministic]
@@ -277,8 +304,7 @@ def _compare(args: argparse.Namespace) -> int:
     all_equal, snapshots, hashes = compare_runs(sub_args, args.runs, _THIS_FILE)
 
     print(f"\n### {args.scenario} / {args.solver} ### ")
-    print(f"  world_count={args.world_count} num_steps={args.num_steps} "
-          f"substeps={args.substeps} fps={args.fps}")
+    print(f"  world_count={args.world_count} num_steps={args.num_steps} substeps={args.substeps} fps={args.fps}")
     if args.warp_deterministic:
         print(f"  wp.config.deterministic = {args.warp_deterministic}")
     if args.collision_pipeline_deterministic or args.collision_pipeline_warp_deterministic:
@@ -292,18 +318,13 @@ def _compare(args: argparse.Namespace) -> int:
 
     ref = snapshots[0]
     nonfinite: dict[int, list[str]] = {}
-    for i, (snap, h) in enumerate(zip(snapshots, hashes)):
+    for i, (snap, h) in enumerate(zip(snapshots, hashes, strict=True)):
         if i == 0:
             diff_str = "(reference)"
         else:
-            diffs = {
-                k: float(np.abs(snap.core[k] - ref.core[k]).max()) for k in snap.core
-            }
+            diffs = {k: float(np.abs(snap.core[k] - ref.core[k]).max()) for k in snap.core}
             diff_str = ", ".join(f"{k}:{v:.3e}" for k, v in diffs.items())
-        bad_keys = [
-            k for k, v in snap.core.items()
-            if np.asarray(v).dtype.kind in "fc" and not np.isfinite(v).all()
-        ]
+        bad_keys = [k for k, v in snap.core.items() if np.asarray(v).dtype.kind in "fc" and not np.isfinite(v).all()]
         if bad_keys:
             nonfinite[i] = bad_keys
         print(f"  run {i}: hash={h}  max core diff: {diff_str}")
@@ -312,8 +333,7 @@ def _compare(args: argparse.Namespace) -> int:
         verdict = "NON-FINITE"
     else:
         verdict = "BIT-EXACT" if all_equal else "NON-DETERMINISTIC"
-    print(f"  -> {len(set(hashes))} unique hash(es) across {args.runs} runs "
-          f"({verdict})")
+    print(f"  -> {len(set(hashes))} unique hash(es) across {args.runs} runs ({verdict})")
     if nonfinite:
         print("  non-finite core arrays:")
         for run_idx, keys in nonfinite.items():
@@ -373,8 +393,7 @@ def main(argv: list[str] | None = None) -> int:
 
         if not args.snapshot_out:
             raise SystemExit(
-                "error: _subrun requires --_snapshot-out <path>. This flag "
-                "is set automatically by compare_runs()."
+                "error: _subrun requires --_snapshot-out <path>. This flag is set automatically by compare_runs()."
             )
         write_snapshot_to_path(snap, Path(args.snapshot_out))
         return 0
@@ -385,11 +404,10 @@ def main(argv: list[str] | None = None) -> int:
 
         print(f"\nSingle-run snapshot: hash={hash_core(snap)}")
         print(f"  scenario={snap.meta['scenario']}  solver={snap.meta['solver']}")
-        print(f"  core shapes: " + ", ".join(
-            f"{k}={v.shape}" for k, v in snap.core.items()
-        ))
+        print("  core shapes: " + ", ".join(f"{k}={v.shape}" for k, v in snap.core.items()))
         if args.print_extras:
             import numpy as np
+
             print("Extras:")
             for k, v in snap.extras.items():
                 if isinstance(v, np.ndarray):

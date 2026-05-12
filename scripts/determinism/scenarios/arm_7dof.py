@@ -25,7 +25,6 @@ import newton.utils
 
 from ..harness import Scenario
 
-
 # ---------------------------------------------------------------------------
 # Kernels
 # ---------------------------------------------------------------------------
@@ -61,9 +60,7 @@ def _write_targets(
 ):
     """target[i] = bias[i] + amplitude[i] * sin(2*pi*freq*t + phase[i])."""
     dof = wp.tid()
-    target_q[dof] = bias[dof] + amplitude[dof] * wp.sin(
-        2.0 * wp.pi * freq * t + phase[dof]
-    )
+    target_q[dof] = bias[dof] + amplitude[dof] * wp.sin(2.0 * wp.pi * freq * t + phase[dof])
 
 
 # ---------------------------------------------------------------------------
@@ -73,7 +70,7 @@ def _write_targets(
 
 class Arm7DofScenario(Scenario):
     id = "arm_7dof"
-    supported_solvers = ("xpbd", "mujoco")
+    supported_solvers = ("xpbd", "featherstone", "mujoco")
 
     # Franka arm only (no hand/fingers): first 7 revolute joints.
     ARM_DOFS_PER_WORLD = 7
@@ -81,6 +78,9 @@ class Arm7DofScenario(Scenario):
     KD = 15.0
     TAU_LIMIT = 80.0  # N*m
     TRAJ_FREQ = 0.25  # Hz
+
+    def use_ground_plane(self) -> bool:
+        return self.args.solver.name != "featherstone"
 
     def _on_built(self) -> None:
         self._q_hist: list[np.ndarray] = []
@@ -104,12 +104,16 @@ class Arm7DofScenario(Scenario):
         dofs_per_world = total_dofs // self.args.world_count
         self._dofs_per_world = dofs_per_world
 
+        kp_value = 20.0 if self.args.solver.name == "featherstone" else self.KP
+        kd_value = 3.0 if self.args.solver.name == "featherstone" else self.KD
+        tau_limit = 15.0 if self.args.solver.name == "featherstone" else self.TAU_LIMIT
+
         for w in range(self.args.world_count):
             off = w * dofs_per_world
             for i in range(min(self.ARM_DOFS_PER_WORLD, dofs_per_world)):
-                kp[off + i] = self.KP
-                kd[off + i] = self.KD
-                lim[off + i] = self.TAU_LIMIT
+                kp[off + i] = kp_value
+                kd[off + i] = kd_value
+                lim[off + i] = tau_limit
                 # Same trajectory in every world so determinism is purely a
                 # physics property, not a scheduling one.
                 amp[off + i] = 0.35 * float((-1) ** i)
@@ -126,22 +130,34 @@ class Arm7DofScenario(Scenario):
         self._bias = wp.array(bias, dtype=wp.float32)
 
     def build_subworld(self, builder: newton.ModelBuilder) -> None:
+        if self.args.solver.name == "featherstone":
+            builder.default_joint_cfg.armature = 0.05
+
         builder.default_shape_cfg.ke = 1.0e3
         builder.default_shape_cfg.kd = 1.0e2
         builder.default_shape_cfg.mu = 0.5
 
         urdf_path = newton.utils.download_asset("franka_emika_panda") / "urdf/fr3_franka_hand.urdf"
+        base_height = 1.0 if self.args.solver.name == "featherstone" else 0.0
         builder.add_urdf(
             str(urdf_path),
-            xform=wp.transform(wp.vec3(0.0, 0.0, 0.0), wp.quat_identity()),
+            xform=wp.transform(wp.vec3(0.0, 0.0, base_height), wp.quat_identity()),
             floating=False,  # arm is base-fixed
             enable_self_collisions=False,
         )
+        if self.args.solver.name == "featherstone":
+            builder.joint_armature[:] = [0.05] * len(builder.joint_armature)
 
         # Seed joint_q to the Franka home pose (arm DOFs only; fingers stay
         # at 0). These values are the ones used in example_robot_panda_hydro.
         init_q = [
-            -3.68e-03, 2.39e-02, 3.68e-03, -2.368, -1.29e-04, 2.392, 0.785398,
+            -3.68e-03,
+            2.39e-02,
+            3.68e-03,
+            -2.368,
+            -1.29e-04,
+            2.392,
+            0.785398,
         ]
         for i, q in enumerate(init_q[: len(builder.joint_q)]):
             builder.joint_q[i] = q
@@ -154,7 +170,6 @@ class Arm7DofScenario(Scenario):
 
         # Use sim-time derived from step_index so the trajectory is
         # deterministic independent of wall clock.
-        dt = 1.0 / self.args.fps / self.args.substeps
         t = float(self.step_index / self.args.fps)  # frame-aligned sim time
 
         total_dofs = int(self.model.joint_dof_count)

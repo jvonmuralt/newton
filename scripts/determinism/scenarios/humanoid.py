@@ -19,7 +19,6 @@ from __future__ import annotations
 from typing import Any
 
 import numpy as np
-import warp as wp
 
 import newton
 import newton.utils
@@ -30,7 +29,7 @@ from ..harness import Scenario
 
 class HumanoidScenario(Scenario):
     id = "humanoid"
-    supported_solvers = ("xpbd", "mujoco")
+    supported_solvers = ("xpbd", "featherstone", "mujoco")
 
     HEIGHT_FALL_THRESHOLD = 0.6  # meters (root z): H1 nominal standing ≈ 1.0
     KP = 150.0
@@ -46,14 +45,13 @@ class HumanoidScenario(Scenario):
 
     def build_subworld(self, builder: newton.ModelBuilder) -> None:
         if self.args.solver.name == "mujoco":
-            import newton.solvers as _s
-
             # Already registered by harness._configure_sub_builder, but
             # safe to call twice.
-            _s.SolverMuJoCo.register_custom_attributes(builder)
+            newton.solvers.SolverMuJoCo.register_custom_attributes(builder)
 
+        armature = 0.02 if self.args.solver.name == "featherstone" else 0.0
         builder.default_joint_cfg = newton.ModelBuilder.JointDofConfig(
-            limit_ke=1.0e3, limit_kd=1.0e1, friction=1e-5,
+            limit_ke=1.0e3, limit_kd=1.0e1, friction=1e-5, armature=armature
         )
         builder.default_shape_cfg.ke = 2.0e3
         builder.default_shape_cfg.kd = 1.0e2
@@ -70,10 +68,15 @@ class HumanoidScenario(Scenario):
         # Collision cheapening (same recipe as example_robot_h1).
         builder.approximate_meshes("bounding_box")
 
+        if self.args.solver.name == "featherstone":
+            builder.joint_armature[:] = [0.02] * len(builder.joint_armature)
+
         # Hold every joint at its configured initial q using position PD.
+        kp = 25.0 if self.args.solver.name == "featherstone" else self.KP
+        kd = 2.0 if self.args.solver.name == "featherstone" else self.KD
         for i in range(len(builder.joint_target_ke)):
-            builder.joint_target_ke[i] = self.KP
-            builder.joint_target_kd[i] = self.KD
+            builder.joint_target_ke[i] = kp
+            builder.joint_target_kd[i] = kd
             builder.joint_target_pos[i] = builder.joint_q[i]
             builder.joint_target_mode[i] = int(JointTargetMode.POSITION)
 
@@ -109,7 +112,8 @@ class HumanoidScenario(Scenario):
 
         com_hist = (
             np.stack(self._com_hist, axis=0)
-            if self._com_hist else np.zeros((0, self.args.world_count, 3), dtype=np.float32)
+            if self._com_hist
+            else np.zeros((0, self.args.world_count, 3), dtype=np.float32)
         )
         foot_hist = (
             np.stack(self._foot_contact_hist, axis=0)

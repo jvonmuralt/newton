@@ -46,9 +46,7 @@ class DominoChainScenario(Scenario):
         for i in range(self.NUM_DOMINOS):
             # ``add_body`` auto-creates its own free joint + articulation.
             body = builder.add_body()
-            builder.add_shape_box(
-                body, hx=self.DOMINO_HX, hy=self.DOMINO_HY, hz=self.DOMINO_HZ
-            )
+            builder.add_shape_box(body, hx=self.DOMINO_HX, hy=self.DOMINO_HY, hz=self.DOMINO_HZ)
 
             # First domino gets a forward tilt so it tips toward +X.
             tilt = self.INITIAL_TILT_RAD if i == 0 else 0.0

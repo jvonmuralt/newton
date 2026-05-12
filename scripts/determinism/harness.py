@@ -34,6 +34,7 @@ import hashlib
 import pickle
 import subprocess
 import sys
+import tempfile
 from abc import ABC, abstractmethod
 from collections.abc import Callable
 from pathlib import Path
@@ -43,7 +44,7 @@ import numpy as np
 import warp as wp
 
 import newton
-
+import newton.solvers as newton_solvers
 
 # ---------------------------------------------------------------------------
 # Solver registry
@@ -68,8 +69,6 @@ class SolverSpec:
 
 
 def _mj_factory(model: newton.Model) -> Any:
-    import newton.solvers as _s
-
     # Sensible defaults; scenarios can construct their own solver if they
     # need scenario-specific tuning. Contact count is sized for stacks of
     # small boxes; bumped as needed per scenario.
@@ -77,7 +76,7 @@ def _mj_factory(model: newton.Model) -> Any:
     if model.joint_dof_count <= 60:
         kwargs["jacobian"] = "dense"
 
-    solver = _s.SolverMuJoCo(
+    solver = newton_solvers.SolverMuJoCo(
         model,
         iterations=100,
         ls_iterations=50,
@@ -94,18 +93,18 @@ def _mj_factory(model: newton.Model) -> Any:
 SOLVER_SPECS: dict[str, SolverSpec] = {
     "xpbd": SolverSpec(
         name="xpbd",
-        factory=lambda m: __import__("newton").solvers.SolverXPBD(m),
+        factory=newton_solvers.SolverXPBD,
         notes="Position-based dynamics; fast rigid contacts.",
     ),
     "featherstone": SolverSpec(
         name="featherstone",
-        factory=lambda m: __import__("newton").solvers.SolverFeatherstone(m),
+        factory=newton_solvers.SolverFeatherstone,
         needs_articulated=True,
         notes="Featherstone articulated-body algorithm; requires joints.",
     ),
     "semi_implicit": SolverSpec(
         name="semi_implicit",
-        factory=lambda m: __import__("newton").solvers.SolverSemiImplicit(m),
+        factory=newton_solvers.SolverSemiImplicit,
         notes="Explicit symplectic integrator; simple dynamics only.",
     ),
     "mujoco": SolverSpec(
@@ -216,6 +215,7 @@ class Scenario(ABC):
         Called once per physics substep, inside the graph capture when CUDA
         is used. Default is a no-op.
         """
+        return None
 
     def extra_snapshot(self) -> dict[str, Any]:
         """Scenario-specific telemetry merged into the final snapshot."""
@@ -231,7 +231,8 @@ class Scenario(ABC):
 
         builder = newton.ModelBuilder()
         builder.replicate(sub, self.args.world_count)
-        builder.add_ground_plane()
+        if self.use_ground_plane():
+            builder.add_ground_plane()
 
         self.model = builder.finalize()
         self.solver = self.args.solver.factory(self.model)
@@ -262,18 +263,20 @@ class Scenario(ABC):
         per-scenario solver attributes; other solvers are a no-op.
         """
         if self.args.solver.name == "mujoco":
-            import newton.solvers as _s
-
-            _s.SolverMuJoCo.register_custom_attributes(sub)
+            newton_solvers.SolverMuJoCo.register_custom_attributes(sub)
 
     def _on_built(self) -> None:
         """Scenario hook right after the model + solver are ready."""
+        return None
+
+    def use_ground_plane(self) -> bool:
+        """Return whether the standard build pipeline should add a ground plane."""
+        return True
 
     def _uses_custom_collision_pipeline(self) -> bool:
         """Return whether this run needs a non-default collision pipeline."""
         return bool(
-            self.args.collision_pipeline_deterministic
-            or self.args.collision_pipeline_warp_deterministic is not None
+            self.args.collision_pipeline_deterministic or self.args.collision_pipeline_warp_deterministic is not None
         )
 
     def _configure_collision_pipeline(self) -> None:
@@ -336,7 +339,7 @@ class Scenario(ABC):
         control = self.control
         contacts = self.contacts
         dt = 1.0 / self.args.fps / self.args.substeps
-        for substep in range(self.args.substeps):
+        for _substep in range(self.args.substeps):
             state_in.clear_forces()
             # Expose the current substep buffers to scenario hooks so per_step()
             # can read and modify the live simulation state rather than the
@@ -433,8 +436,6 @@ def compare_runs(
         ``(all_equal, snapshots, hashes)``. ``all_equal`` is True iff every
         snapshot's ``core_bytes`` hash matches the first.
     """
-    import tempfile
-
     snapshots: list[ScenarioSnapshot] = []
     hashes: list[str] = []
 
@@ -443,19 +444,25 @@ def compare_runs(
             snap_path = Path(tmp) / f"run_{run_idx:03d}.pkl"
             proc = subprocess.run(
                 [
-                    sys.executable, str(runner_path), "_subrun",
-                    "--_snapshot-out", str(snap_path),
+                    sys.executable,
+                    str(runner_path),
+                    "_subrun",
+                    "--_snapshot-out",
+                    str(snap_path),
                     *cli_args,
                 ],
-                capture_output=True, check=False,
+                capture_output=True,
+                check=False,
             )
             if proc.returncode != 0:
                 tail = proc.stderr.decode(errors="replace").splitlines()[-25:]
                 stdout_tail = proc.stdout.decode(errors="replace").splitlines()[-5:]
                 raise RuntimeError(
                     f"Subrun {run_idx} failed (exit={proc.returncode}):\n"
-                    + "stderr (tail):\n" + "\n".join(tail)
-                    + "\nstdout (tail):\n" + "\n".join(stdout_tail)
+                    + "stderr (tail):\n"
+                    + "\n".join(tail)
+                    + "\nstdout (tail):\n"
+                    + "\n".join(stdout_tail)
                 )
             if not snap_path.exists():
                 raise RuntimeError(

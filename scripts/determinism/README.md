@@ -69,8 +69,8 @@ uv run --no-sync python scripts/run_determinism.py \
 | 1 | falling_cube      | yes  | yes          | yes           | yes    |
 | 2 | box_stack         | yes  |              |               | yes    |
 | 3 | domino_chain      | yes  |              |               | yes    |
-| 4 | arm_7dof          | yes  |              |               | yes    |
-| 5 | humanoid          | yes  |              |               | yes    |
+| 4 | arm_7dof          | yes  | yes          |               | yes    |
+| 5 | humanoid          | yes  | yes          |               | yes    |
 | 6 | diffsim_ball      |      |              | yes           |        |
 | 7 | diffsim_cloth_com |      |              | yes           |        |
 | 8 | diffsim_spring_cage |    |              | yes           |        |

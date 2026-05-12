@@ -9,6 +9,7 @@ Run it from the repository root:
 
     uv run --with imageio --with imageio-ffmpeg python scripts/generate_determinism_report.py
 """
+# ruff: noqa: PLC0415
 
 from __future__ import annotations
 
@@ -26,7 +27,6 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
-from PIL import Image
 
 THIS_FILE = Path(__file__).resolve()
 SCRIPTS_DIR = THIS_FILE.parent
@@ -37,8 +37,8 @@ REPRESENTATIVE_SOLVERS = {
     "falling_cube": "xpbd",
     "box_stack": "xpbd",
     "domino_chain": "xpbd",
-    "arm_7dof": "xpbd",
-    "humanoid": "xpbd",
+    "arm_7dof": "featherstone",
+    "humanoid": "featherstone",
     "diffsim_ball": "semi_implicit",
     "diffsim_cloth_com": "semi_implicit",
     "diffsim_spring_cage": "semi_implicit",
@@ -270,7 +270,6 @@ def _build_analysis(
     xpbd_only: bool,
     warp_deterministic: str,
 ) -> dict[str, Any]:
-    bit_exact = [result for result in solver_results if result["status"] == "bit_exact"]
     drift = [result for result in solver_results if result["status"] == "non_deterministic"]
     failed = [result for result in solver_results if result["status"] == "failed"]
 
@@ -299,9 +298,7 @@ def _build_analysis(
         }
     )
     collision_variant = [
-        result
-        for result in solver_results
-        if result.get("variant_id") == COLLISION_PIPELINE_WARP_OFF_VARIANT.id
+        result for result in solver_results if result.get("variant_id") == COLLISION_PIPELINE_WARP_OFF_VARIANT.id
     ]
     if collision_variant:
         collision_variant_drift = [result for result in collision_variant if result["status"] != "bit_exact"]
@@ -361,7 +358,10 @@ def _build_analysis(
     observed_gaps: list[str] = []
     for result in sorted(
         drift,
-        key=lambda item: (float(item.get("max_core_diff_overall", 0.0)), float(item.get("max_extras_diff_overall", 0.0))),
+        key=lambda item: (
+            float(item.get("max_core_diff_overall", 0.0)),
+            float(item.get("max_extras_diff_overall", 0.0)),
+        ),
         reverse=True,
     ):
         scenario_title = SCENARIO_TITLES.get(result["scenario"], result["scenario"])
@@ -416,7 +416,9 @@ def _scenario_metrics(scenario: str, snapshot: Any) -> list[dict[str, str]]:
         heights = np.asarray(extras["final_height"], dtype=np.float64)
         return [
             _metric("Final height mean", float(heights.mean()), "m"),
-            _metric("Final height range", f"{_format_float(float(heights.min()))}-{_format_float(float(heights.max()))} m"),
+            _metric(
+                "Final height range", f"{_format_float(float(heights.min()))}-{_format_float(float(heights.max()))} m"
+            ),
             _metric("Awake bodies", extras["awake_count"]),
             _metric("Mean speed", extras["mean_speed"], "m/s"),
         ]
@@ -625,6 +627,7 @@ def _capture_video(
 ) -> dict[str, Any]:
     try:
         import imageio.v2 as imageio
+        from PIL import Image
     except ImportError as exc:
         raise RuntimeError(
             "imageio and imageio-ffmpeg are required for MP4 output. "
@@ -635,8 +638,9 @@ def _capture_video(
 
     run_determinism._apply_warp_deterministic(config.warp_deterministic)
 
-    import newton
     import warp as wp
+
+    import newton
 
     assets_dir = out_dir / "assets"
     assets_dir.mkdir(parents=True, exist_ok=True)
@@ -763,10 +767,7 @@ def _capture_video_subprocess(
         if proc.returncode != 0:
             tail = proc.stderr.decode(errors="replace").splitlines()[-24:]
             stdout_tail = proc.stdout.decode(errors="replace").splitlines()[-8:]
-            raise RuntimeError(
-                f"Video capture failed for {scenario}/{solver}:\n"
-                + "\n".join(tail + stdout_tail)
-            )
+            raise RuntimeError(f"Video capture failed for {scenario}/{solver}:\n" + "\n".join(tail + stdout_tail))
         return json.loads(metadata_path.read_text(encoding="utf-8"))
 
 
@@ -828,7 +829,7 @@ def _render_text_list(items: list[str]) -> str:
 def _render_finding_cards(findings: list[dict[str, str]]) -> str:
     return "\n".join(
         f"""
-        <article class="finding {html.escape(item['tone'])}">
+        <article class="finding {html.escape(item["tone"])}">
           <p class="eyebrow">Key finding</p>
           <h3>{html.escape(item["title"])}</h3>
           <p>{html.escape(item["body"])}</p>
@@ -911,7 +912,8 @@ def _render_solver_table(results: list[dict[str, Any]]) -> str:
             )
             dominant_extra = (
                 f"{result['dominant_extra_signal']} ({_format_float(float(result.get('dominant_extra_value', 0.0)))})"
-                if result.get("dominant_extra_signal") is not None and float(result.get("dominant_extra_value", 0.0)) > 0.0
+                if result.get("dominant_extra_signal") is not None
+                and float(result.get("dominant_extra_value", 0.0)) > 0.0
                 else "-"
             )
         rows.append(
@@ -946,7 +948,10 @@ def _render_scenario_sections(data: dict[str, Any]) -> str:
         scenario_meta = data["scenarios"][scenario]
         video = video_by_scenario.get(scenario)
         representative_solver = scenario_meta["representative_solver"]
-        primary = next((result for result in results_by_scenario.get(scenario, []) if result["solver"] == representative_solver), None)
+        primary = next(
+            (result for result in results_by_scenario.get(scenario, []) if result["solver"] == representative_solver),
+            None,
+        )
         metrics = primary.get("metrics", []) if primary else []
         scenario_copy = scenario_meta["note"] or scenario_meta["doc"]
         if scenario_meta["note"] and scenario_meta["doc"]:
@@ -1013,14 +1018,16 @@ def _render_html(data: dict[str, Any]) -> str:
     no_graph = sum(1 for result in data["solver_results"] if result.get("disable_graph"))
     generated = html.escape(data["generated_at"])
     det_label = _humanize_mode(cfg["warp_deterministic"])
-    has_collision_variant = any(result.get("variant_id") != DEFAULT_REPORT_VARIANT.id for result in data["solver_results"])
+    has_collision_variant = any(
+        result.get("variant_id") != DEFAULT_REPORT_VARIANT.id for result in data["solver_results"]
+    )
     scope_text = (
         "This report covers every scenario in the harness that currently supports XPBD."
         if data.get("xpbd_only")
         else "The full report covers every scenario registered in the harness."
     )
     compare_text = (
-        " It also includes an XPBD comparison where the collision pipeline uses deterministic contact sorting while its Warp kernels are compiled with <code>wp.config.deterministic = \"not_guaranteed\"</code>."
+        ' It also includes an XPBD comparison where the collision pipeline uses deterministic contact sorting while its Warp kernels are compiled with <code>wp.config.deterministic = "not_guaranteed"</code>.'
         if has_collision_variant
         else ""
     )
@@ -1562,8 +1569,7 @@ def _build_report(args: argparse.Namespace) -> dict[str, Any]:
             for variant in _report_variants_for_solver(solver, xpbd_only=bool(args.xpbd_only)):
                 disable_graph = solver == "mujoco"
                 print(
-                    f"[determinism] {scenario}/{solver} [{variant.label}] "
-                    f"({'no graph' if disable_graph else 'graph'})",
+                    f"[determinism] {scenario}/{solver} [{variant.label}] ({'no graph' if disable_graph else 'graph'})",
                     flush=True,
                 )
                 solver_results.append(
