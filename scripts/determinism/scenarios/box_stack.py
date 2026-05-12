@@ -24,7 +24,7 @@ from ..harness import Scenario
 
 class BoxStackScenario(Scenario):
     id = "box_stack"
-    supported_solvers = ("xpbd", "mujoco")
+    supported_solvers = ("xpbd", "vbd", "mujoco")
 
     NUM_BOXES = 20
     BOX_HALF = 0.1

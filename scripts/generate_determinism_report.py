@@ -42,6 +42,8 @@ REPRESENTATIVE_SOLVERS = {
     "diffsim_ball": "semi_implicit",
     "diffsim_cloth_com": "semi_implicit",
     "diffsim_spring_cage": "semi_implicit",
+    "vbd_cloth_patch": "vbd",
+    "vbd_soft_body": "vbd",
 }
 
 CAMERAS = {
@@ -53,6 +55,8 @@ CAMERAS = {
     "diffsim_ball": ((2.5, -4.0, 2.2), -24.0, 125.0, 52.0),
     "diffsim_cloth_com": ((2.8, -3.8, 2.0), -22.0, 126.0, 52.0),
     "diffsim_spring_cage": ((2.1, -2.8, 1.6), -24.0, 128.0, 50.0),
+    "vbd_cloth_patch": ((1.2, -1.8, 1.1), -18.0, 130.0, 52.0),
+    "vbd_soft_body": ((1.0, -1.6, 1.0), -18.0, 130.0, 52.0),
 }
 
 SCENARIO_TITLES = {
@@ -64,6 +68,8 @@ SCENARIO_TITLES = {
     "diffsim_ball": "Diffsim Ball",
     "diffsim_cloth_com": "Diffsim Cloth COM",
     "diffsim_spring_cage": "Diffsim Spring Cage",
+    "vbd_cloth_patch": "VBD Cloth Patch",
+    "vbd_soft_body": "VBD Soft Body",
 }
 
 SCENARIO_NOTES = {
@@ -75,6 +81,8 @@ SCENARIO_NOTES = {
     "diffsim_ball": "Differentiable particle target with wall and floor contacts; core includes loss and initial-velocity gradients.",
     "diffsim_cloth_com": "Small differentiable cloth target; COM uses an atomic accumulation before backpropagating gradients.",
     "diffsim_spring_cage": "Differentiable spring-cage target; core includes loss and spring rest-length gradients.",
+    "vbd_cloth_patch": "Pinned cloth patch with ground contact, using VBD bending-aware coloring.",
+    "vbd_soft_body": "Pinned tetrahedral block with ground contact, using VBD particle/tet solve paths.",
 }
 
 
@@ -466,6 +474,20 @@ def _scenario_metrics(scenario: str, snapshot: Any) -> list[dict[str, str]]:
             _metric("Max COM XY drift", drift, "m"),
             _metric("Peak contacts", int(contacts.max()) if contacts.size else 0),
         ]
+
+    if scenario in {"vbd_cloth_patch", "vbd_soft_body"}:
+        heights = np.asarray(extras["height_range"], dtype=np.float64)
+        metrics = [
+            _metric("Particles", extras["particle_count"]),
+            _metric("Pinned particles", extras["pinned_particle_count"]),
+            _metric(
+                "Height range",
+                f"{_format_float(float(heights[0]))}-{_format_float(float(heights[1]))} m",
+            ),
+        ]
+        if "tet_count" in extras:
+            metrics.append(_metric("Tets", extras["tet_count"]))
+        return metrics
 
     return []
 
@@ -895,7 +917,6 @@ def _render_solver_table(results: list[dict[str, Any]]) -> str:
             extras = "-"
             hashes = "-"
             dominant_core = "-"
-            dominant_extra = "-"
         else:
             diff = _format_float(float(result["max_core_diff_overall"]))
             extras = _format_float(float(result["max_extras_diff_overall"]))
@@ -903,12 +924,6 @@ def _render_solver_table(results: list[dict[str, Any]]) -> str:
             dominant_core = (
                 f"{result['dominant_core_signal']} ({_format_float(float(result.get('dominant_core_value', 0.0)))})"
                 if result.get("dominant_core_signal") is not None
-                else "-"
-            )
-            dominant_extra = (
-                f"{result['dominant_extra_signal']} ({_format_float(float(result.get('dominant_extra_value', 0.0)))})"
-                if result.get("dominant_extra_signal") is not None
-                and float(result.get("dominant_extra_value", 0.0)) > 0.0
                 else "-"
             )
         rows.append(
@@ -920,7 +935,6 @@ def _render_solver_table(results: list[dict[str, Any]]) -> str:
               <td>{hashes}</td>
               <td>{html.escape(dominant_core)}</td>
               <td>{diff}</td>
-              <td>{html.escape(dominant_extra)}</td>
               <td>{extras}</td>
               <td>{_format_float(float(result.get("duration_s", 0.0)))} s</td>
             </tr>"""
@@ -933,11 +947,13 @@ def _render_scenario_sections(data: dict[str, Any]) -> str:
     for result in data["solver_results"]:
         results_by_scenario.setdefault(result["scenario"], []).append(result)
 
-    video_by_scenario = {video["scenario"]: video for video in data["videos"]}
+    videos_by_scenario: dict[str, list[dict[str, Any]]] = {}
+    for video in data["videos"]:
+        videos_by_scenario.setdefault(video["scenario"], []).append(video)
+
     sections = []
     for scenario in data["scenario_order"]:
         scenario_meta = data["scenarios"][scenario]
-        video = video_by_scenario.get(scenario)
         representative_solver = scenario_meta["representative_solver"]
         primary = next(
             (result for result in results_by_scenario.get(scenario, []) if result["solver"] == representative_solver),
@@ -956,17 +972,26 @@ def _render_scenario_sections(data: dict[str, Any]) -> str:
         )
 
         video_html = ""
-        if video:
-            src = f"assets/{html.escape(video['video'])}"
-            poster = f"assets/{html.escape(video['poster'])}"
-            video_html = f"""
-            <video controls muted loop playsinline preload="metadata" poster="{poster}">
-              <source src="{src}" type="video/mp4">
-            </video>
-            <p class="video-caption">
-              {html.escape(representative_solver)} video, {video["frames"]} frames encoded at {video["fps"]} fps
-              ({video["width"]}x{video["height"]}, stride {video["frame_stride"]}).
-            </p>"""
+        videos = sorted(videos_by_scenario.get(scenario, []), key=lambda item: item["solver"])
+        if videos:
+            rendered_videos = []
+            for video in videos:
+                src = f"assets/{html.escape(video['video'])}"
+                poster = f"assets/{html.escape(video['poster'])}"
+                rendered_videos.append(
+                    f"""
+                    <div class="solver-video">
+                      <p class="video-label"><code>{html.escape(video["solver"])}</code></p>
+                      <video controls muted loop playsinline preload="metadata" poster="{poster}">
+                        <source src="{src}" type="video/mp4">
+                      </video>
+                      <p class="video-caption">
+                        {video["frames"]} frames encoded at {video["fps"]} fps
+                        ({video["width"]}x{video["height"]}, stride {video["frame_stride"]}).
+                      </p>
+                    </div>"""
+                )
+            video_html = "\n".join(rendered_videos)
         else:
             video_html = """<div class="video-missing">Video capture failed</div>"""
 
@@ -1187,6 +1212,20 @@ def _render_html(data: dict[str, Any]) -> str:
       background: #151821;
       display: flex;
       flex-direction: column;
+      gap: 1px;
+    }}
+    .solver-video {{
+      background: #151821;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+    }}
+    .solver-video:last-child {{ border-bottom: 0; }}
+    .video-label {{
+      margin: 0;
+      padding: 10px 14px 0;
+      color: #f2f4fa;
+      background: #151821;
+      font-size: 0.86rem;
+      font-weight: 800;
     }}
     video {{
       display: block;
@@ -1444,7 +1483,7 @@ def _render_html(data: dict[str, Any]) -> str:
         </div>
         <div class="method">
           <strong>Canonical hash</strong>
-          <p>Hashes include <code>body_q</code>, <code>body_qd</code>, <code>joint_q</code>, and <code>joint_qd</code>.</p>
+          <p>Hashes include each scenario's canonical core arrays, such as rigid state, particle state, losses, and gradients.</p>
         </div>
         <div class="method">
           <strong>Fixed workload</strong>
@@ -1456,7 +1495,7 @@ def _render_html(data: dict[str, Any]) -> str:
         </div>
         <div class="method">
           <strong>Visual capture</strong>
-          <p>Representative videos use one world and MP4 frames read through <code>ViewerGL.get_frame()</code>.</p>
+          <p>Solver videos use one world and MP4 frames read through <code>ViewerGL.get_frame()</code>.</p>
         </div>
       </div>
     </section>
@@ -1478,7 +1517,6 @@ def _render_html(data: dict[str, Any]) -> str:
               <th>Unique hashes</th>
               <th>Dominant core signal</th>
               <th>Max core diff</th>
-              <th>Dominant extra signal</th>
               <th>Max extras diff</th>
               <th>Duration</th>
             </tr>
@@ -1526,6 +1564,11 @@ def _render_html(data: dict[str, Any]) -> str:
 </body>
 </html>
 """
+
+
+def _strip_trailing_whitespace(text: str) -> str:
+    """Remove trailing spaces from generated HTML lines."""
+    return "\n".join(line.rstrip() for line in text.splitlines()) + "\n"
 
 
 def _build_report(args: argparse.Namespace) -> dict[str, Any]:
@@ -1577,8 +1620,16 @@ def _build_report(args: argparse.Namespace) -> dict[str, Any]:
         video_steps = max(1, math.ceil(float(args.video_seconds) * args.video_fps * args.video_stride))
     video_config = dataclasses.replace(config, num_steps=video_steps)
     video_warp_deterministic = args.video_warp_deterministic or config.warp_deterministic
-    for scenario in [scenario for scenario in scenario_order if scenario in CAMERAS]:
-        solver = _representative_solver(scenario, SCENARIOS[scenario], xpbd_only=bool(args.xpbd_only))
+    captured_videos: set[tuple[str, str]] = set()
+    for result in solver_results:
+        if result.get("status") == "failed":
+            continue
+        scenario = result["scenario"]
+        solver = result["solver"]
+        key = (scenario, solver)
+        if scenario not in CAMERAS or key in captured_videos:
+            continue
+        captured_videos.add(key)
         print(f"[video] {scenario}/{solver}", flush=True)
         videos.append(
             _capture_video_subprocess(
@@ -1625,7 +1676,7 @@ def _build_report(args: argparse.Namespace) -> dict[str, Any]:
     json_path = out_dir / "determinism_report.json"
     json_path.write_text(json.dumps(data, indent=2, default=_json_default), encoding="utf-8")
     html_path = out_dir / "index.html"
-    html_path.write_text(_render_html(data), encoding="utf-8")
+    html_path.write_text(_strip_trailing_whitespace(_render_html(data)), encoding="utf-8")
 
     print(f"[done] {html_path}")
     print(f"[done] {json_path}")

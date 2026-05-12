@@ -90,6 +90,15 @@ def _mj_factory(model: newton.Model) -> Any:
     return solver
 
 
+def _vbd_factory(model: newton.Model) -> Any:
+    return newton_solvers.SolverVBD(
+        model,
+        iterations=10,
+        particle_enable_self_contact=False,
+        particle_enable_tile_solve=False,
+    )
+
+
 SOLVER_SPECS: dict[str, SolverSpec] = {
     "xpbd": SolverSpec(
         name="xpbd",
@@ -106,6 +115,11 @@ SOLVER_SPECS: dict[str, SolverSpec] = {
         name="semi_implicit",
         factory=newton_solvers.SolverSemiImplicit,
         notes="Explicit symplectic integrator; simple dynamics only.",
+    ),
+    "vbd": SolverSpec(
+        name="vbd",
+        factory=_vbd_factory,
+        notes="Vertex Block Descent / AVBD solver for particles and simple rigid bodies.",
     ),
     "mujoco": SolverSpec(
         name="mujoco",
@@ -233,6 +247,11 @@ class Scenario(ABC):
         builder.replicate(sub, self.args.world_count)
         if self.use_ground_plane():
             builder.add_ground_plane()
+        if self.args.solver.name == "vbd":
+            # VBD requires conflict-free particle/body color groups before
+            # finalize(); keep it in the shared harness so every VBD scenario
+            # gets the same preprocessing path.
+            builder.color(include_bending=self.use_vbd_bending_coloring())
 
         self.model = builder.finalize()
         self.solver = self.args.solver.factory(self.model)
@@ -276,6 +295,10 @@ class Scenario(ABC):
     def use_deterministic_collision_pipeline(self) -> bool:
         """Return whether the scenario should sort generated contacts deterministically."""
         return self.use_ground_plane()
+
+    def use_vbd_bending_coloring(self) -> bool:
+        """Return whether VBD coloring should include bending-edge dependencies."""
+        return False
 
     def _uses_custom_collision_pipeline(self) -> bool:
         """Return whether this run needs a non-default collision pipeline."""

@@ -25,7 +25,7 @@ from ..harness import Scenario
 
 class DominoChainScenario(Scenario):
     id = "domino_chain"
-    supported_solvers = ("xpbd", "mujoco")
+    supported_solvers = ("xpbd", "vbd", "mujoco")
 
     NUM_DOMINOS = 12
     DOMINO_HX = 0.02  # thin

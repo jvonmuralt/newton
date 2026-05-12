@@ -14,6 +14,8 @@ from .diffsim_spring_cage import DiffsimSpringCageScenario
 from .domino_chain import DominoChainScenario
 from .falling_cube import FallingCubeScenario
 from .humanoid import HumanoidScenario
+from .vbd_cloth_patch import VbdClothPatchScenario
+from .vbd_soft_body import VbdSoftBodyScenario
 from .warp_argmax_exchange import WarpArgmaxExchangeScenario
 from .warp_counter_indexed import WarpIndexedCounterScenario
 from .warp_counter_sliced import WarpSlicedCounterScenario
@@ -26,6 +28,8 @@ SCENARIOS = {
     DiffsimBallScenario.id: DiffsimBallScenario,
     DiffsimClothComScenario.id: DiffsimClothComScenario,
     DiffsimSpringCageScenario.id: DiffsimSpringCageScenario,
+    VbdClothPatchScenario.id: VbdClothPatchScenario,
+    VbdSoftBodyScenario.id: VbdSoftBodyScenario,
     DominoChainScenario.id: DominoChainScenario,
     Arm7DofScenario.id: Arm7DofScenario,
     HumanoidScenario.id: HumanoidScenario,
@@ -46,6 +50,8 @@ __all__ = [
     "DominoChainScenario",
     "FallingCubeScenario",
     "HumanoidScenario",
+    "VbdClothPatchScenario",
+    "VbdSoftBodyScenario",
     "WarpArgmaxExchangeScenario",
     "WarpCustomAdjointScenario",
     "WarpIndexedCounterScenario",

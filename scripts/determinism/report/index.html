@@ -162,6 +162,20 @@
       background: #151821;
       display: flex;
       flex-direction: column;
+      gap: 1px;
+    }
+    .solver-video {
+      background: #151821;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+    }
+    .solver-video:last-child { border-bottom: 0; }
+    .video-label {
+      margin: 0;
+      padding: 10px 14px 0;
+      color: #f2f4fa;
+      background: #151821;
+      font-size: 0.86rem;
+      font-weight: 800;
     }
     video {
       display: block;
@@ -386,16 +400,16 @@
         <p class="eyebrow">Newton determinism harness</p>
         <h1>Run to run physics determinism report</h1>
         <p class="lead">
-          8 Newton scenarios were replayed in independent subprocesses with
+          10 Newton scenarios were replayed in independent subprocesses with
           <code>wp.config.deterministic = "run_to_run"</code>.
           The videos are captured from headless <code>ViewerGL.get_frame()</code>; the verdicts
           come from byte hashes of final physics state arrays. The full report covers the physics scenarios registered for this report. Contact scenarios use <code>CollisionPipeline(deterministic=True)</code> for contact ordering.
         </p>
       </div>
       <div class="summary-grid">
-        <div class="summary-tile emphasis"><span>Scenarios</span><strong>8</strong></div>
-        <div class="summary-tile"><span>Solver pairs</span><strong>17</strong></div>
-        <div class="summary-tile"><span>Bit-exact</span><strong>17</strong></div>
+        <div class="summary-tile emphasis"><span>Scenarios</span><strong>10</strong></div>
+        <div class="summary-tile"><span>Solver pairs</span><strong>22</strong></div>
+        <div class="summary-tile"><span>Bit-exact</span><strong>22</strong></div>
         <div class="summary-tile"><span>Drift</span><strong>0</strong></div>
         <div class="summary-tile"><span>Failures</span><strong>0</strong></div>
       </div>
@@ -406,11 +420,11 @@
     <section class="band">
       <h2>What This Run Shows</h2>
       <div class="findings-grid">
-        
+
         <article class="finding ok">
           <p class="eyebrow">Key finding</p>
           <h3>Replay health</h3>
-          <p>All 17 solver pairs completed 2 independent subprocess replays.</p>
+          <p>All 22 solver pairs completed 2 independent subprocess replays.</p>
         </article>
 
         <article class="finding ok">
@@ -436,7 +450,7 @@
         </div>
         <div class="method">
           <strong>Canonical hash</strong>
-          <p>Hashes include <code>body_q</code>, <code>body_qd</code>, <code>joint_q</code>, and <code>joint_qd</code>.</p>
+          <p>Hashes include each scenario's canonical core arrays, such as rigid state, particle state, losses, and gradients.</p>
         </div>
         <div class="method">
           <strong>Fixed workload</strong>
@@ -448,24 +462,71 @@
         </div>
         <div class="method">
           <strong>Visual capture</strong>
-          <p>Representative videos use one world and MP4 frames read through <code>ViewerGL.get_frame()</code>.</p>
+          <p>Solver videos use one world and MP4 frames read through <code>ViewerGL.get_frame()</code>.</p>
         </div>
       </div>
     </section>
 
     <section>
       <h2 class="section-title">Scenario Videos And Statistics</h2>
-      
+
             <article class="scenario">
               <div class="media">
-                
-            <video controls muted loop playsinline preload="metadata" poster="assets/falling_cube_xpbd_poster.png">
-              <source src="assets/falling_cube_xpbd.mp4" type="video/mp4">
-            </video>
-            <p class="video-caption">
-              xpbd video, 240 frames encoded at 24 fps
-              (960x540, stride 1).
-            </p>
+
+                    <div class="solver-video">
+                      <p class="video-label"><code>featherstone</code></p>
+                      <video controls muted loop playsinline preload="metadata" poster="assets/falling_cube_featherstone_poster.png">
+                        <source src="assets/falling_cube_featherstone.mp4" type="video/mp4">
+                      </video>
+                      <p class="video-caption">
+                        240 frames encoded at 24 fps
+                        (960x540, stride 1).
+                      </p>
+                    </div>
+
+                    <div class="solver-video">
+                      <p class="video-label"><code>mujoco</code></p>
+                      <video controls muted loop playsinline preload="metadata" poster="assets/falling_cube_mujoco_poster.png">
+                        <source src="assets/falling_cube_mujoco.mp4" type="video/mp4">
+                      </video>
+                      <p class="video-caption">
+                        240 frames encoded at 24 fps
+                        (960x540, stride 1).
+                      </p>
+                    </div>
+
+                    <div class="solver-video">
+                      <p class="video-label"><code>semi_implicit</code></p>
+                      <video controls muted loop playsinline preload="metadata" poster="assets/falling_cube_semi_implicit_poster.png">
+                        <source src="assets/falling_cube_semi_implicit.mp4" type="video/mp4">
+                      </video>
+                      <p class="video-caption">
+                        240 frames encoded at 24 fps
+                        (960x540, stride 1).
+                      </p>
+                    </div>
+
+                    <div class="solver-video">
+                      <p class="video-label"><code>vbd</code></p>
+                      <video controls muted loop playsinline preload="metadata" poster="assets/falling_cube_vbd_poster.png">
+                        <source src="assets/falling_cube_vbd.mp4" type="video/mp4">
+                      </video>
+                      <p class="video-caption">
+                        240 frames encoded at 24 fps
+                        (960x540, stride 1).
+                      </p>
+                    </div>
+
+                    <div class="solver-video">
+                      <p class="video-label"><code>xpbd</code></p>
+                      <video controls muted loop playsinline preload="metadata" poster="assets/falling_cube_xpbd_poster.png">
+                        <source src="assets/falling_cube_xpbd.mp4" type="video/mp4">
+                      </video>
+                      <p class="video-caption">
+                        240 frames encoded at 24 fps
+                        (960x540, stride 1).
+                      </p>
+                    </div>
               </div>
               <div class="scenario-body">
                 <div class="scenario-heading">
@@ -474,7 +535,7 @@
                 </div>
                 <p>Single free rigid body floor contact. Useful for detecting tiny contact drift after impact.</p>
                 <div class="metrics">
-                  
+
         <div class="metric">
           <span>Final height mean</span>
           <strong>0.15 m</strong>
@@ -496,7 +557,7 @@
         </div>
                 </div>
                 <div class="solver-cards">
-                  
+
     <article class="solver-card ok">
       <div class="solver-card-head">
         <div>
@@ -511,9 +572,9 @@
         <div><span>Dominant core drift</span><strong>body_q (0)</strong></div>
         <div><span>Dominant extra drift</span><strong>none</strong></div>
         <div><span>Max core diff</span><strong>0</strong></div>
-        <div><span>Duration</span><strong>30.745 s</strong></div>
+        <div><span>Duration</span><strong>14.081 s</strong></div>
       </div>
-      
+
     </article>
 
     <article class="solver-card ok">
@@ -530,9 +591,9 @@
         <div><span>Dominant core drift</span><strong>body_q (0)</strong></div>
         <div><span>Dominant extra drift</span><strong>none</strong></div>
         <div><span>Max core diff</span><strong>0</strong></div>
-        <div><span>Duration</span><strong>76.301 s</strong></div>
+        <div><span>Duration</span><strong>41.97 s</strong></div>
       </div>
-      
+
     </article>
 
     <article class="solver-card ok">
@@ -549,9 +610,28 @@
         <div><span>Dominant core drift</span><strong>body_q (0)</strong></div>
         <div><span>Dominant extra drift</span><strong>none</strong></div>
         <div><span>Max core diff</span><strong>0</strong></div>
-        <div><span>Duration</span><strong>18.377 s</strong></div>
+        <div><span>Duration</span><strong>13.255 s</strong></div>
       </div>
-      
+
+    </article>
+
+    <article class="solver-card ok">
+      <div class="solver-card-head">
+        <div>
+          <h3><code>vbd</code></h3>
+        </div>
+        <span class="pill ok">BIT-EXACT</span>
+      </div>
+      <p class="solver-summary">2/2 subprocess replays matched byte-for-byte with CUDA graph enabled.</p>
+      <div class="solver-stats">
+        <div><span>Execution</span><strong>CUDA graph</strong></div>
+        <div><span>Unique hashes</span><strong>1</strong></div>
+        <div><span>Dominant core drift</span><strong>body_q (0)</strong></div>
+        <div><span>Dominant extra drift</span><strong>none</strong></div>
+        <div><span>Max core diff</span><strong>0</strong></div>
+        <div><span>Duration</span><strong>16.426 s</strong></div>
+      </div>
+
     </article>
 
     <article class="solver-card ok">
@@ -568,9 +648,9 @@
         <div><span>Dominant core drift</span><strong>body_q (0)</strong></div>
         <div><span>Dominant extra drift</span><strong>none</strong></div>
         <div><span>Max core diff</span><strong>0</strong></div>
-        <div><span>Duration</span><strong>36.749 s</strong></div>
+        <div><span>Duration</span><strong>13.808 s</strong></div>
       </div>
-      
+
     </article>
                 </div>
               </div>
@@ -578,14 +658,39 @@
 
             <article class="scenario">
               <div class="media">
-                
-            <video controls muted loop playsinline preload="metadata" poster="assets/box_stack_xpbd_poster.png">
-              <source src="assets/box_stack_xpbd.mp4" type="video/mp4">
-            </video>
-            <p class="video-caption">
-              xpbd video, 240 frames encoded at 24 fps
-              (960x540, stride 1).
-            </p>
+
+                    <div class="solver-video">
+                      <p class="video-label"><code>mujoco</code></p>
+                      <video controls muted loop playsinline preload="metadata" poster="assets/box_stack_mujoco_poster.png">
+                        <source src="assets/box_stack_mujoco.mp4" type="video/mp4">
+                      </video>
+                      <p class="video-caption">
+                        240 frames encoded at 24 fps
+                        (960x540, stride 1).
+                      </p>
+                    </div>
+
+                    <div class="solver-video">
+                      <p class="video-label"><code>vbd</code></p>
+                      <video controls muted loop playsinline preload="metadata" poster="assets/box_stack_vbd_poster.png">
+                        <source src="assets/box_stack_vbd.mp4" type="video/mp4">
+                      </video>
+                      <p class="video-caption">
+                        240 frames encoded at 24 fps
+                        (960x540, stride 1).
+                      </p>
+                    </div>
+
+                    <div class="solver-video">
+                      <p class="video-label"><code>xpbd</code></p>
+                      <video controls muted loop playsinline preload="metadata" poster="assets/box_stack_xpbd_poster.png">
+                        <source src="assets/box_stack_xpbd.mp4" type="video/mp4">
+                      </video>
+                      <p class="video-caption">
+                        240 frames encoded at 24 fps
+                        (960x540, stride 1).
+                      </p>
+                    </div>
               </div>
               <div class="scenario-body">
                 <div class="scenario-heading">
@@ -594,7 +699,7 @@
                 </div>
                 <p>Twenty jittered boxes with many contacts. A compact stress case for ordering and reductions.</p>
                 <div class="metrics">
-                  
+
         <div class="metric">
           <span>COM drift</span>
           <strong>0.002 m</strong>
@@ -616,7 +721,7 @@
         </div>
                 </div>
                 <div class="solver-cards">
-                  
+
     <article class="solver-card ok">
       <div class="solver-card-head">
         <div>
@@ -631,9 +736,28 @@
         <div><span>Dominant core drift</span><strong>body_q (0)</strong></div>
         <div><span>Dominant extra drift</span><strong>none</strong></div>
         <div><span>Max core diff</span><strong>0</strong></div>
-        <div><span>Duration</span><strong>44.156 s</strong></div>
+        <div><span>Duration</span><strong>48.201 s</strong></div>
       </div>
-      
+
+    </article>
+
+    <article class="solver-card ok">
+      <div class="solver-card-head">
+        <div>
+          <h3><code>vbd</code></h3>
+        </div>
+        <span class="pill ok">BIT-EXACT</span>
+      </div>
+      <p class="solver-summary">2/2 subprocess replays matched byte-for-byte with CUDA graph enabled.</p>
+      <div class="solver-stats">
+        <div><span>Execution</span><strong>CUDA graph</strong></div>
+        <div><span>Unique hashes</span><strong>1</strong></div>
+        <div><span>Dominant core drift</span><strong>body_q (0)</strong></div>
+        <div><span>Dominant extra drift</span><strong>none</strong></div>
+        <div><span>Max core diff</span><strong>0</strong></div>
+        <div><span>Duration</span><strong>16.806 s</strong></div>
+      </div>
+
     </article>
 
     <article class="solver-card ok">
@@ -650,9 +774,9 @@
         <div><span>Dominant core drift</span><strong>body_q (0)</strong></div>
         <div><span>Dominant extra drift</span><strong>none</strong></div>
         <div><span>Max core diff</span><strong>0</strong></div>
-        <div><span>Duration</span><strong>13.589 s</strong></div>
+        <div><span>Duration</span><strong>13.961 s</strong></div>
       </div>
-      
+
     </article>
                 </div>
               </div>
@@ -660,14 +784,39 @@
 
             <article class="scenario">
               <div class="media">
-                
-            <video controls muted loop playsinline preload="metadata" poster="assets/domino_chain_xpbd_poster.png">
-              <source src="assets/domino_chain_xpbd.mp4" type="video/mp4">
-            </video>
-            <p class="video-caption">
-              xpbd video, 240 frames encoded at 24 fps
-              (960x540, stride 1).
-            </p>
+
+                    <div class="solver-video">
+                      <p class="video-label"><code>mujoco</code></p>
+                      <video controls muted loop playsinline preload="metadata" poster="assets/domino_chain_mujoco_poster.png">
+                        <source src="assets/domino_chain_mujoco.mp4" type="video/mp4">
+                      </video>
+                      <p class="video-caption">
+                        240 frames encoded at 24 fps
+                        (960x540, stride 1).
+                      </p>
+                    </div>
+
+                    <div class="solver-video">
+                      <p class="video-label"><code>vbd</code></p>
+                      <video controls muted loop playsinline preload="metadata" poster="assets/domino_chain_vbd_poster.png">
+                        <source src="assets/domino_chain_vbd.mp4" type="video/mp4">
+                      </video>
+                      <p class="video-caption">
+                        240 frames encoded at 24 fps
+                        (960x540, stride 1).
+                      </p>
+                    </div>
+
+                    <div class="solver-video">
+                      <p class="video-label"><code>xpbd</code></p>
+                      <video controls muted loop playsinline preload="metadata" poster="assets/domino_chain_xpbd_poster.png">
+                        <source src="assets/domino_chain_xpbd.mp4" type="video/mp4">
+                      </video>
+                      <p class="video-caption">
+                        240 frames encoded at 24 fps
+                        (960x540, stride 1).
+                      </p>
+                    </div>
               </div>
               <div class="scenario-body">
                 <div class="scenario-heading">
@@ -676,7 +825,7 @@
                 </div>
                 <p>Sequential impacts amplify small timing changes into visible propagation differences.</p>
                 <div class="metrics">
-                  
+
         <div class="metric">
           <span>Fallen dominos</span>
           <strong>0</strong>
@@ -698,7 +847,7 @@
         </div>
                 </div>
                 <div class="solver-cards">
-                  
+
     <article class="solver-card ok">
       <div class="solver-card-head">
         <div>
@@ -713,9 +862,28 @@
         <div><span>Dominant core drift</span><strong>body_q (0)</strong></div>
         <div><span>Dominant extra drift</span><strong>none</strong></div>
         <div><span>Max core diff</span><strong>0</strong></div>
-        <div><span>Duration</span><strong>43.048 s</strong></div>
+        <div><span>Duration</span><strong>50.447 s</strong></div>
       </div>
-      
+
+    </article>
+
+    <article class="solver-card ok">
+      <div class="solver-card-head">
+        <div>
+          <h3><code>vbd</code></h3>
+        </div>
+        <span class="pill ok">BIT-EXACT</span>
+      </div>
+      <p class="solver-summary">2/2 subprocess replays matched byte-for-byte with CUDA graph enabled.</p>
+      <div class="solver-stats">
+        <div><span>Execution</span><strong>CUDA graph</strong></div>
+        <div><span>Unique hashes</span><strong>1</strong></div>
+        <div><span>Dominant core drift</span><strong>body_q (0)</strong></div>
+        <div><span>Dominant extra drift</span><strong>none</strong></div>
+        <div><span>Max core diff</span><strong>0</strong></div>
+        <div><span>Duration</span><strong>20.5 s</strong></div>
+      </div>
+
     </article>
 
     <article class="solver-card ok">
@@ -732,9 +900,9 @@
         <div><span>Dominant core drift</span><strong>body_q (0)</strong></div>
         <div><span>Dominant extra drift</span><strong>none</strong></div>
         <div><span>Max core diff</span><strong>0</strong></div>
-        <div><span>Duration</span><strong>13.623 s</strong></div>
+        <div><span>Duration</span><strong>17.277 s</strong></div>
       </div>
-      
+
     </article>
                 </div>
               </div>
@@ -742,14 +910,39 @@
 
             <article class="scenario">
               <div class="media">
-                
-            <video controls muted loop playsinline preload="metadata" poster="assets/arm_7dof_featherstone_poster.png">
-              <source src="assets/arm_7dof_featherstone.mp4" type="video/mp4">
-            </video>
-            <p class="video-caption">
-              featherstone video, 240 frames encoded at 24 fps
-              (960x540, stride 1).
-            </p>
+
+                    <div class="solver-video">
+                      <p class="video-label"><code>featherstone</code></p>
+                      <video controls muted loop playsinline preload="metadata" poster="assets/arm_7dof_featherstone_poster.png">
+                        <source src="assets/arm_7dof_featherstone.mp4" type="video/mp4">
+                      </video>
+                      <p class="video-caption">
+                        240 frames encoded at 24 fps
+                        (960x540, stride 1).
+                      </p>
+                    </div>
+
+                    <div class="solver-video">
+                      <p class="video-label"><code>mujoco</code></p>
+                      <video controls muted loop playsinline preload="metadata" poster="assets/arm_7dof_mujoco_poster.png">
+                        <source src="assets/arm_7dof_mujoco.mp4" type="video/mp4">
+                      </video>
+                      <p class="video-caption">
+                        240 frames encoded at 24 fps
+                        (960x540, stride 1).
+                      </p>
+                    </div>
+
+                    <div class="solver-video">
+                      <p class="video-label"><code>xpbd</code></p>
+                      <video controls muted loop playsinline preload="metadata" poster="assets/arm_7dof_xpbd_poster.png">
+                        <source src="assets/arm_7dof_xpbd.mp4" type="video/mp4">
+                      </video>
+                      <p class="video-caption">
+                        240 frames encoded at 24 fps
+                        (960x540, stride 1).
+                      </p>
+                    </div>
               </div>
               <div class="scenario-body">
                 <div class="scenario-heading">
@@ -758,7 +951,7 @@
                 </div>
                 <p>Franka arm tracks deterministic sinusoidal PD targets from a fixed base.</p>
                 <div class="metrics">
-                  
+
         <div class="metric">
           <span>Max target error</span>
           <strong>0.14 rad</strong>
@@ -780,7 +973,7 @@
         </div>
                 </div>
                 <div class="solver-cards">
-                  
+
     <article class="solver-card ok">
       <div class="solver-card-head">
         <div>
@@ -795,9 +988,9 @@
         <div><span>Dominant core drift</span><strong>body_q (0)</strong></div>
         <div><span>Dominant extra drift</span><strong>none</strong></div>
         <div><span>Max core diff</span><strong>0</strong></div>
-        <div><span>Duration</span><strong>24.513 s</strong></div>
+        <div><span>Duration</span><strong>30.527 s</strong></div>
       </div>
-      
+
     </article>
 
     <article class="solver-card ok">
@@ -814,9 +1007,9 @@
         <div><span>Dominant core drift</span><strong>body_q (0)</strong></div>
         <div><span>Dominant extra drift</span><strong>none</strong></div>
         <div><span>Max core diff</span><strong>0</strong></div>
-        <div><span>Duration</span><strong>58.731 s</strong></div>
+        <div><span>Duration</span><strong>58.379 s</strong></div>
       </div>
-      
+
     </article>
 
     <article class="solver-card ok">
@@ -833,9 +1026,9 @@
         <div><span>Dominant core drift</span><strong>body_q (0)</strong></div>
         <div><span>Dominant extra drift</span><strong>none</strong></div>
         <div><span>Max core diff</span><strong>0</strong></div>
-        <div><span>Duration</span><strong>43.7 s</strong></div>
+        <div><span>Duration</span><strong>36.849 s</strong></div>
       </div>
-      
+
     </article>
                 </div>
               </div>
@@ -843,14 +1036,39 @@
 
             <article class="scenario">
               <div class="media">
-                
-            <video controls muted loop playsinline preload="metadata" poster="assets/humanoid_featherstone_poster.png">
-              <source src="assets/humanoid_featherstone.mp4" type="video/mp4">
-            </video>
-            <p class="video-caption">
-              featherstone video, 240 frames encoded at 24 fps
-              (960x540, stride 1).
-            </p>
+
+                    <div class="solver-video">
+                      <p class="video-label"><code>featherstone</code></p>
+                      <video controls muted loop playsinline preload="metadata" poster="assets/humanoid_featherstone_poster.png">
+                        <source src="assets/humanoid_featherstone.mp4" type="video/mp4">
+                      </video>
+                      <p class="video-caption">
+                        240 frames encoded at 24 fps
+                        (960x540, stride 1).
+                      </p>
+                    </div>
+
+                    <div class="solver-video">
+                      <p class="video-label"><code>mujoco</code></p>
+                      <video controls muted loop playsinline preload="metadata" poster="assets/humanoid_mujoco_poster.png">
+                        <source src="assets/humanoid_mujoco.mp4" type="video/mp4">
+                      </video>
+                      <p class="video-caption">
+                        240 frames encoded at 24 fps
+                        (960x540, stride 1).
+                      </p>
+                    </div>
+
+                    <div class="solver-video">
+                      <p class="video-label"><code>xpbd</code></p>
+                      <video controls muted loop playsinline preload="metadata" poster="assets/humanoid_xpbd_poster.png">
+                        <source src="assets/humanoid_xpbd.mp4" type="video/mp4">
+                      </video>
+                      <p class="video-caption">
+                        240 frames encoded at 24 fps
+                        (960x540, stride 1).
+                      </p>
+                    </div>
               </div>
               <div class="scenario-body">
                 <div class="scenario-heading">
@@ -859,7 +1077,7 @@
                 </div>
                 <p>Unitree H1 holds a standing pose; drift or falling exposes articulated-contact robustness issues.</p>
                 <div class="metrics">
-                  
+
         <div class="metric">
           <span>Final root height</span>
           <strong>0.723 m</strong>
@@ -881,7 +1099,7 @@
         </div>
                 </div>
                 <div class="solver-cards">
-                  
+
     <article class="solver-card ok">
       <div class="solver-card-head">
         <div>
@@ -896,9 +1114,9 @@
         <div><span>Dominant core drift</span><strong>body_q (0)</strong></div>
         <div><span>Dominant extra drift</span><strong>none</strong></div>
         <div><span>Max core diff</span><strong>0</strong></div>
-        <div><span>Duration</span><strong>23.61 s</strong></div>
+        <div><span>Duration</span><strong>24.991 s</strong></div>
       </div>
-      
+
     </article>
 
     <article class="solver-card ok">
@@ -915,9 +1133,9 @@
         <div><span>Dominant core drift</span><strong>body_q (0)</strong></div>
         <div><span>Dominant extra drift</span><strong>none</strong></div>
         <div><span>Max core diff</span><strong>0</strong></div>
-        <div><span>Duration</span><strong>55.083 s</strong></div>
+        <div><span>Duration</span><strong>50.329 s</strong></div>
       </div>
-      
+
     </article>
 
     <article class="solver-card ok">
@@ -934,9 +1152,9 @@
         <div><span>Dominant core drift</span><strong>body_q (0)</strong></div>
         <div><span>Dominant extra drift</span><strong>none</strong></div>
         <div><span>Max core diff</span><strong>0</strong></div>
-        <div><span>Duration</span><strong>27.77 s</strong></div>
+        <div><span>Duration</span><strong>20.746 s</strong></div>
       </div>
-      
+
     </article>
                 </div>
               </div>
@@ -944,14 +1162,17 @@
 
             <article class="scenario">
               <div class="media">
-                
-            <video controls muted loop playsinline preload="metadata" poster="assets/diffsim_ball_semi_implicit_poster.png">
-              <source src="assets/diffsim_ball_semi_implicit.mp4" type="video/mp4">
-            </video>
-            <p class="video-caption">
-              semi_implicit video, 240 frames encoded at 24 fps
-              (960x540, stride 1).
-            </p>
+
+                    <div class="solver-video">
+                      <p class="video-label"><code>semi_implicit</code></p>
+                      <video controls muted loop playsinline preload="metadata" poster="assets/diffsim_ball_semi_implicit_poster.png">
+                        <source src="assets/diffsim_ball_semi_implicit.mp4" type="video/mp4">
+                      </video>
+                      <p class="video-caption">
+                        240 frames encoded at 24 fps
+                        (960x540, stride 1).
+                      </p>
+                    </div>
               </div>
               <div class="scenario-body">
                 <div class="scenario-heading">
@@ -960,10 +1181,10 @@
                 </div>
                 <p>Differentiable particle target with wall and floor contacts; core includes loss and initial-velocity gradients. Diffsim ball target gradient inspired by ``example_diffsim_ball``.</p>
                 <div class="metrics">
-                  
+
                 </div>
                 <div class="solver-cards">
-                  
+
     <article class="solver-card ok">
       <div class="solver-card-head">
         <div>
@@ -978,9 +1199,9 @@
         <div><span>Dominant core drift</span><strong>final_particle_q (0)</strong></div>
         <div><span>Dominant extra drift</span><strong>none</strong></div>
         <div><span>Max core diff</span><strong>0</strong></div>
-        <div><span>Duration</span><strong>16.632 s</strong></div>
+        <div><span>Duration</span><strong>14.044 s</strong></div>
       </div>
-      
+
     </article>
                 </div>
               </div>
@@ -988,14 +1209,17 @@
 
             <article class="scenario">
               <div class="media">
-                
-            <video controls muted loop playsinline preload="metadata" poster="assets/diffsim_cloth_com_semi_implicit_poster.png">
-              <source src="assets/diffsim_cloth_com_semi_implicit.mp4" type="video/mp4">
-            </video>
-            <p class="video-caption">
-              semi_implicit video, 240 frames encoded at 24 fps
-              (960x540, stride 1).
-            </p>
+
+                    <div class="solver-video">
+                      <p class="video-label"><code>semi_implicit</code></p>
+                      <video controls muted loop playsinline preload="metadata" poster="assets/diffsim_cloth_com_semi_implicit_poster.png">
+                        <source src="assets/diffsim_cloth_com_semi_implicit.mp4" type="video/mp4">
+                      </video>
+                      <p class="video-caption">
+                        240 frames encoded at 24 fps
+                        (960x540, stride 1).
+                      </p>
+                    </div>
               </div>
               <div class="scenario-body">
                 <div class="scenario-heading">
@@ -1004,10 +1228,10 @@
                 </div>
                 <p>Small differentiable cloth target; COM uses an atomic accumulation before backpropagating gradients. Small cloth gradient scenario inspired by ``example_diffsim_cloth``.</p>
                 <div class="metrics">
-                  
+
                 </div>
                 <div class="solver-cards">
-                  
+
     <article class="solver-card ok">
       <div class="solver-card-head">
         <div>
@@ -1022,9 +1246,9 @@
         <div><span>Dominant core drift</span><strong>final_particle_q (0)</strong></div>
         <div><span>Dominant extra drift</span><strong>none</strong></div>
         <div><span>Max core diff</span><strong>0</strong></div>
-        <div><span>Duration</span><strong>12.058 s</strong></div>
+        <div><span>Duration</span><strong>10.41 s</strong></div>
       </div>
-      
+
     </article>
                 </div>
               </div>
@@ -1032,14 +1256,17 @@
 
             <article class="scenario">
               <div class="media">
-                
-            <video controls muted loop playsinline preload="metadata" poster="assets/diffsim_spring_cage_semi_implicit_poster.png">
-              <source src="assets/diffsim_spring_cage_semi_implicit.mp4" type="video/mp4">
-            </video>
-            <p class="video-caption">
-              semi_implicit video, 240 frames encoded at 24 fps
-              (960x540, stride 1).
-            </p>
+
+                    <div class="solver-video">
+                      <p class="video-label"><code>semi_implicit</code></p>
+                      <video controls muted loop playsinline preload="metadata" poster="assets/diffsim_spring_cage_semi_implicit_poster.png">
+                        <source src="assets/diffsim_spring_cage_semi_implicit.mp4" type="video/mp4">
+                      </video>
+                      <p class="video-caption">
+                        240 frames encoded at 24 fps
+                        (960x540, stride 1).
+                      </p>
+                    </div>
               </div>
               <div class="scenario-body">
                 <div class="scenario-heading">
@@ -1048,10 +1275,10 @@
                 </div>
                 <p>Differentiable spring-cage target; core includes loss and spring rest-length gradients. Spring rest-length gradient inspired by ``example_diffsim_spring_cage``.</p>
                 <div class="metrics">
-                  
+
                 </div>
                 <div class="solver-cards">
-                  
+
     <article class="solver-card ok">
       <div class="solver-card-head">
         <div>
@@ -1066,9 +1293,136 @@
         <div><span>Dominant core drift</span><strong>final_particle_q (0)</strong></div>
         <div><span>Dominant extra drift</span><strong>none</strong></div>
         <div><span>Max core diff</span><strong>0</strong></div>
-        <div><span>Duration</span><strong>12.316 s</strong></div>
+        <div><span>Duration</span><strong>9.834 s</strong></div>
       </div>
-      
+
+    </article>
+                </div>
+              </div>
+            </article>
+
+            <article class="scenario">
+              <div class="media">
+
+                    <div class="solver-video">
+                      <p class="video-label"><code>vbd</code></p>
+                      <video controls muted loop playsinline preload="metadata" poster="assets/vbd_cloth_patch_vbd_poster.png">
+                        <source src="assets/vbd_cloth_patch_vbd.mp4" type="video/mp4">
+                      </video>
+                      <p class="video-caption">
+                        240 frames encoded at 24 fps
+                        (960x540, stride 1).
+                      </p>
+                    </div>
+              </div>
+              <div class="scenario-body">
+                <div class="scenario-heading">
+                  <p class="eyebrow">vbd_cloth_patch</p>
+                  <h2>VBD Cloth Patch</h2>
+                </div>
+                <p>Pinned cloth patch with ground contact, using VBD bending-aware coloring. Pinned cloth patch evaluated with the VBD solver.</p>
+                <div class="metrics">
+
+        <div class="metric">
+          <span>Particles</span>
+          <strong>154</strong>
+        </div>
+
+        <div class="metric">
+          <span>Pinned particles</span>
+          <strong>22</strong>
+        </div>
+
+        <div class="metric">
+          <span>Height range</span>
+          <strong>0.664-1.286 m</strong>
+        </div>
+                </div>
+                <div class="solver-cards">
+
+    <article class="solver-card ok">
+      <div class="solver-card-head">
+        <div>
+          <h3><code>vbd</code></h3>
+        </div>
+        <span class="pill ok">BIT-EXACT</span>
+      </div>
+      <p class="solver-summary">2/2 subprocess replays matched byte-for-byte with CUDA graph enabled.</p>
+      <div class="solver-stats">
+        <div><span>Execution</span><strong>CUDA graph</strong></div>
+        <div><span>Unique hashes</span><strong>1</strong></div>
+        <div><span>Dominant core drift</span><strong>particle_q (0)</strong></div>
+        <div><span>Dominant extra drift</span><strong>none</strong></div>
+        <div><span>Max core diff</span><strong>0</strong></div>
+        <div><span>Duration</span><strong>17.605 s</strong></div>
+      </div>
+
+    </article>
+                </div>
+              </div>
+            </article>
+
+            <article class="scenario">
+              <div class="media">
+
+                    <div class="solver-video">
+                      <p class="video-label"><code>vbd</code></p>
+                      <video controls muted loop playsinline preload="metadata" poster="assets/vbd_soft_body_vbd_poster.png">
+                        <source src="assets/vbd_soft_body_vbd.mp4" type="video/mp4">
+                      </video>
+                      <p class="video-caption">
+                        240 frames encoded at 24 fps
+                        (960x540, stride 1).
+                      </p>
+                    </div>
+              </div>
+              <div class="scenario-body">
+                <div class="scenario-heading">
+                  <p class="eyebrow">vbd_soft_body</p>
+                  <h2>VBD Soft Body</h2>
+                </div>
+                <p>Pinned tetrahedral block with ground contact, using VBD particle/tet solve paths. Pinned tetrahedral block evaluated with the VBD solver.</p>
+                <div class="metrics">
+
+        <div class="metric">
+          <span>Particles</span>
+          <strong>160</strong>
+        </div>
+
+        <div class="metric">
+          <span>Pinned particles</span>
+          <strong>32</strong>
+        </div>
+
+        <div class="metric">
+          <span>Height range</span>
+          <strong>0.945-1.24 m</strong>
+        </div>
+
+        <div class="metric">
+          <span>Tets</span>
+          <strong>360</strong>
+        </div>
+                </div>
+                <div class="solver-cards">
+
+    <article class="solver-card ok">
+      <div class="solver-card-head">
+        <div>
+          <h3><code>vbd</code></h3>
+        </div>
+        <span class="pill ok">BIT-EXACT</span>
+      </div>
+      <p class="solver-summary">2/2 subprocess replays matched byte-for-byte with CUDA graph enabled.</p>
+      <div class="solver-stats">
+        <div><span>Execution</span><strong>CUDA graph</strong></div>
+        <div><span>Unique hashes</span><strong>1</strong></div>
+        <div><span>Dominant core drift</span><strong>particle_q (0)</strong></div>
+        <div><span>Dominant extra drift</span><strong>none</strong></div>
+        <div><span>Max core diff</span><strong>0</strong></div>
+        <div><span>Duration</span><strong>18.015 s</strong></div>
+      </div>
+
     </article>
                 </div>
               </div>
@@ -1087,13 +1441,12 @@
               <th>Unique hashes</th>
               <th>Dominant core signal</th>
               <th>Max core diff</th>
-              <th>Dominant extra signal</th>
               <th>Max extras diff</th>
               <th>Duration</th>
             </tr>
           </thead>
           <tbody>
-            
+
             <tr>
               <td>7-DOF Arm</td>
               <td><code>featherstone</code></td>
@@ -1101,9 +1454,8 @@
               <td>1</td>
               <td>body_q (0)</td>
               <td>0</td>
-              <td>-</td>
               <td>0</td>
-              <td>24.513 s</td>
+              <td>30.527 s</td>
             </tr>
 
             <tr>
@@ -1113,9 +1465,8 @@
               <td>1</td>
               <td>body_q (0)</td>
               <td>0</td>
-              <td>-</td>
               <td>0</td>
-              <td>58.731 s</td>
+              <td>58.379 s</td>
             </tr>
 
             <tr>
@@ -1125,9 +1476,8 @@
               <td>1</td>
               <td>body_q (0)</td>
               <td>0</td>
-              <td>-</td>
               <td>0</td>
-              <td>43.7 s</td>
+              <td>36.849 s</td>
             </tr>
 
             <tr>
@@ -1137,9 +1487,19 @@
               <td>1</td>
               <td>body_q (0)</td>
               <td>0</td>
-              <td>-</td>
               <td>0</td>
-              <td>44.156 s</td>
+              <td>48.201 s</td>
+            </tr>
+
+            <tr>
+              <td>Box Stack</td>
+              <td><code>vbd</code></td>
+              <td><span class="pill ok">BIT-EXACT</span></td>
+              <td>1</td>
+              <td>body_q (0)</td>
+              <td>0</td>
+              <td>0</td>
+              <td>16.806 s</td>
             </tr>
 
             <tr>
@@ -1149,9 +1509,8 @@
               <td>1</td>
               <td>body_q (0)</td>
               <td>0</td>
-              <td>-</td>
               <td>0</td>
-              <td>13.589 s</td>
+              <td>13.961 s</td>
             </tr>
 
             <tr>
@@ -1161,9 +1520,8 @@
               <td>1</td>
               <td>final_particle_q (0)</td>
               <td>0</td>
-              <td>-</td>
               <td>0</td>
-              <td>16.632 s</td>
+              <td>14.044 s</td>
             </tr>
 
             <tr>
@@ -1173,9 +1531,8 @@
               <td>1</td>
               <td>final_particle_q (0)</td>
               <td>0</td>
-              <td>-</td>
               <td>0</td>
-              <td>12.058 s</td>
+              <td>10.41 s</td>
             </tr>
 
             <tr>
@@ -1185,9 +1542,8 @@
               <td>1</td>
               <td>final_particle_q (0)</td>
               <td>0</td>
-              <td>-</td>
               <td>0</td>
-              <td>12.316 s</td>
+              <td>9.834 s</td>
             </tr>
 
             <tr>
@@ -1197,9 +1553,19 @@
               <td>1</td>
               <td>body_q (0)</td>
               <td>0</td>
-              <td>-</td>
               <td>0</td>
-              <td>43.048 s</td>
+              <td>50.447 s</td>
+            </tr>
+
+            <tr>
+              <td>Domino Chain</td>
+              <td><code>vbd</code></td>
+              <td><span class="pill ok">BIT-EXACT</span></td>
+              <td>1</td>
+              <td>body_q (0)</td>
+              <td>0</td>
+              <td>0</td>
+              <td>20.5 s</td>
             </tr>
 
             <tr>
@@ -1209,9 +1575,8 @@
               <td>1</td>
               <td>body_q (0)</td>
               <td>0</td>
-              <td>-</td>
               <td>0</td>
-              <td>13.623 s</td>
+              <td>17.277 s</td>
             </tr>
 
             <tr>
@@ -1221,9 +1586,8 @@
               <td>1</td>
               <td>body_q (0)</td>
               <td>0</td>
-              <td>-</td>
               <td>0</td>
-              <td>30.745 s</td>
+              <td>14.081 s</td>
             </tr>
 
             <tr>
@@ -1233,9 +1597,8 @@
               <td>1</td>
               <td>body_q (0)</td>
               <td>0</td>
-              <td>-</td>
               <td>0</td>
-              <td>76.301 s</td>
+              <td>41.97 s</td>
             </tr>
 
             <tr>
@@ -1245,9 +1608,19 @@
               <td>1</td>
               <td>body_q (0)</td>
               <td>0</td>
-              <td>-</td>
               <td>0</td>
-              <td>18.377 s</td>
+              <td>13.255 s</td>
+            </tr>
+
+            <tr>
+              <td>Falling Cube</td>
+              <td><code>vbd</code></td>
+              <td><span class="pill ok">BIT-EXACT</span></td>
+              <td>1</td>
+              <td>body_q (0)</td>
+              <td>0</td>
+              <td>0</td>
+              <td>16.426 s</td>
             </tr>
 
             <tr>
@@ -1257,9 +1630,8 @@
               <td>1</td>
               <td>body_q (0)</td>
               <td>0</td>
-              <td>-</td>
               <td>0</td>
-              <td>36.749 s</td>
+              <td>13.808 s</td>
             </tr>
 
             <tr>
@@ -1269,9 +1641,8 @@
               <td>1</td>
               <td>body_q (0)</td>
               <td>0</td>
-              <td>-</td>
               <td>0</td>
-              <td>23.61 s</td>
+              <td>24.991 s</td>
             </tr>
 
             <tr>
@@ -1281,9 +1652,8 @@
               <td>1</td>
               <td>body_q (0)</td>
               <td>0</td>
-              <td>-</td>
               <td>0</td>
-              <td>55.083 s</td>
+              <td>50.329 s</td>
             </tr>
 
             <tr>
@@ -1293,9 +1663,30 @@
               <td>1</td>
               <td>body_q (0)</td>
               <td>0</td>
-              <td>-</td>
               <td>0</td>
-              <td>27.77 s</td>
+              <td>20.746 s</td>
+            </tr>
+
+            <tr>
+              <td>VBD Cloth Patch</td>
+              <td><code>vbd</code></td>
+              <td><span class="pill ok">BIT-EXACT</span></td>
+              <td>1</td>
+              <td>particle_q (0)</td>
+              <td>0</td>
+              <td>0</td>
+              <td>17.605 s</td>
+            </tr>
+
+            <tr>
+              <td>VBD Soft Body</td>
+              <td><code>vbd</code></td>
+              <td><span class="pill ok">BIT-EXACT</span></td>
+              <td>1</td>
+              <td>particle_q (0)</td>
+              <td>0</td>
+              <td>0</td>
+              <td>18.015 s</td>
             </tr>
           </tbody>
         </table>
@@ -1334,7 +1725,7 @@
   </main>
 
   <footer>
-    Generated 2026-05-12 10:13:08 Pacific Daylight Time. Raw machine-readable data: <code>determinism_report.json</code>.
+    Generated 2026-05-12 10:57:47 Pacific Daylight Time. Raw machine-readable data: <code>determinism_report.json</code>.
   </footer>
 </body>
 </html>

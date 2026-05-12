@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-05-12 10:13:08 Pacific Daylight Time",
+  "generated_at": "2026-05-12 10:57:47 Pacific Daylight Time",
   "config": {
     "runs": 2,
     "num_steps": 60,
@@ -17,7 +17,9 @@
     "humanoid",
     "diffsim_ball",
     "diffsim_cloth_com",
-    "diffsim_spring_cage"
+    "diffsim_spring_cage",
+    "vbd_cloth_patch",
+    "vbd_soft_body"
   ],
   "scenarios": {
     "falling_cube": {
@@ -67,6 +69,18 @@
       "doc": "Spring rest-length gradient inspired by ``example_diffsim_spring_cage``.",
       "note": "Differentiable spring-cage target; core includes loss and spring rest-length gradients.",
       "representative_solver": "semi_implicit"
+    },
+    "vbd_cloth_patch": {
+      "title": "VBD Cloth Patch",
+      "doc": "Pinned cloth patch evaluated with the VBD solver.",
+      "note": "Pinned cloth patch with ground contact, using VBD bending-aware coloring.",
+      "representative_solver": "vbd"
+    },
+    "vbd_soft_body": {
+      "title": "VBD Soft Body",
+      "doc": "Pinned tetrahedral block evaluated with the VBD solver.",
+      "note": "Pinned tetrahedral block with ground contact, using VBD particle/tet solve paths.",
+      "representative_solver": "vbd"
     }
   },
   "solver_results": [
@@ -137,7 +151,7 @@
           "value": "2.801e-04 m/s"
         }
       ],
-      "duration_s": 36.74904460000107,
+      "duration_s": 13.808462100001634,
       "summary": "2/2 subprocess replays matched byte-for-byte with CUDA graph enabled."
     },
     {
@@ -207,7 +221,7 @@
           "value": "0.859 m/s"
         }
       ],
-      "duration_s": 30.744703500007745,
+      "duration_s": 14.081312199996319,
       "summary": "2/2 subprocess replays matched byte-for-byte with CUDA graph enabled."
     },
     {
@@ -277,7 +291,77 @@
           "value": "0.842 m/s"
         }
       ],
-      "duration_s": 18.376833599992096,
+      "duration_s": 13.254744299993035,
+      "summary": "2/2 subprocess replays matched byte-for-byte with CUDA graph enabled."
+    },
+    {
+      "scenario": "falling_cube",
+      "solver": "vbd",
+      "variant_id": "default",
+      "variant_label": "Default",
+      "variant_order": 0,
+      "status": "bit_exact",
+      "all_equal": true,
+      "hashes": [
+        "3339745f09039ac4",
+        "3339745f09039ac4"
+      ],
+      "unique_hashes": 1,
+      "max_core_diff": {
+        "body_q": 0.0,
+        "body_qd": 0.0,
+        "joint_q": 0.0,
+        "joint_qd": 0.0
+      },
+      "max_core_diff_overall": 0.0,
+      "dominant_core_signal": "body_q",
+      "dominant_core_value": 0.0,
+      "extras_diff": {
+        "final_pose": 0.0,
+        "final_velocity": 0.0,
+        "final_height": 0.0
+      },
+      "max_extras_diff_overall": 0.0,
+      "dominant_extra_signal": "final_pose",
+      "dominant_extra_value": 0.0,
+      "disable_graph": false,
+      "collision_pipeline_deterministic": true,
+      "collision_pipeline_wp_deterministic": "run_to_run",
+      "graph_capture_enabled": true,
+      "meta": {
+        "scenario": "falling_cube",
+        "solver": "vbd",
+        "world_count": 2,
+        "num_steps": 60,
+        "seed": 0,
+        "fps": 60,
+        "substeps": 4,
+        "warp_version": "1.14.0.dev0",
+        "wp_deterministic": "run_to_run",
+        "collision_pipeline_deterministic": true,
+        "collision_pipeline_wp_deterministic": "run_to_run",
+        "custom_collision_pipeline": true,
+        "graph_capture_enabled": true
+      },
+      "metrics": [
+        {
+          "label": "Final height mean",
+          "value": "0.146 m"
+        },
+        {
+          "label": "Final height range",
+          "value": "0.146-0.146 m"
+        },
+        {
+          "label": "Awake bodies",
+          "value": "0"
+        },
+        {
+          "label": "Mean speed",
+          "value": "6.418e-04 m/s"
+        }
+      ],
+      "duration_s": 16.42573010000342,
       "summary": "2/2 subprocess replays matched byte-for-byte with CUDA graph enabled."
     },
     {
@@ -347,7 +431,7 @@
           "value": "6.262e-06 m/s"
         }
       ],
-      "duration_s": 76.30130079999799,
+      "duration_s": 41.96958039999299,
       "summary": "2/2 subprocess replays matched byte-for-byte with CUDA graph enabled."
     },
     {
@@ -416,7 +500,76 @@
           "value": "38"
         }
       ],
-      "duration_s": 13.589492800005246,
+      "duration_s": 13.960611999995308,
+      "summary": "2/2 subprocess replays matched byte-for-byte with CUDA graph enabled."
+    },
+    {
+      "scenario": "box_stack",
+      "solver": "vbd",
+      "variant_id": "default",
+      "variant_label": "Default",
+      "variant_order": 0,
+      "status": "bit_exact",
+      "all_equal": true,
+      "hashes": [
+        "ad24f8a277e9748b",
+        "ad24f8a277e9748b"
+      ],
+      "unique_hashes": 1,
+      "max_core_diff": {
+        "body_q": 0.0,
+        "body_qd": 0.0,
+        "joint_q": 0.0,
+        "joint_qd": 0.0
+      },
+      "max_core_diff_overall": 0.0,
+      "dominant_core_signal": "body_q",
+      "dominant_core_value": 0.0,
+      "extras_diff": {
+        "stack_order_world0": 0.0,
+        "contact_count_history": 0.0
+      },
+      "max_extras_diff_overall": 0.0,
+      "dominant_extra_signal": "stack_order_world0",
+      "dominant_extra_value": 0.0,
+      "disable_graph": false,
+      "collision_pipeline_deterministic": true,
+      "collision_pipeline_wp_deterministic": "run_to_run",
+      "graph_capture_enabled": true,
+      "meta": {
+        "scenario": "box_stack",
+        "solver": "vbd",
+        "world_count": 2,
+        "num_steps": 60,
+        "seed": 0,
+        "fps": 60,
+        "substeps": 4,
+        "warp_version": "1.14.0.dev0",
+        "wp_deterministic": "run_to_run",
+        "collision_pipeline_deterministic": true,
+        "collision_pipeline_wp_deterministic": "run_to_run",
+        "custom_collision_pipeline": true,
+        "graph_capture_enabled": true
+      },
+      "metrics": [
+        {
+          "label": "COM drift",
+          "value": "0.002 m"
+        },
+        {
+          "label": "Kinetic energy proxy",
+          "value": "1924.22"
+        },
+        {
+          "label": "Contact samples",
+          "value": "6"
+        },
+        {
+          "label": "Peak contacts",
+          "value": "38"
+        }
+      ],
+      "duration_s": 16.80601500000921,
       "summary": "2/2 subprocess replays matched byte-for-byte with CUDA graph enabled."
     },
     {
@@ -485,7 +638,7 @@
           "value": "38"
         }
       ],
-      "duration_s": 44.15592449999531,
+      "duration_s": 48.20062920000055,
       "summary": "2/2 subprocess replays matched byte-for-byte with CUDA graph enabled."
     },
     {
@@ -551,7 +704,73 @@
           "value": "0"
         }
       ],
-      "duration_s": 13.623163600001135,
+      "duration_s": 17.276831999988644,
+      "summary": "2/2 subprocess replays matched byte-for-byte with CUDA graph enabled."
+    },
+    {
+      "scenario": "domino_chain",
+      "solver": "vbd",
+      "variant_id": "default",
+      "variant_label": "Default",
+      "variant_order": 0,
+      "status": "bit_exact",
+      "all_equal": true,
+      "hashes": [
+        "28a38d51f66dd744",
+        "28a38d51f66dd744"
+      ],
+      "unique_hashes": 1,
+      "max_core_diff": {
+        "body_q": 0.0,
+        "body_qd": 0.0,
+        "joint_q": 0.0,
+        "joint_qd": 0.0
+      },
+      "max_core_diff_overall": 0.0,
+      "dominant_core_signal": "body_q",
+      "dominant_core_value": 0.0,
+      "extras_diff": {},
+      "max_extras_diff_overall": 0.0,
+      "dominant_extra_signal": null,
+      "dominant_extra_value": 0.0,
+      "disable_graph": false,
+      "collision_pipeline_deterministic": true,
+      "collision_pipeline_wp_deterministic": "run_to_run",
+      "graph_capture_enabled": true,
+      "meta": {
+        "scenario": "domino_chain",
+        "solver": "vbd",
+        "world_count": 2,
+        "num_steps": 60,
+        "seed": 0,
+        "fps": 60,
+        "substeps": 4,
+        "warp_version": "1.14.0.dev0",
+        "wp_deterministic": "run_to_run",
+        "collision_pipeline_deterministic": true,
+        "collision_pipeline_wp_deterministic": "run_to_run",
+        "custom_collision_pipeline": true,
+        "graph_capture_enabled": true
+      },
+      "metrics": [
+        {
+          "label": "Fallen dominos",
+          "value": "0"
+        },
+        {
+          "label": "Last-domino time",
+          "value": "not reached"
+        },
+        {
+          "label": "First angle",
+          "value": "14.324 deg"
+        },
+        {
+          "label": "Tracked fall events",
+          "value": "0"
+        }
+      ],
+      "duration_s": 20.50027730000147,
       "summary": "2/2 subprocess replays matched byte-for-byte with CUDA graph enabled."
     },
     {
@@ -617,7 +836,7 @@
           "value": "0"
         }
       ],
-      "duration_s": 43.048399999999674,
+      "duration_s": 50.446717500002705,
       "summary": "2/2 subprocess replays matched byte-for-byte with CUDA graph enabled."
     },
     {
@@ -689,7 +908,7 @@
           "value": "0"
         }
       ],
-      "duration_s": 43.700389500008896,
+      "duration_s": 36.84938779998629,
       "summary": "2/2 subprocess replays matched byte-for-byte with CUDA graph enabled."
     },
     {
@@ -761,7 +980,7 @@
           "value": "0"
         }
       ],
-      "duration_s": 24.51279710000381,
+      "duration_s": 30.527235200002906,
       "summary": "2/2 subprocess replays matched byte-for-byte with CUDA graph enabled."
     },
     {
@@ -833,7 +1052,7 @@
           "value": "64"
         }
       ],
-      "duration_s": 58.73087739999755,
+      "duration_s": 58.37912260000303,
       "summary": "2/2 subprocess replays matched byte-for-byte with CUDA graph enabled."
     },
     {
@@ -904,7 +1123,7 @@
           "value": "28"
         }
       ],
-      "duration_s": 27.769746799996938,
+      "duration_s": 20.745552100008354,
       "summary": "2/2 subprocess replays matched byte-for-byte with CUDA graph enabled."
     },
     {
@@ -975,7 +1194,7 @@
           "value": "28"
         }
       ],
-      "duration_s": 23.61003460000211,
+      "duration_s": 24.990601099998457,
       "summary": "2/2 subprocess replays matched byte-for-byte with CUDA graph enabled."
     },
     {
@@ -1046,7 +1265,7 @@
           "value": "28"
         }
       ],
-      "duration_s": 55.08286469998711,
+      "duration_s": 50.328850200006855,
       "summary": "2/2 subprocess replays matched byte-for-byte with CUDA graph enabled."
     },
     {
@@ -1099,7 +1318,7 @@
         "diffsim": true
       },
       "metrics": [],
-      "duration_s": 16.632244499996887,
+      "duration_s": 14.043581699996139,
       "summary": "2/2 subprocess replays matched byte-for-byte with CUDA graph enabled."
     },
     {
@@ -1150,7 +1369,7 @@
         "diffsim": true
       },
       "metrics": [],
-      "duration_s": 12.0581208000076,
+      "duration_s": 10.409620000005816,
       "summary": "2/2 subprocess replays matched byte-for-byte with CUDA graph enabled."
     },
     {
@@ -1200,7 +1419,137 @@
         "diffsim": true
       },
       "metrics": [],
-      "duration_s": 12.316491699995822,
+      "duration_s": 9.833578300007503,
+      "summary": "2/2 subprocess replays matched byte-for-byte with CUDA graph enabled."
+    },
+    {
+      "scenario": "vbd_cloth_patch",
+      "solver": "vbd",
+      "variant_id": "default",
+      "variant_label": "Default",
+      "variant_order": 0,
+      "status": "bit_exact",
+      "all_equal": true,
+      "hashes": [
+        "7171ff8358f4b3d9",
+        "7171ff8358f4b3d9"
+      ],
+      "unique_hashes": 1,
+      "max_core_diff": {
+        "particle_q": 0.0,
+        "particle_qd": 0.0
+      },
+      "max_core_diff_overall": 0.0,
+      "dominant_core_signal": "particle_q",
+      "dominant_core_value": 0.0,
+      "extras_diff": {
+        "center_of_mass": 0.0,
+        "height_range": 0.0
+      },
+      "max_extras_diff_overall": 0.0,
+      "dominant_extra_signal": "center_of_mass",
+      "dominant_extra_value": 0.0,
+      "disable_graph": false,
+      "collision_pipeline_deterministic": true,
+      "collision_pipeline_wp_deterministic": "run_to_run",
+      "graph_capture_enabled": true,
+      "meta": {
+        "scenario": "vbd_cloth_patch",
+        "solver": "vbd",
+        "world_count": 2,
+        "num_steps": 60,
+        "seed": 0,
+        "fps": 60,
+        "substeps": 4,
+        "warp_version": "1.14.0.dev0",
+        "wp_deterministic": "run_to_run",
+        "collision_pipeline_deterministic": true,
+        "collision_pipeline_wp_deterministic": "run_to_run",
+        "custom_collision_pipeline": true,
+        "graph_capture_enabled": true
+      },
+      "metrics": [
+        {
+          "label": "Particles",
+          "value": "154"
+        },
+        {
+          "label": "Pinned particles",
+          "value": "22"
+        },
+        {
+          "label": "Height range",
+          "value": "0.664-1.286 m"
+        }
+      ],
+      "duration_s": 17.60504480000236,
+      "summary": "2/2 subprocess replays matched byte-for-byte with CUDA graph enabled."
+    },
+    {
+      "scenario": "vbd_soft_body",
+      "solver": "vbd",
+      "variant_id": "default",
+      "variant_label": "Default",
+      "variant_order": 0,
+      "status": "bit_exact",
+      "all_equal": true,
+      "hashes": [
+        "4891359e5c3e79cc",
+        "4891359e5c3e79cc"
+      ],
+      "unique_hashes": 1,
+      "max_core_diff": {
+        "particle_q": 0.0,
+        "particle_qd": 0.0
+      },
+      "max_core_diff_overall": 0.0,
+      "dominant_core_signal": "particle_q",
+      "dominant_core_value": 0.0,
+      "extras_diff": {
+        "center_of_mass": 0.0,
+        "height_range": 0.0
+      },
+      "max_extras_diff_overall": 0.0,
+      "dominant_extra_signal": "center_of_mass",
+      "dominant_extra_value": 0.0,
+      "disable_graph": false,
+      "collision_pipeline_deterministic": true,
+      "collision_pipeline_wp_deterministic": "run_to_run",
+      "graph_capture_enabled": true,
+      "meta": {
+        "scenario": "vbd_soft_body",
+        "solver": "vbd",
+        "world_count": 2,
+        "num_steps": 60,
+        "seed": 0,
+        "fps": 60,
+        "substeps": 4,
+        "warp_version": "1.14.0.dev0",
+        "wp_deterministic": "run_to_run",
+        "collision_pipeline_deterministic": true,
+        "collision_pipeline_wp_deterministic": "run_to_run",
+        "custom_collision_pipeline": true,
+        "graph_capture_enabled": true
+      },
+      "metrics": [
+        {
+          "label": "Particles",
+          "value": "160"
+        },
+        {
+          "label": "Pinned particles",
+          "value": "32"
+        },
+        {
+          "label": "Height range",
+          "value": "0.945-1.24 m"
+        },
+        {
+          "label": "Tets",
+          "value": "360"
+        }
+      ],
+      "duration_s": 18.014838300005067,
       "summary": "2/2 subprocess replays matched byte-for-byte with CUDA graph enabled."
     }
   ],
@@ -1221,6 +1570,66 @@
       "last_mean": 40.31791345164609
     },
     {
+      "scenario": "falling_cube",
+      "solver": "featherstone",
+      "video": "falling_cube_featherstone.mp4",
+      "poster": "falling_cube_featherstone_poster.png",
+      "frames": 240,
+      "sim_steps": 240,
+      "frame_stride": 1,
+      "fps": 24,
+      "warp_deterministic": "not_guaranteed",
+      "width": 960,
+      "height": 540,
+      "first_mean": 40.450310570987654,
+      "last_mean": 40.365131172839504
+    },
+    {
+      "scenario": "falling_cube",
+      "solver": "semi_implicit",
+      "video": "falling_cube_semi_implicit.mp4",
+      "poster": "falling_cube_semi_implicit_poster.png",
+      "frames": 240,
+      "sim_steps": 240,
+      "frame_stride": 1,
+      "fps": 24,
+      "warp_deterministic": "not_guaranteed",
+      "width": 960,
+      "height": 540,
+      "first_mean": 40.450310570987654,
+      "last_mean": 40.3099492026749
+    },
+    {
+      "scenario": "falling_cube",
+      "solver": "vbd",
+      "video": "falling_cube_vbd.mp4",
+      "poster": "falling_cube_vbd_poster.png",
+      "frames": 240,
+      "sim_steps": 240,
+      "frame_stride": 1,
+      "fps": 24,
+      "warp_deterministic": "not_guaranteed",
+      "width": 960,
+      "height": 540,
+      "first_mean": 40.450310570987654,
+      "last_mean": 40.34361947016461
+    },
+    {
+      "scenario": "falling_cube",
+      "solver": "mujoco",
+      "video": "falling_cube_mujoco.mp4",
+      "poster": "falling_cube_mujoco_poster.png",
+      "frames": 240,
+      "sim_steps": 240,
+      "frame_stride": 1,
+      "fps": 24,
+      "warp_deterministic": "not_guaranteed",
+      "width": 960,
+      "height": 540,
+      "first_mean": 40.450310570987654,
+      "last_mean": 40.34553369341564
+    },
+    {
       "scenario": "box_stack",
       "solver": "xpbd",
       "video": "box_stack_xpbd.mp4",
@@ -1233,7 +1642,37 @@
       "width": 960,
       "height": 540,
       "first_mean": 42.26835583847737,
-      "last_mean": 42.8705999228395
+      "last_mean": 43.189393004115225
+    },
+    {
+      "scenario": "box_stack",
+      "solver": "vbd",
+      "video": "box_stack_vbd.mp4",
+      "poster": "box_stack_vbd_poster.png",
+      "frames": 240,
+      "sim_steps": 240,
+      "frame_stride": 1,
+      "fps": 24,
+      "warp_deterministic": "not_guaranteed",
+      "width": 960,
+      "height": 540,
+      "first_mean": 42.268281893004115,
+      "last_mean": 41.567659465020576
+    },
+    {
+      "scenario": "box_stack",
+      "solver": "mujoco",
+      "video": "box_stack_mujoco.mp4",
+      "poster": "box_stack_mujoco_poster.png",
+      "frames": 240,
+      "sim_steps": 240,
+      "frame_stride": 1,
+      "fps": 24,
+      "warp_deterministic": "not_guaranteed",
+      "width": 960,
+      "height": 540,
+      "first_mean": 42.26830825617284,
+      "last_mean": 42.292206147119344
     },
     {
       "scenario": "domino_chain",
@@ -1248,7 +1687,52 @@
       "width": 960,
       "height": 540,
       "first_mean": 46.60653420781893,
-      "last_mean": 46.814940200617286
+      "last_mean": 46.82964891975308
+    },
+    {
+      "scenario": "domino_chain",
+      "solver": "vbd",
+      "video": "domino_chain_vbd.mp4",
+      "poster": "domino_chain_vbd_poster.png",
+      "frames": 240,
+      "sim_steps": 240,
+      "frame_stride": 1,
+      "fps": 24,
+      "warp_deterministic": "not_guaranteed",
+      "width": 960,
+      "height": 540,
+      "first_mean": 46.60608217592593,
+      "last_mean": 45.84405285493827
+    },
+    {
+      "scenario": "domino_chain",
+      "solver": "mujoco",
+      "video": "domino_chain_mujoco.mp4",
+      "poster": "domino_chain_mujoco_poster.png",
+      "frames": 240,
+      "sim_steps": 240,
+      "frame_stride": 1,
+      "fps": 24,
+      "warp_deterministic": "not_guaranteed",
+      "width": 960,
+      "height": 540,
+      "first_mean": 46.606864068930044,
+      "last_mean": 46.85958333333333
+    },
+    {
+      "scenario": "arm_7dof",
+      "solver": "xpbd",
+      "video": "arm_7dof_xpbd.mp4",
+      "poster": "arm_7dof_xpbd_poster.png",
+      "frames": 240,
+      "sim_steps": 240,
+      "frame_stride": 1,
+      "fps": 24,
+      "warp_deterministic": "not_guaranteed",
+      "width": 960,
+      "height": 540,
+      "first_mean": 44.33622235082304,
+      "last_mean": 44.335633359053496
     },
     {
       "scenario": "arm_7dof",
@@ -1266,6 +1750,36 @@
       "last_mean": 49.961316229423865
     },
     {
+      "scenario": "arm_7dof",
+      "solver": "mujoco",
+      "video": "arm_7dof_mujoco.mp4",
+      "poster": "arm_7dof_mujoco_poster.png",
+      "frames": 240,
+      "sim_steps": 240,
+      "frame_stride": 1,
+      "fps": 24,
+      "warp_deterministic": "not_guaranteed",
+      "width": 960,
+      "height": 540,
+      "first_mean": 44.349295267489715,
+      "last_mean": 44.02536522633745
+    },
+    {
+      "scenario": "humanoid",
+      "solver": "xpbd",
+      "video": "humanoid_xpbd.mp4",
+      "poster": "humanoid_xpbd_poster.png",
+      "frames": 240,
+      "sim_steps": 240,
+      "frame_stride": 1,
+      "fps": 24,
+      "warp_deterministic": "not_guaranteed",
+      "width": 960,
+      "height": 540,
+      "first_mean": 41.43911651234568,
+      "last_mean": 41.43896283436214
+    },
+    {
       "scenario": "humanoid",
       "solver": "featherstone",
       "video": "humanoid_featherstone.mp4",
@@ -1278,7 +1792,22 @@
       "width": 960,
       "height": 540,
       "first_mean": 41.43904063786008,
-      "last_mean": 41.53527199074074
+      "last_mean": 41.53718557098765
+    },
+    {
+      "scenario": "humanoid",
+      "solver": "mujoco",
+      "video": "humanoid_mujoco.mp4",
+      "poster": "humanoid_mujoco_poster.png",
+      "frames": 240,
+      "sim_steps": 240,
+      "frame_stride": 1,
+      "fps": 24,
+      "warp_deterministic": "not_guaranteed",
+      "width": 960,
+      "height": 540,
+      "first_mean": 41.439574974279836,
+      "last_mean": 41.56823431069959
     },
     {
       "scenario": "diffsim_ball",
@@ -1324,6 +1853,36 @@
       "height": 540,
       "first_mean": 47.855102880658436,
       "last_mean": 47.85450552983539
+    },
+    {
+      "scenario": "vbd_cloth_patch",
+      "solver": "vbd",
+      "video": "vbd_cloth_patch_vbd.mp4",
+      "poster": "vbd_cloth_patch_vbd_poster.png",
+      "frames": 240,
+      "sim_steps": 240,
+      "frame_stride": 1,
+      "fps": 24,
+      "warp_deterministic": "not_guaranteed",
+      "width": 960,
+      "height": 540,
+      "first_mean": 42.592858153292184,
+      "last_mean": 42.499506815843624
+    },
+    {
+      "scenario": "vbd_soft_body",
+      "solver": "vbd",
+      "video": "vbd_soft_body_vbd.mp4",
+      "poster": "vbd_soft_body_vbd_poster.png",
+      "frames": 240,
+      "sim_steps": 240,
+      "frame_stride": 1,
+      "fps": 24,
+      "warp_deterministic": "not_guaranteed",
+      "width": 960,
+      "height": 540,
+      "first_mean": 44.40591113683128,
+      "last_mean": 44.427490997942385
     }
   ],
   "xpbd_only": false,
@@ -1332,7 +1891,7 @@
       {
         "tone": "ok",
         "title": "Replay health",
-        "body": "All 17 solver pairs completed 2 independent subprocess replays."
+        "body": "All 22 solver pairs completed 2 independent subprocess replays."
       },
       {
         "tone": "ok",

@@ -25,7 +25,7 @@ from ..harness import Scenario
 
 class FallingCubeScenario(Scenario):
     id = "falling_cube"
-    supported_solvers = ("xpbd", "featherstone", "semi_implicit", "mujoco")
+    supported_solvers = ("xpbd", "featherstone", "semi_implicit", "vbd", "mujoco")
 
     CUBE_HALF = 0.15
     DROP_HEIGHT = 1.5
