@@ -1577,7 +1577,11 @@ def _build_report(args: argparse.Namespace) -> dict[str, Any]:
         solvers = ("xpbd",) if args.xpbd_only else scen_cls.supported_solvers
         for solver in solvers:
             for variant in _report_variants_for_solver(solver, xpbd_only=bool(args.xpbd_only)):
-                disable_graph = solver == "mujoco"
+                # Keep MuJoCo on the normal graph-captured path. The no-graph
+                # path can exceed the static deterministic counter bound in
+                # dynamic narrow-phase kernels even when the scenario is
+                # bit-exact under the standard harness path.
+                disable_graph = False
                 print(
                     f"[determinism] {scenario}/{solver} [{variant.label}] ({'no graph' if disable_graph else 'graph'})",
                     flush=True,

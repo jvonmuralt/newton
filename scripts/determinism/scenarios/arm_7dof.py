@@ -104,9 +104,10 @@ class Arm7DofScenario(Scenario):
         dofs_per_world = total_dofs // self.args.world_count
         self._dofs_per_world = dofs_per_world
 
-        kp_value = 20.0 if self.args.solver.name == "featherstone" else self.KP
-        kd_value = 3.0 if self.args.solver.name == "featherstone" else self.KD
-        tau_limit = 15.0 if self.args.solver.name == "featherstone" else self.TAU_LIMIT
+        use_articulated_gains = self.args.solver.name in {"featherstone", "mujoco"}
+        kp_value = 20.0 if use_articulated_gains else self.KP
+        kd_value = 3.0 if use_articulated_gains else self.KD
+        tau_limit = 15.0 if use_articulated_gains else self.TAU_LIMIT
 
         for w in range(self.args.world_count):
             off = w * dofs_per_world

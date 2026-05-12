@@ -395,10 +395,10 @@
       <div class="summary-grid">
         <div class="summary-tile emphasis"><span>Scenarios</span><strong>13</strong></div>
         <div class="summary-tile"><span>Solver pairs</span><strong>22</strong></div>
-        <div class="summary-tile"><span>Bit-exact</span><strong>14</strong></div>
+        <div class="summary-tile"><span>Bit-exact</span><strong>20</strong></div>
         <div class="summary-tile"><span>Drift</span><strong>1</strong></div>
-        <div class="summary-tile"><span>No-graph runs</span><strong>5</strong></div>
-        <div class="summary-tile"><span>Failures</span><strong>7</strong></div>
+        <div class="summary-tile"><span>No-graph runs</span><strong>0</strong></div>
+        <div class="summary-tile"><span>Failures</span><strong>1</strong></div>
       </div>
     </div>
   </header>
@@ -411,7 +411,7 @@
         <article class="finding warn">
           <p class="eyebrow">Key finding</p>
           <h3>Replay health</h3>
-          <p>7 solver pair(s) failed before a final verdict could be computed.</p>
+          <p>1 solver pair(s) failed before a final verdict could be computed.</p>
         </article>
 
         <article class="finding warn">
@@ -423,7 +423,7 @@
         <article class="finding warn">
           <p class="eyebrow">Key finding</p>
           <h3>Largest remaining gap</h3>
-          <p>Diffsim Cloth COM / semi_implicit drifts the most: initial_particle_qd_grad = 1.490e-08.</p>
+          <p>Diffsim Cloth COM / semi_implicit drifts the most: initial_particle_qd_grad = 2.980e-08.</p>
         </article>
       </div>
     </section>
@@ -511,62 +511,31 @@
         <div><span>Dominant core drift</span><strong>body_q (0)</strong></div>
         <div><span>Dominant extra drift</span><strong>none</strong></div>
         <div><span>Max core diff</span><strong>0</strong></div>
-        <div><span>Duration</span><strong>15.758 s</strong></div>
+        <div><span>Duration</span><strong>17.347 s</strong></div>
       </div>
       
     </article>
 
-    <article class="solver-card bad">
+    <article class="solver-card ok">
       <div class="solver-card-head">
         <div>
           <p class="eyebrow">Default</p>
           <h3><code>mujoco</code></h3>
         </div>
-        <span class="pill bad">FAILED</span>
+        <span class="pill ok">BIT-EXACT</span>
       </div>
-      <p class="solver-summary">Subprocess failed before a verdict could be produced: Module _tile_cholesky_factorize__locals__cholesky_factorize_031ac41c 9ae5da0 load on device &#x27;cuda:0&#x27; took 584.79 ms  (error)</p>
+      <p class="solver-summary">2/2 subprocess replays matched byte-for-byte with CUDA graph enabled.</p>
       <div class="solver-stats">
         <div><span>Collision pipeline</span><strong>default</strong></div>
-        <div><span>Collision Warp mode</span><strong>-</strong></div>
-        <div><span>Execution</span><strong>no graph</strong></div>
-        <div><span>Unique hashes</span><strong>-</strong></div>
-        <div><span>Dominant core drift</span><strong>none</strong></div>
+        <div><span>Collision Warp mode</span><strong>run_to_run</strong></div>
+        <div><span>Execution</span><strong>CUDA graph</strong></div>
+        <div><span>Unique hashes</span><strong>1</strong></div>
+        <div><span>Dominant core drift</span><strong>body_q (0)</strong></div>
         <div><span>Dominant extra drift</span><strong>none</strong></div>
         <div><span>Max core diff</span><strong>0</strong></div>
-        <div><span>Duration</span><strong>8.095 s</strong></div>
+        <div><span>Duration</span><strong>71.491 s</strong></div>
       </div>
-      <pre class="error-log">           ^^^^^^^^^^^^^^^^^^^^
-  File &quot;C:\Users\eric-\source\repos\warp\warp\_src\codegen.py&quot;, line 3662, in emit_Assign
-    rhs = adj.eval(node.value)
-          ^^^^^^^^^^^^^^^^^^^^
-  File &quot;C:\Users\eric-\source\repos\warp\warp\_src\codegen.py&quot;, line 4457, in eval
-    return emit_node(adj, node)
-           ^^^^^^^^^^^^^^^^^^^^
-  File &quot;C:\Users\eric-\source\repos\warp\warp\_src\codegen.py&quot;, line 3444, in emit_Call
-    out = adj.add_call(func, args, kwargs, type_args, min_outputs=min_outputs)
-          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File &quot;C:\Users\eric-\source\repos\warp\warp\_src\codegen.py&quot;, line 1903, in add_call
-    func_args, template_args, _ltoirs, extra_shared_memory = func.lto_dispatch_func(
-                                                             ^^^^^^^^^^^^^^^^^^^^^^^
-  File &quot;C:\Users\eric-\source\repos\warp\warp\_src\builtins.py&quot;, line 13464, in tile_cholesky_generic_lto_dispatch_func
-    return _tile_cholesky_generic_lto_dispatch_func(False, *args, **kwargs)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File &quot;C:\Users\eric-\source\repos\warp\warp\_src\builtins.py&quot;, line 13374, in _tile_cholesky_generic_lto_dispatch_func
-    lto_symbol, lto_code_data = warp._src.build.build_lto_solver(
-                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File &quot;C:\Users\eric-\source\repos\warp\warp\_src\build.py&quot;, line 588, in build_lto_solver
-    raise RuntimeError(
-RuntimeError: Error while parsing function &quot;cholesky_factorize&quot; at C:\Users\eric-\source\repos\newton5\.venv\Lib\site-packages\mujoco_warp\_src\smooth.py:1085:
-  L_tile = wp.tile_cholesky(M_tile)
-;cuSolverDx requires CUDA Toolkit 12.6.3 or later. This version of Warp was built against CUDA Toolkit 12.4. Upgrade your CUDA Toolkit and rebuild Warp, or install a Warp wheel built with CUDA &gt;= 12.6.3.
-Module repeat_array_kernel_0c10b976 6166d01 load on device &#x27;cuda:0&#x27; took 2.21 ms  (cached)
-Module repeat_array_kernel_0c10b976 e7db2bf load on device &#x27;cuda:0&#x27; took 1.68 ms  (cached)
-Module repeat_array_kernel_0c10b976 8f968f4 load on device &#x27;cuda:0&#x27; took 1.45 ms  (cached)
-Module repeat_array_kernel_0c10b976 321868f load on device &#x27;cuda:0&#x27; took 1.64 ms  (cached)
-Module repeat_array_kernel_0c10b976 8c017b4 load on device &#x27;cuda:0&#x27; took 2.46 ms  (cached)
-Module mujoco_warp._src.io 7cc74e7 load on device &#x27;cuda:0&#x27; took 6.68 ms  (cached)
-Module mujoco_warp._src.smooth cccd978 load on device &#x27;cuda:0&#x27; took 5.56 ms  (cached)
-Module _tile_cholesky_factorize__locals__cholesky_factorize_031ac41c 9ae5da0 load on device &#x27;cuda:0&#x27; took 584.79 ms  (error)</pre>
+      
     </article>
 
     <article class="solver-card ok">
@@ -586,7 +555,7 @@ Module _tile_cholesky_factorize__locals__cholesky_factorize_031ac41c 9ae5da0 loa
         <div><span>Dominant core drift</span><strong>body_q (0)</strong></div>
         <div><span>Dominant extra drift</span><strong>none</strong></div>
         <div><span>Max core diff</span><strong>0</strong></div>
-        <div><span>Duration</span><strong>15.037 s</strong></div>
+        <div><span>Duration</span><strong>16.033 s</strong></div>
       </div>
       
     </article>
@@ -608,7 +577,7 @@ Module _tile_cholesky_factorize__locals__cholesky_factorize_031ac41c 9ae5da0 loa
         <div><span>Dominant core drift</span><strong>body_q (0)</strong></div>
         <div><span>Dominant extra drift</span><strong>none</strong></div>
         <div><span>Max core diff</span><strong>0</strong></div>
-        <div><span>Duration</span><strong>16.517 s</strong></div>
+        <div><span>Duration</span><strong>16.643 s</strong></div>
       </div>
       
     </article>
@@ -657,57 +626,26 @@ Module _tile_cholesky_factorize__locals__cholesky_factorize_031ac41c 9ae5da0 loa
                 </div>
                 <div class="solver-cards">
                   
-    <article class="solver-card bad">
+    <article class="solver-card ok">
       <div class="solver-card-head">
         <div>
           <p class="eyebrow">Default</p>
           <h3><code>mujoco</code></h3>
         </div>
-        <span class="pill bad">FAILED</span>
+        <span class="pill ok">BIT-EXACT</span>
       </div>
-      <p class="solver-summary">Subprocess failed before a verdict could be produced: Module narrow_phase_gjk_mpr_True_write_contact_support_map_lean_post_process_minkowski_only bf1f580 load on device &#x27;cuda:0&#x27; took 3.13 ms  (cached)</p>
+      <p class="solver-summary">2/2 subprocess replays matched byte-for-byte with CUDA graph enabled.</p>
       <div class="solver-stats">
         <div><span>Collision pipeline</span><strong>default</strong></div>
-        <div><span>Collision Warp mode</span><strong>-</strong></div>
-        <div><span>Execution</span><strong>no graph</strong></div>
-        <div><span>Unique hashes</span><strong>-</strong></div>
-        <div><span>Dominant core drift</span><strong>none</strong></div>
+        <div><span>Collision Warp mode</span><strong>run_to_run</strong></div>
+        <div><span>Execution</span><strong>CUDA graph</strong></div>
+        <div><span>Unique hashes</span><strong>1</strong></div>
+        <div><span>Dominant core drift</span><strong>body_q (0)</strong></div>
         <div><span>Dominant extra drift</span><strong>none</strong></div>
         <div><span>Max core diff</span><strong>0</strong></div>
-        <div><span>Duration</span><strong>9.282 s</strong></div>
+        <div><span>Duration</span><strong>47.583 s</strong></div>
       </div>
-      <pre class="error-log">    raise SystemExit(main())
-                     ^^^^^^
-  File &quot;C:\Users\eric-\source\repos\newton5\scripts\generate_determinism_report.py&quot;, line 1729, in main
-    return _run_snapshot_subprocess(args)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File &quot;C:\Users\eric-\source\repos\newton5\scripts\generate_determinism_report.py&quot;, line 504, in _run_snapshot_subprocess
-    scenario.step()
-  File &quot;C:\Users\eric-\source\repos\newton5\scripts\determinism\scenarios\box_stack.py&quot;, line 59, in step
-    super().step()
-  File &quot;C:\Users\eric-\source\repos\newton5\scripts\determinism\harness.py&quot;, line 368, in step
-    self._simulate()
-  File &quot;C:\Users\eric-\source\repos\newton5\scripts\determinism\harness.py&quot;, line 355, in _simulate
-    model.collide(state_in, contacts)
-  File &quot;C:\Users\eric-\source\repos\newton5\newton\_src\sim\model.py&quot;, line 1002, in collide
-    self._collision_pipeline.collide(state, contacts)
-  File &quot;C:\Users\eric-\source\repos\newton5\newton\_src\sim\collide.py&quot;, line 950, in collide
-    self.narrow_phase.launch_custom_write(
-  File &quot;C:\Users\eric-\source\repos\newton5\newton\_src\geometry\narrow_phase.py&quot;, line 1808, in launch_custom_write
-    wp.launch(
-  File &quot;C:\Users\eric-\source\repos\warp\warp\_src\context.py&quot;, line 8975, in launch
-    _launch_deterministic(
-  File &quot;C:\Users\eric-\source\repos\warp\warp\_src\context.py&quot;, line 8831, in _launch_deterministic
-    raise RuntimeError(
-RuntimeError: Deterministic counter buffer overflow in kernel &#x27;create_narrow_phase_kernel_gjk_mpr__locals__narrow_phase_kernel_gjk_mpr&#x27;. Increase &#x27;deterministic_max_records&#x27; or reduce the per-thread atomic count.
-Module mujoco_warp._src.smooth cccd978 load on device &#x27;cuda:0&#x27; took 5.71 ms  (cached)
-Module _solve_LD_sparse_fused__locals__kernel_7b9e81d0 1fa1a63 load on device &#x27;cuda:0&#x27; took 12.05 ms  (cached)
-Module newton._src.sim.articulation 1a91072 load on device &#x27;cuda:0&#x27; took 9.62 ms  (cached)
-Module newton._src.viewer.kernels abadff2 load on device &#x27;cuda:0&#x27; took 3.65 ms  (cached)
-Module newton._src.sim.collide 103f6ca load on device &#x27;cuda:0&#x27; took 3.45 ms  (cached)
-Module newton._src.geometry.broad_phase_nxn 0c78823 load on device &#x27;cuda:0&#x27; took 1.81 ms  (cached)
-Module narrow_phase_primitive_write_contact 3268b62 load on device &#x27;cuda:0&#x27; took 2.58 ms  (cached)
-Module narrow_phase_gjk_mpr_True_write_contact_support_map_lean_post_process_minkowski_only bf1f580 load on device &#x27;cuda:0&#x27; took 3.13 ms  (cached)</pre>
+      
     </article>
 
     <article class="solver-card ok">
@@ -727,7 +665,7 @@ Module narrow_phase_gjk_mpr_True_write_contact_support_map_lean_post_process_min
         <div><span>Dominant core drift</span><strong>body_q (0)</strong></div>
         <div><span>Dominant extra drift</span><strong>none</strong></div>
         <div><span>Max core diff</span><strong>0</strong></div>
-        <div><span>Duration</span><strong>16.379 s</strong></div>
+        <div><span>Duration</span><strong>17.119 s</strong></div>
       </div>
       
     </article>
@@ -776,57 +714,26 @@ Module narrow_phase_gjk_mpr_True_write_contact_support_map_lean_post_process_min
                 </div>
                 <div class="solver-cards">
                   
-    <article class="solver-card bad">
+    <article class="solver-card ok">
       <div class="solver-card-head">
         <div>
           <p class="eyebrow">Default</p>
           <h3><code>mujoco</code></h3>
         </div>
-        <span class="pill bad">FAILED</span>
+        <span class="pill ok">BIT-EXACT</span>
       </div>
-      <p class="solver-summary">Subprocess failed before a verdict could be produced: Module narrow_phase_gjk_mpr_True_write_contact_support_map_lean_post_process_minkowski_only bf1f580 load on device &#x27;cuda:0&#x27; took 3.15 ms  (cached)</p>
+      <p class="solver-summary">2/2 subprocess replays matched byte-for-byte with CUDA graph enabled.</p>
       <div class="solver-stats">
         <div><span>Collision pipeline</span><strong>default</strong></div>
-        <div><span>Collision Warp mode</span><strong>-</strong></div>
-        <div><span>Execution</span><strong>no graph</strong></div>
-        <div><span>Unique hashes</span><strong>-</strong></div>
-        <div><span>Dominant core drift</span><strong>none</strong></div>
+        <div><span>Collision Warp mode</span><strong>run_to_run</strong></div>
+        <div><span>Execution</span><strong>CUDA graph</strong></div>
+        <div><span>Unique hashes</span><strong>1</strong></div>
+        <div><span>Dominant core drift</span><strong>body_q (0)</strong></div>
         <div><span>Dominant extra drift</span><strong>none</strong></div>
         <div><span>Max core diff</span><strong>0</strong></div>
-        <div><span>Duration</span><strong>9.286 s</strong></div>
+        <div><span>Duration</span><strong>46.138 s</strong></div>
       </div>
-      <pre class="error-log">    raise SystemExit(main())
-                     ^^^^^^
-  File &quot;C:\Users\eric-\source\repos\newton5\scripts\generate_determinism_report.py&quot;, line 1729, in main
-    return _run_snapshot_subprocess(args)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File &quot;C:\Users\eric-\source\repos\newton5\scripts\generate_determinism_report.py&quot;, line 504, in _run_snapshot_subprocess
-    scenario.step()
-  File &quot;C:\Users\eric-\source\repos\newton5\scripts\determinism\scenarios\domino_chain.py&quot;, line 63, in step
-    super().step()
-  File &quot;C:\Users\eric-\source\repos\newton5\scripts\determinism\harness.py&quot;, line 368, in step
-    self._simulate()
-  File &quot;C:\Users\eric-\source\repos\newton5\scripts\determinism\harness.py&quot;, line 355, in _simulate
-    model.collide(state_in, contacts)
-  File &quot;C:\Users\eric-\source\repos\newton5\newton\_src\sim\model.py&quot;, line 1002, in collide
-    self._collision_pipeline.collide(state, contacts)
-  File &quot;C:\Users\eric-\source\repos\newton5\newton\_src\sim\collide.py&quot;, line 950, in collide
-    self.narrow_phase.launch_custom_write(
-  File &quot;C:\Users\eric-\source\repos\newton5\newton\_src\geometry\narrow_phase.py&quot;, line 1808, in launch_custom_write
-    wp.launch(
-  File &quot;C:\Users\eric-\source\repos\warp\warp\_src\context.py&quot;, line 8975, in launch
-    _launch_deterministic(
-  File &quot;C:\Users\eric-\source\repos\warp\warp\_src\context.py&quot;, line 8831, in _launch_deterministic
-    raise RuntimeError(
-RuntimeError: Deterministic counter buffer overflow in kernel &#x27;create_narrow_phase_kernel_gjk_mpr__locals__narrow_phase_kernel_gjk_mpr&#x27;. Increase &#x27;deterministic_max_records&#x27; or reduce the per-thread atomic count.
-Module mujoco_warp._src.smooth cccd978 load on device &#x27;cuda:0&#x27; took 5.80 ms  (cached)
-Module _solve_LD_sparse_fused__locals__kernel_71fc989b 60fa9de load on device &#x27;cuda:0&#x27; took 12.45 ms  (cached)
-Module newton._src.sim.articulation 1a91072 load on device &#x27;cuda:0&#x27; took 6.59 ms  (cached)
-Module newton._src.viewer.kernels abadff2 load on device &#x27;cuda:0&#x27; took 3.59 ms  (cached)
-Module newton._src.sim.collide 103f6ca load on device &#x27;cuda:0&#x27; took 1.92 ms  (cached)
-Module newton._src.geometry.broad_phase_nxn 0c78823 load on device &#x27;cuda:0&#x27; took 1.74 ms  (cached)
-Module narrow_phase_primitive_write_contact 3268b62 load on device &#x27;cuda:0&#x27; took 2.58 ms  (cached)
-Module narrow_phase_gjk_mpr_True_write_contact_support_map_lean_post_process_minkowski_only bf1f580 load on device &#x27;cuda:0&#x27; took 3.15 ms  (cached)</pre>
+      
     </article>
 
     <article class="solver-card ok">
@@ -846,7 +753,7 @@ Module narrow_phase_gjk_mpr_True_write_contact_support_map_lean_post_process_min
         <div><span>Dominant core drift</span><strong>body_q (0)</strong></div>
         <div><span>Dominant extra drift</span><strong>none</strong></div>
         <div><span>Max core diff</span><strong>0</strong></div>
-        <div><span>Duration</span><strong>15.718 s</strong></div>
+        <div><span>Duration</span><strong>13.883 s</strong></div>
       </div>
       
     </article>
@@ -912,62 +819,31 @@ Module narrow_phase_gjk_mpr_True_write_contact_support_map_lean_post_process_min
         <div><span>Dominant core drift</span><strong>body_q (0)</strong></div>
         <div><span>Dominant extra drift</span><strong>none</strong></div>
         <div><span>Max core diff</span><strong>0</strong></div>
-        <div><span>Duration</span><strong>28.971 s</strong></div>
+        <div><span>Duration</span><strong>25.623 s</strong></div>
       </div>
       
     </article>
 
-    <article class="solver-card bad">
+    <article class="solver-card ok">
       <div class="solver-card-head">
         <div>
           <p class="eyebrow">Default</p>
           <h3><code>mujoco</code></h3>
         </div>
-        <span class="pill bad">FAILED</span>
+        <span class="pill ok">BIT-EXACT</span>
       </div>
-      <p class="solver-summary">Subprocess failed before a verdict could be produced: Module _tile_cholesky_factorize__locals__cholesky_factorize_6360f775 974d52a load on device &#x27;cuda:0&#x27; took 550.77 ms  (error)</p>
+      <p class="solver-summary">2/2 subprocess replays matched byte-for-byte with CUDA graph enabled.</p>
       <div class="solver-stats">
         <div><span>Collision pipeline</span><strong>default</strong></div>
-        <div><span>Collision Warp mode</span><strong>-</strong></div>
-        <div><span>Execution</span><strong>no graph</strong></div>
-        <div><span>Unique hashes</span><strong>-</strong></div>
-        <div><span>Dominant core drift</span><strong>none</strong></div>
+        <div><span>Collision Warp mode</span><strong>run_to_run</strong></div>
+        <div><span>Execution</span><strong>CUDA graph</strong></div>
+        <div><span>Unique hashes</span><strong>1</strong></div>
+        <div><span>Dominant core drift</span><strong>body_q (0)</strong></div>
         <div><span>Dominant extra drift</span><strong>none</strong></div>
         <div><span>Max core diff</span><strong>0</strong></div>
-        <div><span>Duration</span><strong>13.385 s</strong></div>
+        <div><span>Duration</span><strong>53.244 s</strong></div>
       </div>
-      <pre class="error-log">           ^^^^^^^^^^^^^^^^^^^^
-  File &quot;C:\Users\eric-\source\repos\warp\warp\_src\codegen.py&quot;, line 3662, in emit_Assign
-    rhs = adj.eval(node.value)
-          ^^^^^^^^^^^^^^^^^^^^
-  File &quot;C:\Users\eric-\source\repos\warp\warp\_src\codegen.py&quot;, line 4457, in eval
-    return emit_node(adj, node)
-           ^^^^^^^^^^^^^^^^^^^^
-  File &quot;C:\Users\eric-\source\repos\warp\warp\_src\codegen.py&quot;, line 3444, in emit_Call
-    out = adj.add_call(func, args, kwargs, type_args, min_outputs=min_outputs)
-          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File &quot;C:\Users\eric-\source\repos\warp\warp\_src\codegen.py&quot;, line 1903, in add_call
-    func_args, template_args, _ltoirs, extra_shared_memory = func.lto_dispatch_func(
-                                                             ^^^^^^^^^^^^^^^^^^^^^^^
-  File &quot;C:\Users\eric-\source\repos\warp\warp\_src\builtins.py&quot;, line 13464, in tile_cholesky_generic_lto_dispatch_func
-    return _tile_cholesky_generic_lto_dispatch_func(False, *args, **kwargs)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File &quot;C:\Users\eric-\source\repos\warp\warp\_src\builtins.py&quot;, line 13374, in _tile_cholesky_generic_lto_dispatch_func
-    lto_symbol, lto_code_data = warp._src.build.build_lto_solver(
-                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File &quot;C:\Users\eric-\source\repos\warp\warp\_src\build.py&quot;, line 588, in build_lto_solver
-    raise RuntimeError(
-RuntimeError: Error while parsing function &quot;cholesky_factorize&quot; at C:\Users\eric-\source\repos\newton5\.venv\Lib\site-packages\mujoco_warp\_src\smooth.py:1085:
-  L_tile = wp.tile_cholesky(M_tile)
-;cuSolverDx requires CUDA Toolkit 12.6.3 or later. This version of Warp was built against CUDA Toolkit 12.4. Upgrade your CUDA Toolkit and rebuild Warp, or install a Warp wheel built with CUDA &gt;= 12.6.3.
-Module repeat_array_kernel_0c10b976 321868f load on device &#x27;cuda:0&#x27; took 1.53 ms  (cached)
-Module repeat_array_kernel_0c10b976 8c017b4 load on device &#x27;cuda:0&#x27; took 1.82 ms  (cached)
-Module repeat_array_kernel_0c10b976 3093137 load on device &#x27;cuda:0&#x27; took 12.30 ms  (cached)
-Module repeat_array_kernel_0c10b976 c7197d6 load on device &#x27;cuda:0&#x27; took 10.85 ms  (cached)
-Module repeat_array_kernel_0c10b976 c100a36 load on device &#x27;cuda:0&#x27; took 11.35 ms  (cached)
-Module mujoco_warp._src.io 7cc74e7 load on device &#x27;cuda:0&#x27; took 4.74 ms  (cached)
-Module mujoco_warp._src.smooth cccd978 load on device &#x27;cuda:0&#x27; took 5.70 ms  (cached)
-Module _tile_cholesky_factorize__locals__cholesky_factorize_6360f775 974d52a load on device &#x27;cuda:0&#x27; took 550.77 ms  (error)</pre>
+      
     </article>
 
     <article class="solver-card ok">
@@ -987,7 +863,7 @@ Module _tile_cholesky_factorize__locals__cholesky_factorize_6360f775 974d52a loa
         <div><span>Dominant core drift</span><strong>body_q (0)</strong></div>
         <div><span>Dominant extra drift</span><strong>none</strong></div>
         <div><span>Max core diff</span><strong>0</strong></div>
-        <div><span>Duration</span><strong>28.072 s</strong></div>
+        <div><span>Duration</span><strong>23.464 s</strong></div>
       </div>
       
     </article>
@@ -1053,62 +929,31 @@ Module _tile_cholesky_factorize__locals__cholesky_factorize_6360f775 974d52a loa
         <div><span>Dominant core drift</span><strong>body_q (0)</strong></div>
         <div><span>Dominant extra drift</span><strong>none</strong></div>
         <div><span>Max core diff</span><strong>0</strong></div>
-        <div><span>Duration</span><strong>29.687 s</strong></div>
+        <div><span>Duration</span><strong>23.284 s</strong></div>
       </div>
       
     </article>
 
-    <article class="solver-card bad">
+    <article class="solver-card ok">
       <div class="solver-card-head">
         <div>
           <p class="eyebrow">Default</p>
           <h3><code>mujoco</code></h3>
         </div>
-        <span class="pill bad">FAILED</span>
+        <span class="pill ok">BIT-EXACT</span>
       </div>
-      <p class="solver-summary">Subprocess failed before a verdict could be produced: Module _tile_cholesky_factorize__locals__cholesky_factorize_88d9a62d 184c4b0 load on device &#x27;cuda:0&#x27; took 566.80 ms  (error)</p>
+      <p class="solver-summary">2/2 subprocess replays matched byte-for-byte with CUDA graph enabled.</p>
       <div class="solver-stats">
         <div><span>Collision pipeline</span><strong>default</strong></div>
-        <div><span>Collision Warp mode</span><strong>-</strong></div>
-        <div><span>Execution</span><strong>no graph</strong></div>
-        <div><span>Unique hashes</span><strong>-</strong></div>
-        <div><span>Dominant core drift</span><strong>none</strong></div>
+        <div><span>Collision Warp mode</span><strong>run_to_run</strong></div>
+        <div><span>Execution</span><strong>CUDA graph</strong></div>
+        <div><span>Unique hashes</span><strong>1</strong></div>
+        <div><span>Dominant core drift</span><strong>body_q (0)</strong></div>
         <div><span>Dominant extra drift</span><strong>none</strong></div>
         <div><span>Max core diff</span><strong>0</strong></div>
-        <div><span>Duration</span><strong>9.968 s</strong></div>
+        <div><span>Duration</span><strong>46.806 s</strong></div>
       </div>
-      <pre class="error-log">           ^^^^^^^^^^^^^^^^^^^^
-  File &quot;C:\Users\eric-\source\repos\warp\warp\_src\codegen.py&quot;, line 3662, in emit_Assign
-    rhs = adj.eval(node.value)
-          ^^^^^^^^^^^^^^^^^^^^
-  File &quot;C:\Users\eric-\source\repos\warp\warp\_src\codegen.py&quot;, line 4457, in eval
-    return emit_node(adj, node)
-           ^^^^^^^^^^^^^^^^^^^^
-  File &quot;C:\Users\eric-\source\repos\warp\warp\_src\codegen.py&quot;, line 3444, in emit_Call
-    out = adj.add_call(func, args, kwargs, type_args, min_outputs=min_outputs)
-          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File &quot;C:\Users\eric-\source\repos\warp\warp\_src\codegen.py&quot;, line 1903, in add_call
-    func_args, template_args, _ltoirs, extra_shared_memory = func.lto_dispatch_func(
-                                                             ^^^^^^^^^^^^^^^^^^^^^^^
-  File &quot;C:\Users\eric-\source\repos\warp\warp\_src\builtins.py&quot;, line 13464, in tile_cholesky_generic_lto_dispatch_func
-    return _tile_cholesky_generic_lto_dispatch_func(False, *args, **kwargs)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File &quot;C:\Users\eric-\source\repos\warp\warp\_src\builtins.py&quot;, line 13374, in _tile_cholesky_generic_lto_dispatch_func
-    lto_symbol, lto_code_data = warp._src.build.build_lto_solver(
-                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File &quot;C:\Users\eric-\source\repos\warp\warp\_src\build.py&quot;, line 588, in build_lto_solver
-    raise RuntimeError(
-RuntimeError: Error while parsing function &quot;cholesky_factorize&quot; at C:\Users\eric-\source\repos\newton5\.venv\Lib\site-packages\mujoco_warp\_src\smooth.py:1085:
-  L_tile = wp.tile_cholesky(M_tile)
-;cuSolverDx requires CUDA Toolkit 12.6.3 or later. This version of Warp was built against CUDA Toolkit 12.4. Upgrade your CUDA Toolkit and rebuild Warp, or install a Warp wheel built with CUDA &gt;= 12.6.3.
-Module repeat_array_kernel_0c10b976 8f968f4 load on device &#x27;cuda:0&#x27; took 1.54 ms  (cached)
-Module repeat_array_kernel_0c10b976 321868f load on device &#x27;cuda:0&#x27; took 1.56 ms  (cached)
-Module repeat_array_kernel_0c10b976 8c017b4 load on device &#x27;cuda:0&#x27; took 1.56 ms  (cached)
-Module repeat_array_kernel_0c10b976 3b8a9c7 load on device &#x27;cuda:0&#x27; took 9.85 ms  (cached)
-Module repeat_array_kernel_0c10b976 21664ed load on device &#x27;cuda:0&#x27; took 13.47 ms  (cached)
-Module mujoco_warp._src.io 7cc74e7 load on device &#x27;cuda:0&#x27; took 4.62 ms  (cached)
-Module mujoco_warp._src.smooth cccd978 load on device &#x27;cuda:0&#x27; took 5.43 ms  (cached)
-Module _tile_cholesky_factorize__locals__cholesky_factorize_88d9a62d 184c4b0 load on device &#x27;cuda:0&#x27; took 566.80 ms  (error)</pre>
+      
     </article>
 
     <article class="solver-card ok">
@@ -1128,7 +973,7 @@ Module _tile_cholesky_factorize__locals__cholesky_factorize_88d9a62d 184c4b0 loa
         <div><span>Dominant core drift</span><strong>body_q (0)</strong></div>
         <div><span>Dominant extra drift</span><strong>none</strong></div>
         <div><span>Max core diff</span><strong>0</strong></div>
-        <div><span>Duration</span><strong>22.926 s</strong></div>
+        <div><span>Duration</span><strong>18.376 s</strong></div>
       </div>
       
     </article>
@@ -1158,57 +1003,26 @@ Module _tile_cholesky_factorize__locals__cholesky_factorize_88d9a62d 184c4b0 loa
                 </div>
                 <div class="solver-cards">
                   
-    <article class="solver-card bad">
+    <article class="solver-card ok">
       <div class="solver-card-head">
         <div>
           <p class="eyebrow">Default</p>
           <h3><code>semi_implicit</code></h3>
         </div>
-        <span class="pill bad">FAILED</span>
+        <span class="pill ok">BIT-EXACT</span>
       </div>
-      <p class="solver-summary">Subprocess failed before a verdict could be produced: Module newton._src.geometry.kernels 58b582a load on device &#x27;cuda:0&#x27; took 416.12 ms  (error)</p>
+      <p class="solver-summary">2/2 subprocess replays matched byte-for-byte with CUDA graph enabled.</p>
       <div class="solver-stats">
         <div><span>Collision pipeline</span><strong>default</strong></div>
         <div><span>Collision Warp mode</span><strong>-</strong></div>
         <div><span>Execution</span><strong>CUDA graph</strong></div>
-        <div><span>Unique hashes</span><strong>-</strong></div>
-        <div><span>Dominant core drift</span><strong>none</strong></div>
+        <div><span>Unique hashes</span><strong>1</strong></div>
+        <div><span>Dominant core drift</span><strong>final_particle_q (0)</strong></div>
         <div><span>Dominant extra drift</span><strong>none</strong></div>
         <div><span>Max core diff</span><strong>0</strong></div>
-        <div><span>Duration</span><strong>7.272 s</strong></div>
+        <div><span>Duration</span><strong>12.929 s</strong></div>
       </div>
-      <pre class="error-log">  File &quot;C:\Users\eric-\source\repos\newton5\scripts\generate_determinism_report.py&quot;, line 1729, in main
-    return _run_snapshot_subprocess(args)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File &quot;C:\Users\eric-\source\repos\newton5\scripts\generate_determinism_report.py&quot;, line 502, in _run_snapshot_subprocess
-    scenario.build(viewer)
-  File &quot;C:\Users\eric-\source\repos\newton5\scripts\determinism\scenarios\diffsim_ball.py&quot;, line 86, in build
-    self.collision_pipeline.collide(self.states[0], self.contacts)
-  File &quot;C:\Users\eric-\source\repos\newton5\newton\_src\sim\collide.py&quot;, line 1007, in collide
-    wp.launch(
-  File &quot;C:\Users\eric-\source\repos\warp\warp\_src\context.py&quot;, line 8940, in launch
-    module_exec = kernel.module.load(device, block_dim)
-                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File &quot;C:\Users\eric-\source\repos\warp\warp\_src\context.py&quot;, line 3360, in load
-    raise e
-  File &quot;C:\Users\eric-\source\repos\warp\warp\_src\context.py&quot;, line 3357, in load
-    compiled = self._compile(device, module_dir, output_name, output_arch, options=options)
-               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File &quot;C:\Users\eric-\source\repos\warp\warp\_src\context.py&quot;, line 3225, in _compile
-    raise (e)
-  File &quot;C:\Users\eric-\source\repos\warp\warp\_src\context.py&quot;, line 3199, in _compile
-    warp._src.build.build_cuda(
-  File &quot;C:\Users\eric-\source\repos\warp\warp\_src\build.py&quot;, line 99, in build_cuda
-    raise Exception(f&quot;CUDA kernel build failed with error code {err}&quot;)
-Exception: CUDA kernel build failed with error code 6
-   Kernel cache:
-     \\?\C:\Users\eric-\AppData\Local\NVIDIA\warp\Cache\1.14.0.dev0
-Module newton._src.sim.collide 103f6ca load on device &#x27;cuda:0&#x27; took 2.43 ms  (cached)
-Module narrow_phase_primitive_write_contact 3268b62 load on device &#x27;cuda:0&#x27; took 11.16 ms  (cached)
-Module narrow_phase_gjk_mpr_True_write_contact_support_map_lean_post_process_minkowski_only bf1f580 load on device &#x27;cuda:0&#x27; took 3.40 ms  (cached)
-Module newton._src.geometry.narrow_phase 082b986 load on device &#x27;cuda:0&#x27; took 2.43 ms  (cached)
-Module newton._src.geometry.differentiable_contacts 012b6c2 load on device &#x27;cuda:0&#x27; took 2.32 ms  (cached)
-Module newton._src.geometry.kernels 58b582a load on device &#x27;cuda:0&#x27; took 416.12 ms  (error)</pre>
+      
     </article>
                 </div>
               </div>
@@ -1244,16 +1058,16 @@ Module newton._src.geometry.kernels 58b582a load on device &#x27;cuda:0&#x27; to
         </div>
         <span class="pill warn">DRIFT</span>
       </div>
-      <p class="solver-summary">2 unique hashes across 2 subprocess runs; largest core drift in initial_particle_qd_grad (1.490e-08); CUDA graph.</p>
+      <p class="solver-summary">2 unique hashes across 2 subprocess runs; largest core drift in initial_particle_qd_grad (2.980e-08); CUDA graph.</p>
       <div class="solver-stats">
         <div><span>Collision pipeline</span><strong>default</strong></div>
         <div><span>Collision Warp mode</span><strong>-</strong></div>
         <div><span>Execution</span><strong>CUDA graph</strong></div>
         <div><span>Unique hashes</span><strong>2</strong></div>
-        <div><span>Dominant core drift</span><strong>initial_particle_qd_grad (1.490e-08)</strong></div>
+        <div><span>Dominant core drift</span><strong>initial_particle_qd_grad (2.980e-08)</strong></div>
         <div><span>Dominant extra drift</span><strong>none</strong></div>
-        <div><span>Max core diff</span><strong>1.490e-08</strong></div>
-        <div><span>Duration</span><strong>11.142 s</strong></div>
+        <div><span>Max core diff</span><strong>2.980e-08</strong></div>
+        <div><span>Duration</span><strong>9.23 s</strong></div>
       </div>
       
     </article>
@@ -1300,7 +1114,7 @@ Module newton._src.geometry.kernels 58b582a load on device &#x27;cuda:0&#x27; to
         <div><span>Dominant core drift</span><strong>final_particle_q (0)</strong></div>
         <div><span>Dominant extra drift</span><strong>none</strong></div>
         <div><span>Max core diff</span><strong>0</strong></div>
-        <div><span>Duration</span><strong>11.741 s</strong></div>
+        <div><span>Duration</span><strong>9.06 s</strong></div>
       </div>
       
     </article>
@@ -1340,34 +1154,34 @@ Module newton._src.geometry.kernels 58b582a load on device &#x27;cuda:0&#x27; to
         <div><span>Dominant core drift</span><strong>none</strong></div>
         <div><span>Dominant extra drift</span><strong>none</strong></div>
         <div><span>Max core diff</span><strong>0</strong></div>
-        <div><span>Duration</span><strong>5.433 s</strong></div>
+        <div><span>Duration</span><strong>4.218 s</strong></div>
       </div>
       <pre class="error-log">    return emit_node(adj, node)
            ^^^^^^^^^^^^^^^^^^^^
-  File &quot;C:\Users\eric-\source\repos\warp\warp\_src\codegen.py&quot;, line 2542, in emit_FunctionDef
+  File &quot;C:\Users\eric-\source\repos\warp\warp\_src\codegen.py&quot;, line 2547, in emit_FunctionDef
     adj.eval(f)
-  File &quot;C:\Users\eric-\source\repos\warp\warp\_src\codegen.py&quot;, line 4457, in eval
+  File &quot;C:\Users\eric-\source\repos\warp\warp\_src\codegen.py&quot;, line 4462, in eval
     return emit_node(adj, node)
            ^^^^^^^^^^^^^^^^^^^^
-  File &quot;C:\Users\eric-\source\repos\warp\warp\_src\codegen.py&quot;, line 3662, in emit_Assign
+  File &quot;C:\Users\eric-\source\repos\warp\warp\_src\codegen.py&quot;, line 3667, in emit_Assign
     rhs = adj.eval(node.value)
           ^^^^^^^^^^^^^^^^^^^^
-  File &quot;C:\Users\eric-\source\repos\warp\warp\_src\codegen.py&quot;, line 4457, in eval
+  File &quot;C:\Users\eric-\source\repos\warp\warp\_src\codegen.py&quot;, line 4462, in eval
     return emit_node(adj, node)
            ^^^^^^^^^^^^^^^^^^^^
-  File &quot;C:\Users\eric-\source\repos\warp\warp\_src\codegen.py&quot;, line 3444, in emit_Call
+  File &quot;C:\Users\eric-\source\repos\warp\warp\_src\codegen.py&quot;, line 3449, in emit_Call
     out = adj.add_call(func, args, kwargs, type_args, min_outputs=min_outputs)
           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
   File &quot;C:\Users\eric-\source\repos\warp\warp\_src\codegen.py&quot;, line 1890, in add_call
     det_output = adj._emit_deterministic_atomic(func, bound_args, return_type, output, output_list)
                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File &quot;C:\Users\eric-\source\repos\warp\warp\_src\codegen.py&quot;, line 2115, in _emit_deterministic_atomic
+  File &quot;C:\Users\eric-\source\repos\warp\warp\_src\codegen.py&quot;, line 2120, in _emit_deterministic_atomic
     raise WarpCodegenError(
 warp._src.codegen.WarpCodegenError: Error while parsing function &quot;_argmax_exchange_kernel&quot; at C:\Users\eric-\source\repos\newton5\scripts\determinism\scenarios\warp_argmax_exchange.py:19:
     previous = wp.atomic_max(best_score, 0, score)
 ;Deterministic mode currently supports consumed-return counter atomics only for atomic_add, got atomic_max.
 Warp 1.14.0.dev0 initialized:
-   CUDA Toolkit 12.4, Driver 13.2
+   CUDA Toolkit 12.8, Driver 13.2
    Devices:
      &quot;cpu&quot;      : &quot;Intel64 Family 6 Model 151 Stepping 2, GenuineIntel&quot;
      &quot;cuda:0&quot;   : &quot;NVIDIA GeForce RTX 4090&quot; (24 GiB, sm_89, mempool enabled)
@@ -1410,7 +1224,7 @@ Warp 1.14.0.dev0 initialized:
         <div><span>Dominant core drift</span><strong>counts (0)</strong></div>
         <div><span>Dominant extra drift</span><strong>none</strong></div>
         <div><span>Max core diff</span><strong>0</strong></div>
-        <div><span>Duration</span><strong>10.993 s</strong></div>
+        <div><span>Duration</span><strong>8.378 s</strong></div>
       </div>
       
     </article>
@@ -1450,7 +1264,7 @@ Warp 1.14.0.dev0 initialized:
         <div><span>Dominant core drift</span><strong>counts (0)</strong></div>
         <div><span>Dominant extra drift</span><strong>none</strong></div>
         <div><span>Max core diff</span><strong>0</strong></div>
-        <div><span>Duration</span><strong>10.997 s</strong></div>
+        <div><span>Duration</span><strong>8.595 s</strong></div>
       </div>
       
     </article>
@@ -1490,7 +1304,7 @@ Warp 1.14.0.dev0 initialized:
         <div><span>Dominant core drift</span><strong>counts (0)</strong></div>
         <div><span>Dominant extra drift</span><strong>none</strong></div>
         <div><span>Max core diff</span><strong>0</strong></div>
-        <div><span>Duration</span><strong>10.187 s</strong></div>
+        <div><span>Duration</span><strong>8.794 s</strong></div>
       </div>
       
     </article>
@@ -1530,7 +1344,7 @@ Warp 1.14.0.dev0 initialized:
         <div><span>Dominant core drift</span><strong>y (0)</strong></div>
         <div><span>Dominant extra drift</span><strong>none</strong></div>
         <div><span>Max core diff</span><strong>0</strong></div>
-        <div><span>Duration</span><strong>9.923 s</strong></div>
+        <div><span>Duration</span><strong>8.475 s</strong></div>
       </div>
       
     </article>
@@ -1575,23 +1389,23 @@ Warp 1.14.0.dev0 initialized:
               <td>-</td>
               <td>0</td>
               <td>CUDA graph</td>
-              <td>28.971 s</td>
+              <td>25.623 s</td>
             </tr>
 
             <tr>
               <td>7-DOF Arm</td>
               <td><code>mujoco</code></td>
               <td>Default</td>
-              <td><span class="pill bad">FAILED</span></td>
-              <td>-</td>
+              <td><span class="pill ok">BIT-EXACT</span></td>
+              <td>1</td>
               <td>default</td>
+              <td>run_to_run</td>
+              <td>body_q (0)</td>
+              <td>0</td>
               <td>-</td>
-              <td>-</td>
-              <td>-</td>
-              <td>-</td>
-              <td>-</td>
-              <td>no graph</td>
-              <td>13.385 s</td>
+              <td>0</td>
+              <td>CUDA graph</td>
+              <td>53.244 s</td>
             </tr>
 
             <tr>
@@ -1607,23 +1421,23 @@ Warp 1.14.0.dev0 initialized:
               <td>-</td>
               <td>0</td>
               <td>CUDA graph</td>
-              <td>28.072 s</td>
+              <td>23.464 s</td>
             </tr>
 
             <tr>
               <td>Box Stack</td>
               <td><code>mujoco</code></td>
               <td>Default</td>
-              <td><span class="pill bad">FAILED</span></td>
-              <td>-</td>
+              <td><span class="pill ok">BIT-EXACT</span></td>
+              <td>1</td>
               <td>default</td>
+              <td>run_to_run</td>
+              <td>body_q (0)</td>
+              <td>0</td>
               <td>-</td>
-              <td>-</td>
-              <td>-</td>
-              <td>-</td>
-              <td>-</td>
-              <td>no graph</td>
-              <td>9.282 s</td>
+              <td>0</td>
+              <td>CUDA graph</td>
+              <td>47.583 s</td>
             </tr>
 
             <tr>
@@ -1639,23 +1453,23 @@ Warp 1.14.0.dev0 initialized:
               <td>-</td>
               <td>0</td>
               <td>CUDA graph</td>
-              <td>16.379 s</td>
+              <td>17.119 s</td>
             </tr>
 
             <tr>
               <td>Diffsim Ball</td>
               <td><code>semi_implicit</code></td>
               <td>Default</td>
-              <td><span class="pill bad">FAILED</span></td>
-              <td>-</td>
+              <td><span class="pill ok">BIT-EXACT</span></td>
+              <td>1</td>
               <td>default</td>
               <td>-</td>
+              <td>final_particle_q (0)</td>
+              <td>0</td>
               <td>-</td>
-              <td>-</td>
-              <td>-</td>
-              <td>-</td>
+              <td>0</td>
               <td>CUDA graph</td>
-              <td>7.272 s</td>
+              <td>12.929 s</td>
             </tr>
 
             <tr>
@@ -1666,12 +1480,12 @@ Warp 1.14.0.dev0 initialized:
               <td>2</td>
               <td>default</td>
               <td>-</td>
-              <td>initial_particle_qd_grad (1.490e-08)</td>
-              <td>1.490e-08</td>
+              <td>initial_particle_qd_grad (2.980e-08)</td>
+              <td>2.980e-08</td>
               <td>-</td>
               <td>0</td>
               <td>CUDA graph</td>
-              <td>11.142 s</td>
+              <td>9.23 s</td>
             </tr>
 
             <tr>
@@ -1687,23 +1501,23 @@ Warp 1.14.0.dev0 initialized:
               <td>-</td>
               <td>0</td>
               <td>CUDA graph</td>
-              <td>11.741 s</td>
+              <td>9.06 s</td>
             </tr>
 
             <tr>
               <td>Domino Chain</td>
               <td><code>mujoco</code></td>
               <td>Default</td>
-              <td><span class="pill bad">FAILED</span></td>
-              <td>-</td>
+              <td><span class="pill ok">BIT-EXACT</span></td>
+              <td>1</td>
               <td>default</td>
+              <td>run_to_run</td>
+              <td>body_q (0)</td>
+              <td>0</td>
               <td>-</td>
-              <td>-</td>
-              <td>-</td>
-              <td>-</td>
-              <td>-</td>
-              <td>no graph</td>
-              <td>9.286 s</td>
+              <td>0</td>
+              <td>CUDA graph</td>
+              <td>46.138 s</td>
             </tr>
 
             <tr>
@@ -1719,7 +1533,7 @@ Warp 1.14.0.dev0 initialized:
               <td>-</td>
               <td>0</td>
               <td>CUDA graph</td>
-              <td>15.718 s</td>
+              <td>13.883 s</td>
             </tr>
 
             <tr>
@@ -1735,23 +1549,23 @@ Warp 1.14.0.dev0 initialized:
               <td>-</td>
               <td>0</td>
               <td>CUDA graph</td>
-              <td>15.758 s</td>
+              <td>17.347 s</td>
             </tr>
 
             <tr>
               <td>Falling Cube</td>
               <td><code>mujoco</code></td>
               <td>Default</td>
-              <td><span class="pill bad">FAILED</span></td>
-              <td>-</td>
+              <td><span class="pill ok">BIT-EXACT</span></td>
+              <td>1</td>
               <td>default</td>
+              <td>run_to_run</td>
+              <td>body_q (0)</td>
+              <td>0</td>
               <td>-</td>
-              <td>-</td>
-              <td>-</td>
-              <td>-</td>
-              <td>-</td>
-              <td>no graph</td>
-              <td>8.095 s</td>
+              <td>0</td>
+              <td>CUDA graph</td>
+              <td>71.491 s</td>
             </tr>
 
             <tr>
@@ -1767,7 +1581,7 @@ Warp 1.14.0.dev0 initialized:
               <td>-</td>
               <td>0</td>
               <td>CUDA graph</td>
-              <td>15.037 s</td>
+              <td>16.033 s</td>
             </tr>
 
             <tr>
@@ -1783,7 +1597,7 @@ Warp 1.14.0.dev0 initialized:
               <td>-</td>
               <td>0</td>
               <td>CUDA graph</td>
-              <td>16.517 s</td>
+              <td>16.643 s</td>
             </tr>
 
             <tr>
@@ -1799,23 +1613,23 @@ Warp 1.14.0.dev0 initialized:
               <td>-</td>
               <td>0</td>
               <td>CUDA graph</td>
-              <td>29.687 s</td>
+              <td>23.284 s</td>
             </tr>
 
             <tr>
               <td>Humanoid Standing</td>
               <td><code>mujoco</code></td>
               <td>Default</td>
-              <td><span class="pill bad">FAILED</span></td>
-              <td>-</td>
+              <td><span class="pill ok">BIT-EXACT</span></td>
+              <td>1</td>
               <td>default</td>
+              <td>run_to_run</td>
+              <td>body_q (0)</td>
+              <td>0</td>
               <td>-</td>
-              <td>-</td>
-              <td>-</td>
-              <td>-</td>
-              <td>-</td>
-              <td>no graph</td>
-              <td>9.968 s</td>
+              <td>0</td>
+              <td>CUDA graph</td>
+              <td>46.806 s</td>
             </tr>
 
             <tr>
@@ -1831,7 +1645,7 @@ Warp 1.14.0.dev0 initialized:
               <td>-</td>
               <td>0</td>
               <td>CUDA graph</td>
-              <td>22.926 s</td>
+              <td>18.376 s</td>
             </tr>
 
             <tr>
@@ -1847,7 +1661,7 @@ Warp 1.14.0.dev0 initialized:
               <td>-</td>
               <td>-</td>
               <td>CUDA graph</td>
-              <td>5.433 s</td>
+              <td>4.218 s</td>
             </tr>
 
             <tr>
@@ -1863,7 +1677,7 @@ Warp 1.14.0.dev0 initialized:
               <td>-</td>
               <td>0</td>
               <td>CUDA graph</td>
-              <td>10.993 s</td>
+              <td>8.378 s</td>
             </tr>
 
             <tr>
@@ -1879,7 +1693,7 @@ Warp 1.14.0.dev0 initialized:
               <td>-</td>
               <td>0</td>
               <td>CUDA graph</td>
-              <td>10.997 s</td>
+              <td>8.595 s</td>
             </tr>
 
             <tr>
@@ -1895,7 +1709,7 @@ Warp 1.14.0.dev0 initialized:
               <td>-</td>
               <td>0</td>
               <td>CUDA graph</td>
-              <td>10.187 s</td>
+              <td>8.794 s</td>
             </tr>
 
             <tr>
@@ -1911,7 +1725,7 @@ Warp 1.14.0.dev0 initialized:
               <td>-</td>
               <td>0</td>
               <td>CUDA graph</td>
-              <td>9.923 s</td>
+              <td>8.475 s</td>
             </tr>
           </tbody>
         </table>
@@ -1925,13 +1739,7 @@ Warp 1.14.0.dev0 initialized:
           <h3>Observed gaps in this run</h3>
           <p>These notes are generated from the actual solver results above rather than a static message.</p>
           <ul>
-            <li>Diffsim Cloth COM / semi_implicit: 2 unique hashes across 2 runs; dominant core drift in initial_particle_qd_grad = 1.490e-08; execution = CUDA graph.</li>
-<li>Falling Cube / mujoco: subprocess failure prevented analysis. Last log line: Module _tile_cholesky_factorize__locals__cholesky_factorize_031ac41c 9ae5da0 load on device &#x27;cuda:0&#x27; took 584.79 ms  (error)</li>
-<li>Box Stack / mujoco: subprocess failure prevented analysis. Last log line: Module narrow_phase_gjk_mpr_True_write_contact_support_map_lean_post_process_minkowski_only bf1f580 load on device &#x27;cuda:0&#x27; took 3.13 ms  (cached)</li>
-<li>Domino Chain / mujoco: subprocess failure prevented analysis. Last log line: Module narrow_phase_gjk_mpr_True_write_contact_support_map_lean_post_process_minkowski_only bf1f580 load on device &#x27;cuda:0&#x27; took 3.15 ms  (cached)</li>
-<li>7-DOF Arm / mujoco: subprocess failure prevented analysis. Last log line: Module _tile_cholesky_factorize__locals__cholesky_factorize_6360f775 974d52a load on device &#x27;cuda:0&#x27; took 550.77 ms  (error)</li>
-<li>Humanoid Standing / mujoco: subprocess failure prevented analysis. Last log line: Module _tile_cholesky_factorize__locals__cholesky_factorize_88d9a62d 184c4b0 load on device &#x27;cuda:0&#x27; took 566.80 ms  (error)</li>
-<li>Diffsim Ball / semi_implicit: subprocess failure prevented analysis. Last log line: Module newton._src.geometry.kernels 58b582a load on device &#x27;cuda:0&#x27; took 416.12 ms  (error)</li>
+            <li>Diffsim Cloth COM / semi_implicit: 2 unique hashes across 2 runs; dominant core drift in initial_particle_qd_grad = 2.980e-08; execution = CUDA graph.</li>
 <li>warp_argmax_exchange / xpbd: subprocess failure prevented analysis. Last log line: \\?\C:\Users\eric-\AppData\Local\NVIDIA\warp\Cache\1.14.0.dev0</li>
           </ul>
         </div>
@@ -1941,7 +1749,6 @@ Warp 1.14.0.dev0 initialized:
           <ul>
             <li>This report only checks repeated runs on the same machine, driver, GPU, and Warp/Newton build; it does not prove cross-GPU or cross-driver reproducibility.</li>
 <li>The verdict is based on final core state hashes. Videos and scenario extras are diagnostic evidence, not the primary pass/fail signal.</li>
-<li>Rows marked no graph were replayed outside the CUDA graph path, so their verdicts do not cover graph-capture behavior.</li>
           </ul>
         </div>
         <div class="list-card">
@@ -1958,7 +1765,7 @@ Warp 1.14.0.dev0 initialized:
   </main>
 
   <footer>
-    Generated 2026-05-11 22:10:34 Pacific Daylight Time. Raw machine-readable data: <code>determinism_report.json</code>.
+    Generated 2026-05-12 00:06:01 Pacific Daylight Time. Raw machine-readable data: <code>determinism_report.json</code>.
   </footer>
 </body>
 </html>
