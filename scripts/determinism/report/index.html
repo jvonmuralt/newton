@@ -403,7 +403,7 @@
           10 Newton scenarios were replayed in independent subprocesses with
           <code>wp.config.deterministic = "run_to_run"</code>.
           The videos are captured from headless <code>ViewerGL.get_frame()</code>; the verdicts
-          come from byte hashes of final physics state arrays. The full report covers the physics scenarios registered for this report. Contact scenarios use <code>CollisionPipeline(deterministic=True)</code> for contact ordering.
+          come from byte hashes of final physics state arrays. The full report covers the physics scenarios registered for this report. Contact scenarios use <code>CollisionPipeline(deterministic=True)</code> for contact ordering. MJWarp modules use <code>deterministic_max_records = 256</code> for dynamic solver atomics.
         </p>
       </div>
       <div class="summary-grid">
@@ -572,7 +572,7 @@
         <div><span>Dominant core drift</span><strong>body_q (0)</strong></div>
         <div><span>Dominant extra drift</span><strong>none</strong></div>
         <div><span>Max core diff</span><strong>0</strong></div>
-        <div><span>Duration</span><strong>14.081 s</strong></div>
+        <div><span>Duration</span><strong>13.751 s</strong></div>
       </div>
 
     </article>
@@ -591,7 +591,7 @@
         <div><span>Dominant core drift</span><strong>body_q (0)</strong></div>
         <div><span>Dominant extra drift</span><strong>none</strong></div>
         <div><span>Max core diff</span><strong>0</strong></div>
-        <div><span>Duration</span><strong>41.97 s</strong></div>
+        <div><span>Duration</span><strong>67.858 s</strong></div>
       </div>
 
     </article>
@@ -610,7 +610,7 @@
         <div><span>Dominant core drift</span><strong>body_q (0)</strong></div>
         <div><span>Dominant extra drift</span><strong>none</strong></div>
         <div><span>Max core diff</span><strong>0</strong></div>
-        <div><span>Duration</span><strong>13.255 s</strong></div>
+        <div><span>Duration</span><strong>13.574 s</strong></div>
       </div>
 
     </article>
@@ -629,7 +629,7 @@
         <div><span>Dominant core drift</span><strong>body_q (0)</strong></div>
         <div><span>Dominant extra drift</span><strong>none</strong></div>
         <div><span>Max core diff</span><strong>0</strong></div>
-        <div><span>Duration</span><strong>16.426 s</strong></div>
+        <div><span>Duration</span><strong>16.753 s</strong></div>
       </div>
 
     </article>
@@ -648,7 +648,7 @@
         <div><span>Dominant core drift</span><strong>body_q (0)</strong></div>
         <div><span>Dominant extra drift</span><strong>none</strong></div>
         <div><span>Max core diff</span><strong>0</strong></div>
-        <div><span>Duration</span><strong>13.808 s</strong></div>
+        <div><span>Duration</span><strong>14.148 s</strong></div>
       </div>
 
     </article>
@@ -702,12 +702,12 @@
 
         <div class="metric">
           <span>COM drift</span>
-          <strong>0.002 m</strong>
+          <strong>0.16 m</strong>
         </div>
 
         <div class="metric">
           <span>Kinetic energy proxy</span>
-          <strong>1924.727</strong>
+          <strong>4971.615</strong>
         </div>
 
         <div class="metric">
@@ -717,7 +717,7 @@
 
         <div class="metric">
           <span>Peak contacts</span>
-          <strong>38</strong>
+          <strong>314</strong>
         </div>
                 </div>
                 <div class="solver-cards">
@@ -736,7 +736,7 @@
         <div><span>Dominant core drift</span><strong>body_q (0)</strong></div>
         <div><span>Dominant extra drift</span><strong>none</strong></div>
         <div><span>Max core diff</span><strong>0</strong></div>
-        <div><span>Duration</span><strong>48.201 s</strong></div>
+        <div><span>Duration</span><strong>60.207 s</strong></div>
       </div>
 
     </article>
@@ -755,7 +755,7 @@
         <div><span>Dominant core drift</span><strong>body_q (0)</strong></div>
         <div><span>Dominant extra drift</span><strong>none</strong></div>
         <div><span>Max core diff</span><strong>0</strong></div>
-        <div><span>Duration</span><strong>16.806 s</strong></div>
+        <div><span>Duration</span><strong>17.328 s</strong></div>
       </div>
 
     </article>
@@ -774,7 +774,7 @@
         <div><span>Dominant core drift</span><strong>body_q (0)</strong></div>
         <div><span>Dominant extra drift</span><strong>none</strong></div>
         <div><span>Max core diff</span><strong>0</strong></div>
-        <div><span>Duration</span><strong>13.961 s</strong></div>
+        <div><span>Duration</span><strong>14.785 s</strong></div>
       </div>
 
     </article>
@@ -828,7 +828,7 @@
 
         <div class="metric">
           <span>Fallen dominos</span>
-          <strong>0</strong>
+          <strong>5</strong>
         </div>
 
         <div class="metric">
@@ -838,12 +838,12 @@
 
         <div class="metric">
           <span>First angle</span>
-          <strong>14.324 deg</strong>
+          <strong>70.745 deg</strong>
         </div>
 
         <div class="metric">
           <span>Tracked fall events</span>
-          <strong>0</strong>
+          <strong>5</strong>
         </div>
                 </div>
                 <div class="solver-cards">
@@ -862,7 +862,7 @@
         <div><span>Dominant core drift</span><strong>body_q (0)</strong></div>
         <div><span>Dominant extra drift</span><strong>none</strong></div>
         <div><span>Max core diff</span><strong>0</strong></div>
-        <div><span>Duration</span><strong>50.447 s</strong></div>
+        <div><span>Duration</span><strong>60.251 s</strong></div>
       </div>
 
     </article>
@@ -881,7 +881,7 @@
         <div><span>Dominant core drift</span><strong>body_q (0)</strong></div>
         <div><span>Dominant extra drift</span><strong>none</strong></div>
         <div><span>Max core diff</span><strong>0</strong></div>
-        <div><span>Duration</span><strong>20.5 s</strong></div>
+        <div><span>Duration</span><strong>17.102 s</strong></div>
       </div>
 
     </article>
@@ -900,7 +900,7 @@
         <div><span>Dominant core drift</span><strong>body_q (0)</strong></div>
         <div><span>Dominant extra drift</span><strong>none</strong></div>
         <div><span>Max core diff</span><strong>0</strong></div>
-        <div><span>Duration</span><strong>17.277 s</strong></div>
+        <div><span>Duration</span><strong>14.351 s</strong></div>
       </div>
 
     </article>
@@ -988,7 +988,7 @@
         <div><span>Dominant core drift</span><strong>body_q (0)</strong></div>
         <div><span>Dominant extra drift</span><strong>none</strong></div>
         <div><span>Max core diff</span><strong>0</strong></div>
-        <div><span>Duration</span><strong>30.527 s</strong></div>
+        <div><span>Duration</span><strong>29.416 s</strong></div>
       </div>
 
     </article>
@@ -1007,7 +1007,7 @@
         <div><span>Dominant core drift</span><strong>body_q (0)</strong></div>
         <div><span>Dominant extra drift</span><strong>none</strong></div>
         <div><span>Max core diff</span><strong>0</strong></div>
-        <div><span>Duration</span><strong>58.379 s</strong></div>
+        <div><span>Duration</span><strong>81.088 s</strong></div>
       </div>
 
     </article>
@@ -1026,7 +1026,7 @@
         <div><span>Dominant core drift</span><strong>body_q (0)</strong></div>
         <div><span>Dominant extra drift</span><strong>none</strong></div>
         <div><span>Max core diff</span><strong>0</strong></div>
-        <div><span>Duration</span><strong>36.849 s</strong></div>
+        <div><span>Duration</span><strong>28.457 s</strong></div>
       </div>
 
     </article>
@@ -1114,7 +1114,7 @@
         <div><span>Dominant core drift</span><strong>body_q (0)</strong></div>
         <div><span>Dominant extra drift</span><strong>none</strong></div>
         <div><span>Max core diff</span><strong>0</strong></div>
-        <div><span>Duration</span><strong>24.991 s</strong></div>
+        <div><span>Duration</span><strong>30.106 s</strong></div>
       </div>
 
     </article>
@@ -1133,7 +1133,7 @@
         <div><span>Dominant core drift</span><strong>body_q (0)</strong></div>
         <div><span>Dominant extra drift</span><strong>none</strong></div>
         <div><span>Max core diff</span><strong>0</strong></div>
-        <div><span>Duration</span><strong>50.329 s</strong></div>
+        <div><span>Duration</span><strong>77.873 s</strong></div>
       </div>
 
     </article>
@@ -1152,7 +1152,7 @@
         <div><span>Dominant core drift</span><strong>body_q (0)</strong></div>
         <div><span>Dominant extra drift</span><strong>none</strong></div>
         <div><span>Max core diff</span><strong>0</strong></div>
-        <div><span>Duration</span><strong>20.746 s</strong></div>
+        <div><span>Duration</span><strong>24.459 s</strong></div>
       </div>
 
     </article>
@@ -1199,7 +1199,7 @@
         <div><span>Dominant core drift</span><strong>final_particle_q (0)</strong></div>
         <div><span>Dominant extra drift</span><strong>none</strong></div>
         <div><span>Max core diff</span><strong>0</strong></div>
-        <div><span>Duration</span><strong>14.044 s</strong></div>
+        <div><span>Duration</span><strong>13.714 s</strong></div>
       </div>
 
     </article>
@@ -1246,7 +1246,7 @@
         <div><span>Dominant core drift</span><strong>final_particle_q (0)</strong></div>
         <div><span>Dominant extra drift</span><strong>none</strong></div>
         <div><span>Max core diff</span><strong>0</strong></div>
-        <div><span>Duration</span><strong>10.41 s</strong></div>
+        <div><span>Duration</span><strong>9.991 s</strong></div>
       </div>
 
     </article>
@@ -1293,7 +1293,7 @@
         <div><span>Dominant core drift</span><strong>final_particle_q (0)</strong></div>
         <div><span>Dominant extra drift</span><strong>none</strong></div>
         <div><span>Max core diff</span><strong>0</strong></div>
-        <div><span>Duration</span><strong>9.834 s</strong></div>
+        <div><span>Duration</span><strong>9.374 s</strong></div>
       </div>
 
     </article>
@@ -1335,7 +1335,7 @@
 
         <div class="metric">
           <span>Height range</span>
-          <strong>0.664-1.286 m</strong>
+          <strong>0.665-1.286 m</strong>
         </div>
                 </div>
                 <div class="solver-cards">
@@ -1354,7 +1354,7 @@
         <div><span>Dominant core drift</span><strong>particle_q (0)</strong></div>
         <div><span>Dominant extra drift</span><strong>none</strong></div>
         <div><span>Max core diff</span><strong>0</strong></div>
-        <div><span>Duration</span><strong>17.605 s</strong></div>
+        <div><span>Duration</span><strong>17.762 s</strong></div>
       </div>
 
     </article>
@@ -1396,7 +1396,7 @@
 
         <div class="metric">
           <span>Height range</span>
-          <strong>0.945-1.24 m</strong>
+          <strong>0.952-1.24 m</strong>
         </div>
 
         <div class="metric">
@@ -1420,7 +1420,7 @@
         <div><span>Dominant core drift</span><strong>particle_q (0)</strong></div>
         <div><span>Dominant extra drift</span><strong>none</strong></div>
         <div><span>Max core diff</span><strong>0</strong></div>
-        <div><span>Duration</span><strong>18.015 s</strong></div>
+        <div><span>Duration</span><strong>19.253 s</strong></div>
       </div>
 
     </article>
@@ -1455,7 +1455,7 @@
               <td>body_q (0)</td>
               <td>0</td>
               <td>0</td>
-              <td>30.527 s</td>
+              <td>29.416 s</td>
             </tr>
 
             <tr>
@@ -1466,7 +1466,7 @@
               <td>body_q (0)</td>
               <td>0</td>
               <td>0</td>
-              <td>58.379 s</td>
+              <td>81.088 s</td>
             </tr>
 
             <tr>
@@ -1477,7 +1477,7 @@
               <td>body_q (0)</td>
               <td>0</td>
               <td>0</td>
-              <td>36.849 s</td>
+              <td>28.457 s</td>
             </tr>
 
             <tr>
@@ -1488,7 +1488,7 @@
               <td>body_q (0)</td>
               <td>0</td>
               <td>0</td>
-              <td>48.201 s</td>
+              <td>60.207 s</td>
             </tr>
 
             <tr>
@@ -1499,7 +1499,7 @@
               <td>body_q (0)</td>
               <td>0</td>
               <td>0</td>
-              <td>16.806 s</td>
+              <td>17.328 s</td>
             </tr>
 
             <tr>
@@ -1510,7 +1510,7 @@
               <td>body_q (0)</td>
               <td>0</td>
               <td>0</td>
-              <td>13.961 s</td>
+              <td>14.785 s</td>
             </tr>
 
             <tr>
@@ -1521,7 +1521,7 @@
               <td>final_particle_q (0)</td>
               <td>0</td>
               <td>0</td>
-              <td>14.044 s</td>
+              <td>13.714 s</td>
             </tr>
 
             <tr>
@@ -1532,7 +1532,7 @@
               <td>final_particle_q (0)</td>
               <td>0</td>
               <td>0</td>
-              <td>10.41 s</td>
+              <td>9.991 s</td>
             </tr>
 
             <tr>
@@ -1543,7 +1543,7 @@
               <td>final_particle_q (0)</td>
               <td>0</td>
               <td>0</td>
-              <td>9.834 s</td>
+              <td>9.374 s</td>
             </tr>
 
             <tr>
@@ -1554,7 +1554,7 @@
               <td>body_q (0)</td>
               <td>0</td>
               <td>0</td>
-              <td>50.447 s</td>
+              <td>60.251 s</td>
             </tr>
 
             <tr>
@@ -1565,7 +1565,7 @@
               <td>body_q (0)</td>
               <td>0</td>
               <td>0</td>
-              <td>20.5 s</td>
+              <td>17.102 s</td>
             </tr>
 
             <tr>
@@ -1576,7 +1576,7 @@
               <td>body_q (0)</td>
               <td>0</td>
               <td>0</td>
-              <td>17.277 s</td>
+              <td>14.351 s</td>
             </tr>
 
             <tr>
@@ -1587,7 +1587,7 @@
               <td>body_q (0)</td>
               <td>0</td>
               <td>0</td>
-              <td>14.081 s</td>
+              <td>13.751 s</td>
             </tr>
 
             <tr>
@@ -1598,7 +1598,7 @@
               <td>body_q (0)</td>
               <td>0</td>
               <td>0</td>
-              <td>41.97 s</td>
+              <td>67.858 s</td>
             </tr>
 
             <tr>
@@ -1609,7 +1609,7 @@
               <td>body_q (0)</td>
               <td>0</td>
               <td>0</td>
-              <td>13.255 s</td>
+              <td>13.574 s</td>
             </tr>
 
             <tr>
@@ -1620,7 +1620,7 @@
               <td>body_q (0)</td>
               <td>0</td>
               <td>0</td>
-              <td>16.426 s</td>
+              <td>16.753 s</td>
             </tr>
 
             <tr>
@@ -1631,7 +1631,7 @@
               <td>body_q (0)</td>
               <td>0</td>
               <td>0</td>
-              <td>13.808 s</td>
+              <td>14.148 s</td>
             </tr>
 
             <tr>
@@ -1642,7 +1642,7 @@
               <td>body_q (0)</td>
               <td>0</td>
               <td>0</td>
-              <td>24.991 s</td>
+              <td>30.106 s</td>
             </tr>
 
             <tr>
@@ -1653,7 +1653,7 @@
               <td>body_q (0)</td>
               <td>0</td>
               <td>0</td>
-              <td>50.329 s</td>
+              <td>77.873 s</td>
             </tr>
 
             <tr>
@@ -1664,7 +1664,7 @@
               <td>body_q (0)</td>
               <td>0</td>
               <td>0</td>
-              <td>20.746 s</td>
+              <td>24.459 s</td>
             </tr>
 
             <tr>
@@ -1675,7 +1675,7 @@
               <td>particle_q (0)</td>
               <td>0</td>
               <td>0</td>
-              <td>17.605 s</td>
+              <td>17.762 s</td>
             </tr>
 
             <tr>
@@ -1686,7 +1686,7 @@
               <td>particle_q (0)</td>
               <td>0</td>
               <td>0</td>
-              <td>18.015 s</td>
+              <td>19.253 s</td>
             </tr>
           </tbody>
         </table>
@@ -1715,6 +1715,7 @@
           <h3>Controls in this harness</h3>
           <ul>
             <li><code>wp.config.deterministic</code> is set before heavy Warp/Newton imports and propagated to subprocesses.</li>
+            <li>MJWarp dynamic solver-atomic capacity is scoped to MuJoCo module construction when <code>--mujoco-deterministic-max-records</code> is set.</li>
             <li>Each scenario owns a seeded NumPy RNG, so pose jitter and control trajectories are reproducible.</li>
             <li>The comparison boundary is process-level: no Python or GPU state is reused between replays.</li>
             <li>Only final core state decides the verdict; scenario extras are diagnostic and reported separately.</li>
@@ -1725,7 +1726,7 @@
   </main>
 
   <footer>
-    Generated 2026-05-12 10:57:47 Pacific Daylight Time. Raw machine-readable data: <code>determinism_report.json</code>.
+    Generated 2026-05-26 11:37:37 Pacific Daylight Time. Raw machine-readable data: <code>determinism_report.json</code>.
   </footer>
 </body>
 </html>

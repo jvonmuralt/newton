@@ -18,6 +18,7 @@ import dataclasses
 import html
 import json
 import math
+import os
 import pickle
 import subprocess
 import sys
@@ -97,6 +98,7 @@ class RunConfig:
     world_count: int
     seed: int
     warp_deterministic: str
+    mujoco_deterministic_max_records: int | None = None
 
 
 @dataclasses.dataclass(frozen=True)
@@ -496,6 +498,8 @@ def _run_snapshot_subprocess(args: argparse.Namespace) -> int:
     from scripts import run_determinism
 
     run_determinism._apply_warp_deterministic(args.warp_deterministic)
+    if args.mujoco_deterministic_max_records is not None:
+        os.environ["NEWTON_DET_MJW_MAX_RECORDS"] = str(args.mujoco_deterministic_max_records)
 
     import newton
 
@@ -563,6 +567,11 @@ def _compare_pair(
                 "--warp-deterministic",
                 config.warp_deterministic,
             ]
+            if config.mujoco_deterministic_max_records is not None:
+                cmd += [
+                    "--mujoco-deterministic-max-records",
+                    str(config.mujoco_deterministic_max_records),
+                ]
             if variant.collision_pipeline_deterministic:
                 cmd.append("--collision-pipeline-deterministic")
             if variant.collision_pipeline_warp_deterministic:
@@ -659,6 +668,8 @@ def _capture_video(
     from scripts import run_determinism
 
     run_determinism._apply_warp_deterministic(video_warp_deterministic)
+    if config.mujoco_deterministic_max_records is not None:
+        os.environ["NEWTON_DET_MJW_MAX_RECORDS"] = str(config.mujoco_deterministic_max_records)
 
     import warp as wp
 
@@ -790,6 +801,11 @@ def _capture_video_subprocess(
             "--video-fps",
             str(video_fps),
         ]
+        if config.mujoco_deterministic_max_records is not None:
+            cmd += [
+                "--mujoco-deterministic-max-records",
+                str(config.mujoco_deterministic_max_records),
+            ]
         proc = subprocess.run(cmd, cwd=REPO_ROOT, capture_output=True, check=False)
         if proc.returncode != 0:
             tail = proc.stderr.decode(errors="replace").splitlines()[-24:]
@@ -807,6 +823,7 @@ def _run_video_subprocess(args: argparse.Namespace) -> int:
         world_count=1,
         seed=args.seed,
         warp_deterministic=args.warp_deterministic,
+        mujoco_deterministic_max_records=args.mujoco_deterministic_max_records,
     )
     metadata = _capture_video(
         args.scenario,
@@ -1041,6 +1058,12 @@ def _render_html(data: dict[str, Any]) -> str:
         ' It also includes an XPBD comparison where the collision pipeline uses deterministic contact sorting while its Warp kernels are compiled with <code>wp.config.deterministic = "not_guaranteed"</code>.'
         if has_collision_variant
         else " Contact scenarios use <code>CollisionPipeline(deterministic=True)</code> for contact ordering."
+    )
+    mujoco_records = cfg.get("mujoco_deterministic_max_records")
+    mujoco_records_text = (
+        f" MJWarp modules use <code>deterministic_max_records = {int(mujoco_records)}</code> for dynamic solver atomics."
+        if mujoco_records is not None
+        else ""
     )
     report_title = (
         f"XPBD {det_label} determinism report"
@@ -1453,7 +1476,7 @@ def _render_html(data: dict[str, Any]) -> str:
           {scenario_count} Newton scenarios were replayed in independent subprocesses with
           <code>wp.config.deterministic = "{html.escape(cfg["warp_deterministic"])}"</code>.
           The videos are captured from headless <code>ViewerGL.get_frame()</code>; the verdicts
-          come from byte hashes of final physics state arrays. {html.escape(scope_text)}{compare_text}
+          come from byte hashes of final physics state arrays. {html.escape(scope_text)}{compare_text}{mujoco_records_text}
         </p>
       </div>
       <div class="summary-grid">
@@ -1549,6 +1572,7 @@ def _render_html(data: dict[str, Any]) -> str:
           <h3>Controls in this harness</h3>
           <ul>
             <li><code>wp.config.deterministic</code> is set before heavy Warp/Newton imports and propagated to subprocesses.</li>
+            <li>MJWarp dynamic solver-atomic capacity is scoped to MuJoCo module construction when <code>--mujoco-deterministic-max-records</code> is set.</li>
             <li>Each scenario owns a seeded NumPy RNG, so pose jitter and control trajectories are reproducible.</li>
             <li>The comparison boundary is process-level: no Python or GPU state is reused between replays.</li>
             <li>Only final core state decides the verdict; scenario extras are diagnostic and reported separately.</li>
@@ -1586,6 +1610,7 @@ def _build_report(args: argparse.Namespace) -> dict[str, Any]:
         world_count=args.world_count,
         seed=args.seed,
         warp_deterministic=args.warp_deterministic,
+        mujoco_deterministic_max_records=args.mujoco_deterministic_max_records,
     )
 
     scenario_order = _ordered_scenarios(SCENARIOS, xpbd_only=bool(args.xpbd_only))
@@ -1701,6 +1726,16 @@ def _build_parser() -> argparse.ArgumentParser:
         choices=["not_guaranteed", "run_to_run", "gpu_to_gpu"],
         help="Warp deterministic mode set before Newton/Warp kernels are compiled.",
     )
+    parser.add_argument(
+        "--mujoco-deterministic-max-records",
+        type=int,
+        default=None,
+        dest="mujoco_deterministic_max_records",
+        help=(
+            "Use this wp.config.deterministic_max_records value while importing/constructing "
+            "MJWarp modules. Newton collision kernels stay on their generated bounds."
+        ),
+    )
     parser.add_argument("--video-stride", type=int, default=3, help="Capture every Nth frame for MP4 output.")
     parser.add_argument("--video-width", type=int, default=960, help="Video width.")
     parser.add_argument("--video-height", type=int, default=540, help="Video height.")
@@ -1730,6 +1765,7 @@ def _build_parser() -> argparse.ArgumentParser:
     snap.add_argument("--fps", type=int, required=True)
     snap.add_argument("--seed", type=int, required=True)
     snap.add_argument("--warp-deterministic", required=True)
+    snap.add_argument("--mujoco-deterministic-max-records", type=int, default=None)
     snap.add_argument("--collision-pipeline-deterministic", action="store_true")
     snap.add_argument("--collision-pipeline-warp-deterministic", default=None)
     snap.add_argument("--disable-graph", action="store_true")
@@ -1744,6 +1780,7 @@ def _build_parser() -> argparse.ArgumentParser:
     video.add_argument("--fps", type=int, required=True)
     video.add_argument("--seed", type=int, required=True)
     video.add_argument("--warp-deterministic", required=True)
+    video.add_argument("--mujoco-deterministic-max-records", type=int, default=None)
     video.add_argument("--video-stride", type=int, required=True)
     video.add_argument("--video-width", type=int, required=True)
     video.add_argument("--video-height", type=int, required=True)
@@ -1763,6 +1800,8 @@ def main(argv: list[str] | None = None) -> int:
     from scripts import run_determinism
 
     run_determinism._apply_warp_deterministic(args.warp_deterministic)
+    if args.mujoco_deterministic_max_records is not None:
+        os.environ["NEWTON_DET_MJW_MAX_RECORDS"] = str(args.mujoco_deterministic_max_records)
     _build_report(args)
     return 0
 

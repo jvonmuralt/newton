@@ -80,7 +80,7 @@ class Arm7DofScenario(Scenario):
     TRAJ_FREQ = 0.25  # Hz
 
     def use_ground_plane(self) -> bool:
-        return self.args.solver.name != "featherstone"
+        return False
 
     def _on_built(self) -> None:
         self._q_hist: list[np.ndarray] = []

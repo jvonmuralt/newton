@@ -23,6 +23,8 @@ scripts/
         ├── diffsim_ball.py         # 6. Particle target gradient with contacts
         ├── diffsim_cloth_com.py    # 7. Cloth COM gradient with atomic accumulation
         ├── diffsim_spring_cage.py  # 8. Spring rest-length gradient
+        ├── vbd_cloth_patch.py      # 9. VBD cloth contact patch
+        ├── vbd_soft_body.py        # 10. VBD tetrahedral soft body
         └── warp_*.py               # Focused Warp deterministic-lowering probes
 ```
 
@@ -60,20 +62,27 @@ uv run --no-sync python scripts/run_determinism.py \
 uv run --no-sync python scripts/run_determinism.py \
     --scenario box_stack --solver xpbd --runs 3 \
     --warp-deterministic run_to_run
+
+# MuJoCo/MJWarp stress cases can need a larger dynamic atomic bound.
+uv run --no-sync python scripts/run_determinism.py \
+    --scenario box_stack --solver mujoco --runs 3 \
+    --warp-deterministic run_to_run --mujoco-deterministic-max-records 256
 ```
 
 ## Scenario × solver matrix
 
-| # | Scenario          | xpbd | featherstone | semi_implicit | mujoco |
-|---|-------------------|------|--------------|---------------|--------|
-| 1 | falling_cube      | yes  | yes          | yes           | yes    |
-| 2 | box_stack         | yes  |              |               | yes    |
-| 3 | domino_chain      | yes  |              |               | yes    |
-| 4 | arm_7dof          | yes  | yes          |               | yes    |
-| 5 | humanoid          | yes  | yes          |               | yes    |
-| 6 | diffsim_ball      |      |              | yes           |        |
-| 7 | diffsim_cloth_com |      |              | yes           |        |
-| 8 | diffsim_spring_cage |    |              | yes           |        |
+| # | Scenario          | xpbd | featherstone | semi_implicit | vbd | mujoco |
+|---|-------------------|------|--------------|---------------|-----|--------|
+| 1 | falling_cube      | yes  | yes          | yes           | yes | yes    |
+| 2 | box_stack         | yes  |              |               | yes | yes    |
+| 3 | domino_chain      | yes  |              |               | yes | yes    |
+| 4 | arm_7dof          | yes  | yes          |               |     | yes    |
+| 5 | humanoid          | yes  | yes          |               |     | yes    |
+| 6 | diffsim_ball      |      |              | yes           |     |        |
+| 7 | diffsim_cloth_com |      |              | yes           |     |        |
+| 8 | diffsim_spring_cage |    |              | yes           |     |        |
+| 9 | vbd_cloth_patch   |      |              |               | yes |        |
+|10 | vbd_soft_body     |      |              |               | yes |        |
 
 The `warp_*` scenarios are headless micro-workloads rather than physics
 scenes. They use the `xpbd` solver selector only to fit the existing CLI,
@@ -129,15 +138,17 @@ Python-level state leaks between runs.
 
 - `SolverMuJoCo` requires cuSolverDx ≥ CUDA Toolkit 12.6.3 (build Warp
   against 12.8 or later).
+- Some MJWarp solver kernels emit data-dependent deterministic atomic records.
+  Use `--mujoco-deterministic-max-records 256` for the report/stress cases; the
+  harness scopes this override to MJWarp module construction so Newton's
+  collision kernels keep their generated bounds.
 - The `warp_*` micro-scenarios target specific deterministic-lowering
   patterns. With the determinism Warp branch, they are expected to be
   bit-exact under `--warp-deterministic run_to_run` except for
   `warp_argmax_exchange`, which currently reports Warp's explicit
   consumed-return `atomic_max` limitation.
-- `diffsim_spring_cage` is a small passing gradient baseline.
-  `diffsim_cloth_com` currently makes the forward state/loss bit-exact under
-  `run_to_run`, but the velocity gradient still differs by a few ulps.
-  `diffsim_ball` currently exposes a deterministic-codegen failure in the
-  differentiable contact pipeline.
+- The report scenarios currently pass bit-exact under
+  `--warp-deterministic run_to_run`; the `warp_*` micro-scenarios are separate
+  lowering probes and are not part of the solver matrix.
 - `ViewerGL` opens a blocking window; use `--viewer null` for any CI /
   automated runs.

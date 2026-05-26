@@ -31,6 +31,7 @@ from __future__ import annotations
 
 import dataclasses
 import hashlib
+import os
 import pickle
 import subprocess
 import sys
@@ -76,15 +77,25 @@ def _mj_factory(model: newton.Model) -> Any:
     if model.joint_dof_count <= 60:
         kwargs["jacobian"] = "dense"
 
-    solver = newton_solvers.SolverMuJoCo(
-        model,
-        iterations=100,
-        ls_iterations=50,
-        njmax=200,
-        nconmax=300,
-        use_mujoco_contacts=False,
-        **kwargs,
-    )
+    max_records = os.environ.get("NEWTON_DET_MJW_MAX_RECORDS")
+    old_max_records = wp.config.deterministic_max_records
+    try:
+        if max_records:
+            # MJWarp solver kernels contain dynamic per-thread atomics. Give
+            # those modules a larger deterministic bound while keeping Newton
+            # collision kernels on their generated bounds.
+            wp.config.deterministic_max_records = int(max_records)
+        solver = newton_solvers.SolverMuJoCo(
+            model,
+            iterations=100,
+            ls_iterations=50,
+            njmax=200,
+            nconmax=300,
+            use_mujoco_contacts=False,
+            **kwargs,
+        )
+    finally:
+        wp.config.deterministic_max_records = old_max_records
     if getattr(solver, "mjw_model", None) is not None:
         solver.mjw_model.opt.graph_conditional = False
     return solver

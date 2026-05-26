@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-05-12 10:57:47 Pacific Daylight Time",
+  "generated_at": "2026-05-26 11:37:37 Pacific Daylight Time",
   "config": {
     "runs": 2,
     "num_steps": 60,
@@ -7,7 +7,8 @@
     "fps": 60,
     "world_count": 2,
     "seed": 0,
-    "warp_deterministic": "run_to_run"
+    "warp_deterministic": "run_to_run",
+    "mujoco_deterministic_max_records": 256
   },
   "scenario_order": [
     "falling_cube",
@@ -126,7 +127,7 @@
         "seed": 0,
         "fps": 60,
         "substeps": 4,
-        "warp_version": "1.14.0.dev0",
+        "warp_version": "1.15.0.dev0",
         "wp_deterministic": "run_to_run",
         "collision_pipeline_deterministic": true,
         "collision_pipeline_wp_deterministic": "run_to_run",
@@ -151,7 +152,7 @@
           "value": "2.801e-04 m/s"
         }
       ],
-      "duration_s": 13.808462100001634,
+      "duration_s": 14.147898700000951,
       "summary": "2/2 subprocess replays matched byte-for-byte with CUDA graph enabled."
     },
     {
@@ -196,7 +197,7 @@
         "seed": 0,
         "fps": 60,
         "substeps": 4,
-        "warp_version": "1.14.0.dev0",
+        "warp_version": "1.15.0.dev0",
         "wp_deterministic": "run_to_run",
         "collision_pipeline_deterministic": true,
         "collision_pipeline_wp_deterministic": "run_to_run",
@@ -221,7 +222,7 @@
           "value": "0.859 m/s"
         }
       ],
-      "duration_s": 14.081312199996319,
+      "duration_s": 13.750722600001609,
       "summary": "2/2 subprocess replays matched byte-for-byte with CUDA graph enabled."
     },
     {
@@ -266,7 +267,7 @@
         "seed": 0,
         "fps": 60,
         "substeps": 4,
-        "warp_version": "1.14.0.dev0",
+        "warp_version": "1.15.0.dev0",
         "wp_deterministic": "run_to_run",
         "collision_pipeline_deterministic": true,
         "collision_pipeline_wp_deterministic": "run_to_run",
@@ -291,7 +292,7 @@
           "value": "0.842 m/s"
         }
       ],
-      "duration_s": 13.254744299993035,
+      "duration_s": 13.573588500003098,
       "summary": "2/2 subprocess replays matched byte-for-byte with CUDA graph enabled."
     },
     {
@@ -303,8 +304,8 @@
       "status": "bit_exact",
       "all_equal": true,
       "hashes": [
-        "3339745f09039ac4",
-        "3339745f09039ac4"
+        "a379d1986d5ad09f",
+        "a379d1986d5ad09f"
       ],
       "unique_hashes": 1,
       "max_core_diff": {
@@ -336,7 +337,7 @@
         "seed": 0,
         "fps": 60,
         "substeps": 4,
-        "warp_version": "1.14.0.dev0",
+        "warp_version": "1.15.0.dev0",
         "wp_deterministic": "run_to_run",
         "collision_pipeline_deterministic": true,
         "collision_pipeline_wp_deterministic": "run_to_run",
@@ -346,22 +347,22 @@
       "metrics": [
         {
           "label": "Final height mean",
-          "value": "0.146 m"
+          "value": "355.082 m"
         },
         {
           "label": "Final height range",
-          "value": "0.146-0.146 m"
+          "value": "355.082-355.082 m"
         },
         {
           "label": "Awake bodies",
-          "value": "0"
+          "value": "2"
         },
         {
           "label": "Mean speed",
-          "value": "6.418e-04 m/s"
+          "value": "12.427 m/s"
         }
       ],
-      "duration_s": 16.42573010000342,
+      "duration_s": 16.753173599994625,
       "summary": "2/2 subprocess replays matched byte-for-byte with CUDA graph enabled."
     },
     {
@@ -373,8 +374,8 @@
       "status": "bit_exact",
       "all_equal": true,
       "hashes": [
-        "68935964b1c713c4",
-        "68935964b1c713c4"
+        "77f6068f904004dc",
+        "77f6068f904004dc"
       ],
       "unique_hashes": 1,
       "max_core_diff": {
@@ -406,7 +407,7 @@
         "seed": 0,
         "fps": 60,
         "substeps": 4,
-        "warp_version": "1.14.0.dev0",
+        "warp_version": "1.15.0.dev0",
         "wp_deterministic": "run_to_run",
         "collision_pipeline_deterministic": true,
         "collision_pipeline_wp_deterministic": "run_to_run",
@@ -428,10 +429,10 @@
         },
         {
           "label": "Mean speed",
-          "value": "6.262e-06 m/s"
+          "value": "5.878e-06 m/s"
         }
       ],
-      "duration_s": 41.96958039999299,
+      "duration_s": 67.85835049999878,
       "summary": "2/2 subprocess replays matched byte-for-byte with CUDA graph enabled."
     },
     {
@@ -443,8 +444,8 @@
       "status": "bit_exact",
       "all_equal": true,
       "hashes": [
-        "2dcf0af6b09042a2",
-        "2dcf0af6b09042a2"
+        "2b096818dfe88a47",
+        "2b096818dfe88a47"
       ],
       "unique_hashes": 1,
       "max_core_diff": {
@@ -475,7 +476,7 @@
         "seed": 0,
         "fps": 60,
         "substeps": 4,
-        "warp_version": "1.14.0.dev0",
+        "warp_version": "1.15.0.dev0",
         "wp_deterministic": "run_to_run",
         "collision_pipeline_deterministic": true,
         "collision_pipeline_wp_deterministic": "run_to_run",
@@ -485,11 +486,11 @@
       "metrics": [
         {
           "label": "COM drift",
-          "value": "0.002 m"
+          "value": "0.16 m"
         },
         {
           "label": "Kinetic energy proxy",
-          "value": "1924.727"
+          "value": "4971.615"
         },
         {
           "label": "Contact samples",
@@ -497,10 +498,10 @@
         },
         {
           "label": "Peak contacts",
-          "value": "38"
+          "value": "314"
         }
       ],
-      "duration_s": 13.960611999995308,
+      "duration_s": 14.785360499998205,
       "summary": "2/2 subprocess replays matched byte-for-byte with CUDA graph enabled."
     },
     {
@@ -512,8 +513,8 @@
       "status": "bit_exact",
       "all_equal": true,
       "hashes": [
-        "ad24f8a277e9748b",
-        "ad24f8a277e9748b"
+        "cf8bfc05809b3ce9",
+        "cf8bfc05809b3ce9"
       ],
       "unique_hashes": 1,
       "max_core_diff": {
@@ -544,7 +545,7 @@
         "seed": 0,
         "fps": 60,
         "substeps": 4,
-        "warp_version": "1.14.0.dev0",
+        "warp_version": "1.15.0.dev0",
         "wp_deterministic": "run_to_run",
         "collision_pipeline_deterministic": true,
         "collision_pipeline_wp_deterministic": "run_to_run",
@@ -554,11 +555,11 @@
       "metrics": [
         {
           "label": "COM drift",
-          "value": "0.002 m"
+          "value": "0.488 m"
         },
         {
           "label": "Kinetic energy proxy",
-          "value": "1924.22"
+          "value": "7.167e+06"
         },
         {
           "label": "Contact samples",
@@ -566,10 +567,10 @@
         },
         {
           "label": "Peak contacts",
-          "value": "38"
+          "value": "0"
         }
       ],
-      "duration_s": 16.80601500000921,
+      "duration_s": 17.32824149999942,
       "summary": "2/2 subprocess replays matched byte-for-byte with CUDA graph enabled."
     },
     {
@@ -581,8 +582,8 @@
       "status": "bit_exact",
       "all_equal": true,
       "hashes": [
-        "cca7bd4780f3553c",
-        "cca7bd4780f3553c"
+        "faad03166f78ebb5",
+        "faad03166f78ebb5"
       ],
       "unique_hashes": 1,
       "max_core_diff": {
@@ -613,7 +614,7 @@
         "seed": 0,
         "fps": 60,
         "substeps": 4,
-        "warp_version": "1.14.0.dev0",
+        "warp_version": "1.15.0.dev0",
         "wp_deterministic": "run_to_run",
         "collision_pipeline_deterministic": true,
         "collision_pipeline_wp_deterministic": "run_to_run",
@@ -623,11 +624,11 @@
       "metrics": [
         {
           "label": "COM drift",
-          "value": "0.002 m"
+          "value": "0.231 m"
         },
         {
           "label": "Kinetic energy proxy",
-          "value": "1924.727"
+          "value": "4896.714"
         },
         {
           "label": "Contact samples",
@@ -635,10 +636,10 @@
         },
         {
           "label": "Peak contacts",
-          "value": "38"
+          "value": "234"
         }
       ],
-      "duration_s": 48.20062920000055,
+      "duration_s": 60.20687339999131,
       "summary": "2/2 subprocess replays matched byte-for-byte with CUDA graph enabled."
     },
     {
@@ -650,8 +651,8 @@
       "status": "bit_exact",
       "all_equal": true,
       "hashes": [
-        "bfe9e2bd2ae05b03",
-        "bfe9e2bd2ae05b03"
+        "1a098e30499fdf4f",
+        "1a098e30499fdf4f"
       ],
       "unique_hashes": 1,
       "max_core_diff": {
@@ -679,7 +680,7 @@
         "seed": 0,
         "fps": 60,
         "substeps": 4,
-        "warp_version": "1.14.0.dev0",
+        "warp_version": "1.15.0.dev0",
         "wp_deterministic": "run_to_run",
         "collision_pipeline_deterministic": true,
         "collision_pipeline_wp_deterministic": "run_to_run",
@@ -689,7 +690,7 @@
       "metrics": [
         {
           "label": "Fallen dominos",
-          "value": "0"
+          "value": "5"
         },
         {
           "label": "Last-domino time",
@@ -697,14 +698,14 @@
         },
         {
           "label": "First angle",
-          "value": "14.324 deg"
+          "value": "70.745 deg"
         },
         {
           "label": "Tracked fall events",
-          "value": "0"
+          "value": "5"
         }
       ],
-      "duration_s": 17.276831999988644,
+      "duration_s": 14.351259599992773,
       "summary": "2/2 subprocess replays matched byte-for-byte with CUDA graph enabled."
     },
     {
@@ -716,8 +717,8 @@
       "status": "bit_exact",
       "all_equal": true,
       "hashes": [
-        "28a38d51f66dd744",
-        "28a38d51f66dd744"
+        "93d817bb2e9fb2f6",
+        "93d817bb2e9fb2f6"
       ],
       "unique_hashes": 1,
       "max_core_diff": {
@@ -745,7 +746,7 @@
         "seed": 0,
         "fps": 60,
         "substeps": 4,
-        "warp_version": "1.14.0.dev0",
+        "warp_version": "1.15.0.dev0",
         "wp_deterministic": "run_to_run",
         "collision_pipeline_deterministic": true,
         "collision_pipeline_wp_deterministic": "run_to_run",
@@ -755,7 +756,7 @@
       "metrics": [
         {
           "label": "Fallen dominos",
-          "value": "0"
+          "value": "1"
         },
         {
           "label": "Last-domino time",
@@ -763,14 +764,14 @@
         },
         {
           "label": "First angle",
-          "value": "14.324 deg"
+          "value": "121.119 deg"
         },
         {
           "label": "Tracked fall events",
-          "value": "0"
+          "value": "1"
         }
       ],
-      "duration_s": 20.50027730000147,
+      "duration_s": 17.101898599998094,
       "summary": "2/2 subprocess replays matched byte-for-byte with CUDA graph enabled."
     },
     {
@@ -782,8 +783,8 @@
       "status": "bit_exact",
       "all_equal": true,
       "hashes": [
-        "bd7d9d2811d1d0fe",
-        "bd7d9d2811d1d0fe"
+        "dabecbeae56ff092",
+        "dabecbeae56ff092"
       ],
       "unique_hashes": 1,
       "max_core_diff": {
@@ -811,7 +812,7 @@
         "seed": 0,
         "fps": 60,
         "substeps": 4,
-        "warp_version": "1.14.0.dev0",
+        "warp_version": "1.15.0.dev0",
         "wp_deterministic": "run_to_run",
         "collision_pipeline_deterministic": true,
         "collision_pipeline_wp_deterministic": "run_to_run",
@@ -821,7 +822,7 @@
       "metrics": [
         {
           "label": "Fallen dominos",
-          "value": "0"
+          "value": "5"
         },
         {
           "label": "Last-domino time",
@@ -829,14 +830,14 @@
         },
         {
           "label": "First angle",
-          "value": "14.324 deg"
+          "value": "68.506 deg"
         },
         {
           "label": "Tracked fall events",
-          "value": "0"
+          "value": "5"
         }
       ],
-      "duration_s": 50.446717500002705,
+      "duration_s": 60.25093609999749,
       "summary": "2/2 subprocess replays matched byte-for-byte with CUDA graph enabled."
     },
     {
@@ -872,7 +873,7 @@
       "dominant_extra_signal": "joint_q_history",
       "dominant_extra_value": 0.0,
       "disable_graph": false,
-      "collision_pipeline_deterministic": true,
+      "collision_pipeline_deterministic": false,
       "collision_pipeline_wp_deterministic": "run_to_run",
       "graph_capture_enabled": true,
       "meta": {
@@ -883,11 +884,11 @@
         "seed": 0,
         "fps": 60,
         "substeps": 4,
-        "warp_version": "1.14.0.dev0",
+        "warp_version": "1.15.0.dev0",
         "wp_deterministic": "run_to_run",
-        "collision_pipeline_deterministic": true,
+        "collision_pipeline_deterministic": false,
         "collision_pipeline_wp_deterministic": "run_to_run",
-        "custom_collision_pipeline": true,
+        "custom_collision_pipeline": false,
         "graph_capture_enabled": true
       },
       "metrics": [
@@ -908,7 +909,7 @@
           "value": "0"
         }
       ],
-      "duration_s": 36.84938779998629,
+      "duration_s": 28.45694759998878,
       "summary": "2/2 subprocess replays matched byte-for-byte with CUDA graph enabled."
     },
     {
@@ -955,7 +956,7 @@
         "seed": 0,
         "fps": 60,
         "substeps": 4,
-        "warp_version": "1.14.0.dev0",
+        "warp_version": "1.15.0.dev0",
         "wp_deterministic": "run_to_run",
         "collision_pipeline_deterministic": false,
         "collision_pipeline_wp_deterministic": "run_to_run",
@@ -980,7 +981,7 @@
           "value": "0"
         }
       ],
-      "duration_s": 30.527235200002906,
+      "duration_s": 29.416335300003993,
       "summary": "2/2 subprocess replays matched byte-for-byte with CUDA graph enabled."
     },
     {
@@ -992,8 +993,8 @@
       "status": "bit_exact",
       "all_equal": true,
       "hashes": [
-        "c31b35d9dd27bcad",
-        "c31b35d9dd27bcad"
+        "3491264876f251fd",
+        "3491264876f251fd"
       ],
       "unique_hashes": 1,
       "max_core_diff": {
@@ -1016,7 +1017,7 @@
       "dominant_extra_signal": "joint_q_history",
       "dominant_extra_value": 0.0,
       "disable_graph": false,
-      "collision_pipeline_deterministic": true,
+      "collision_pipeline_deterministic": false,
       "collision_pipeline_wp_deterministic": "run_to_run",
       "graph_capture_enabled": true,
       "meta": {
@@ -1027,21 +1028,21 @@
         "seed": 0,
         "fps": 60,
         "substeps": 4,
-        "warp_version": "1.14.0.dev0",
+        "warp_version": "1.15.0.dev0",
         "wp_deterministic": "run_to_run",
-        "collision_pipeline_deterministic": true,
+        "collision_pipeline_deterministic": false,
         "collision_pipeline_wp_deterministic": "run_to_run",
-        "custom_collision_pipeline": true,
+        "custom_collision_pipeline": false,
         "graph_capture_enabled": true
       },
       "metrics": [
         {
           "label": "Max target error",
-          "value": "1.754 rad"
+          "value": "1.29 rad"
         },
         {
           "label": "Mean target error",
-          "value": "1.754 rad"
+          "value": "1.262 rad"
         },
         {
           "label": "Peak PD torque",
@@ -1049,10 +1050,10 @@
         },
         {
           "label": "Peak contacts",
-          "value": "64"
+          "value": "0"
         }
       ],
-      "duration_s": 58.37912260000303,
+      "duration_s": 81.08795380000083,
       "summary": "2/2 subprocess replays matched byte-for-byte with CUDA graph enabled."
     },
     {
@@ -1098,7 +1099,7 @@
         "seed": 0,
         "fps": 60,
         "substeps": 4,
-        "warp_version": "1.14.0.dev0",
+        "warp_version": "1.15.0.dev0",
         "wp_deterministic": "run_to_run",
         "collision_pipeline_deterministic": true,
         "collision_pipeline_wp_deterministic": "run_to_run",
@@ -1123,7 +1124,7 @@
           "value": "28"
         }
       ],
-      "duration_s": 20.745552100008354,
+      "duration_s": 24.458838699996704,
       "summary": "2/2 subprocess replays matched byte-for-byte with CUDA graph enabled."
     },
     {
@@ -1169,7 +1170,7 @@
         "seed": 0,
         "fps": 60,
         "substeps": 4,
-        "warp_version": "1.14.0.dev0",
+        "warp_version": "1.15.0.dev0",
         "wp_deterministic": "run_to_run",
         "collision_pipeline_deterministic": true,
         "collision_pipeline_wp_deterministic": "run_to_run",
@@ -1194,7 +1195,7 @@
           "value": "28"
         }
       ],
-      "duration_s": 24.990601099998457,
+      "duration_s": 30.10580590000609,
       "summary": "2/2 subprocess replays matched byte-for-byte with CUDA graph enabled."
     },
     {
@@ -1206,8 +1207,8 @@
       "status": "bit_exact",
       "all_equal": true,
       "hashes": [
-        "eb9a74812bdf98ce",
-        "eb9a74812bdf98ce"
+        "681b42d86b3190ed",
+        "681b42d86b3190ed"
       ],
       "unique_hashes": 1,
       "max_core_diff": {
@@ -1240,7 +1241,7 @@
         "seed": 0,
         "fps": 60,
         "substeps": 4,
-        "warp_version": "1.14.0.dev0",
+        "warp_version": "1.15.0.dev0",
         "wp_deterministic": "run_to_run",
         "collision_pipeline_deterministic": true,
         "collision_pipeline_wp_deterministic": "run_to_run",
@@ -1250,22 +1251,22 @@
       "metrics": [
         {
           "label": "Final root height",
-          "value": "0.444 m"
+          "value": "0.971 m"
         },
         {
           "label": "Fell worlds",
-          "value": "2"
+          "value": "0"
         },
         {
           "label": "Max COM XY drift",
-          "value": "0.622 m"
+          "value": "0.283 m"
         },
         {
           "label": "Peak contacts",
           "value": "28"
         }
       ],
-      "duration_s": 50.328850200006855,
+      "duration_s": 77.87335890000395,
       "summary": "2/2 subprocess replays matched byte-for-byte with CUDA graph enabled."
     },
     {
@@ -1309,7 +1310,7 @@
         "seed": 0,
         "fps": 60,
         "substeps": 4,
-        "warp_version": "1.14.0.dev0",
+        "warp_version": "1.15.0.dev0",
         "wp_deterministic": "run_to_run",
         "collision_pipeline_deterministic": true,
         "collision_pipeline_wp_deterministic": "run_to_run",
@@ -1318,7 +1319,7 @@
         "diffsim": true
       },
       "metrics": [],
-      "duration_s": 14.043581699996139,
+      "duration_s": 13.71368529999745,
       "summary": "2/2 subprocess replays matched byte-for-byte with CUDA graph enabled."
     },
     {
@@ -1363,13 +1364,13 @@
         "seed": 0,
         "fps": 60,
         "substeps": 4,
-        "warp_version": "1.14.0.dev0",
+        "warp_version": "1.15.0.dev0",
         "wp_deterministic": "run_to_run",
         "graph_capture_enabled": false,
         "diffsim": true
       },
       "metrics": [],
-      "duration_s": 10.409620000005816,
+      "duration_s": 9.990538500002003,
       "summary": "2/2 subprocess replays matched byte-for-byte with CUDA graph enabled."
     },
     {
@@ -1413,13 +1414,13 @@
         "seed": 0,
         "fps": 60,
         "substeps": 4,
-        "warp_version": "1.14.0.dev0",
+        "warp_version": "1.15.0.dev0",
         "wp_deterministic": "run_to_run",
         "graph_capture_enabled": false,
         "diffsim": true
       },
       "metrics": [],
-      "duration_s": 9.833578300007503,
+      "duration_s": 9.374304199998733,
       "summary": "2/2 subprocess replays matched byte-for-byte with CUDA graph enabled."
     },
     {
@@ -1431,8 +1432,8 @@
       "status": "bit_exact",
       "all_equal": true,
       "hashes": [
-        "7171ff8358f4b3d9",
-        "7171ff8358f4b3d9"
+        "7473aea4d1a6fd73",
+        "7473aea4d1a6fd73"
       ],
       "unique_hashes": 1,
       "max_core_diff": {
@@ -1461,7 +1462,7 @@
         "seed": 0,
         "fps": 60,
         "substeps": 4,
-        "warp_version": "1.14.0.dev0",
+        "warp_version": "1.15.0.dev0",
         "wp_deterministic": "run_to_run",
         "collision_pipeline_deterministic": true,
         "collision_pipeline_wp_deterministic": "run_to_run",
@@ -1479,10 +1480,10 @@
         },
         {
           "label": "Height range",
-          "value": "0.664-1.286 m"
+          "value": "0.665-1.286 m"
         }
       ],
-      "duration_s": 17.60504480000236,
+      "duration_s": 17.76219390000915,
       "summary": "2/2 subprocess replays matched byte-for-byte with CUDA graph enabled."
     },
     {
@@ -1494,8 +1495,8 @@
       "status": "bit_exact",
       "all_equal": true,
       "hashes": [
-        "4891359e5c3e79cc",
-        "4891359e5c3e79cc"
+        "4902f4d65b96a755",
+        "4902f4d65b96a755"
       ],
       "unique_hashes": 1,
       "max_core_diff": {
@@ -1524,7 +1525,7 @@
         "seed": 0,
         "fps": 60,
         "substeps": 4,
-        "warp_version": "1.14.0.dev0",
+        "warp_version": "1.15.0.dev0",
         "wp_deterministic": "run_to_run",
         "collision_pipeline_deterministic": true,
         "collision_pipeline_wp_deterministic": "run_to_run",
@@ -1542,14 +1543,14 @@
         },
         {
           "label": "Height range",
-          "value": "0.945-1.24 m"
+          "value": "0.952-1.24 m"
         },
         {
           "label": "Tets",
           "value": "360"
         }
       ],
-      "duration_s": 18.014838300005067,
+      "duration_s": 19.253283900005044,
       "summary": "2/2 subprocess replays matched byte-for-byte with CUDA graph enabled."
     }
   ],
@@ -1611,8 +1612,8 @@
       "warp_deterministic": "not_guaranteed",
       "width": 960,
       "height": 540,
-      "first_mean": 40.450310570987654,
-      "last_mean": 40.34361947016461
+      "first_mean": 39.708769290123456,
+      "last_mean": 39.720392232510285
     },
     {
       "scenario": "falling_cube",
@@ -1642,7 +1643,7 @@
       "width": 960,
       "height": 540,
       "first_mean": 42.26835583847737,
-      "last_mean": 43.189393004115225
+      "last_mean": 42.89361111111111
     },
     {
       "scenario": "box_stack",
@@ -1656,8 +1657,8 @@
       "warp_deterministic": "not_guaranteed",
       "width": 960,
       "height": 540,
-      "first_mean": 42.268281893004115,
-      "last_mean": 41.567659465020576
+      "first_mean": 40.20366190843622,
+      "last_mean": 39.625523405349796
     },
     {
       "scenario": "box_stack",
@@ -1672,7 +1673,7 @@
       "width": 960,
       "height": 540,
       "first_mean": 42.26830825617284,
-      "last_mean": 42.292206147119344
+      "last_mean": 43.05358153292181
     },
     {
       "scenario": "domino_chain",
@@ -1687,7 +1688,7 @@
       "width": 960,
       "height": 540,
       "first_mean": 46.60653420781893,
-      "last_mean": 46.82964891975308
+      "last_mean": 46.822744341563784
     },
     {
       "scenario": "domino_chain",
@@ -1701,8 +1702,8 @@
       "warp_deterministic": "not_guaranteed",
       "width": 960,
       "height": 540,
-      "first_mean": 46.60608217592593,
-      "last_mean": 45.84405285493827
+      "first_mean": 45.13529449588477,
+      "last_mean": 43.41309863683128
     },
     {
       "scenario": "domino_chain",
@@ -1717,7 +1718,7 @@
       "width": 960,
       "height": 540,
       "first_mean": 46.606864068930044,
-      "last_mean": 46.85958333333333
+      "last_mean": 46.864931198559674
     },
     {
       "scenario": "arm_7dof",
@@ -1731,8 +1732,8 @@
       "warp_deterministic": "not_guaranteed",
       "width": 960,
       "height": 540,
-      "first_mean": 44.33622235082304,
-      "last_mean": 44.335633359053496
+      "first_mean": 49.67098443930041,
+      "last_mean": 49.67037808641975
     },
     {
       "scenario": "arm_7dof",
@@ -1761,8 +1762,8 @@
       "warp_deterministic": "not_guaranteed",
       "width": 960,
       "height": 540,
-      "first_mean": 44.349295267489715,
-      "last_mean": 44.02536522633745
+      "first_mean": 49.6834124228395,
+      "last_mean": 49.36256815843621
     },
     {
       "scenario": "humanoid",
@@ -1792,7 +1793,7 @@
       "width": 960,
       "height": 540,
       "first_mean": 41.43904063786008,
-      "last_mean": 41.53718557098765
+      "last_mean": 41.53527199074074
     },
     {
       "scenario": "humanoid",
@@ -1807,7 +1808,7 @@
       "width": 960,
       "height": 540,
       "first_mean": 41.439574974279836,
-      "last_mean": 41.56823431069959
+      "last_mean": 41.56958847736625
     },
     {
       "scenario": "diffsim_ball",
@@ -1866,8 +1867,8 @@
       "warp_deterministic": "not_guaranteed",
       "width": 960,
       "height": 540,
-      "first_mean": 42.592858153292184,
-      "last_mean": 42.499506815843624
+      "first_mean": 42.59336741255144,
+      "last_mean": 42.705869984567904
     },
     {
       "scenario": "vbd_soft_body",
@@ -1881,8 +1882,8 @@
       "warp_deterministic": "not_guaranteed",
       "width": 960,
       "height": 540,
-      "first_mean": 44.40591113683128,
-      "last_mean": 44.427490997942385
+      "first_mean": 44.406410108024694,
+      "last_mean": 44.427247942386835
     }
   ],
   "xpbd_only": false,

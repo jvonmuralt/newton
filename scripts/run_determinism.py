@@ -136,6 +136,16 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Set wp.config.deterministic before initializing Warp. Propagated to subprocesses via env var.",
     )
     parser.add_argument(
+        "--mujoco-deterministic-max-records",
+        type=int,
+        default=None,
+        dest="mujoco_deterministic_max_records",
+        help=(
+            "Use this wp.config.deterministic_max_records value while importing/constructing "
+            "MJWarp modules. This keeps Newton collision kernels on their generated bounds."
+        ),
+    )
+    parser.add_argument(
         "--collision-pipeline-deterministic",
         action="store_true",
         help="Use a custom CollisionPipeline with deterministic contact sorting.",
@@ -179,8 +189,8 @@ def _apply_warp_deterministic(mode: str | None) -> None:
 
     The new deterministic mode is baked into module compilation hashes, so
     we must set it before any module is compiled for this process. The
-    subprocess path also reads this from ``NEWTON_DET_WP_DET`` so it
-    propagates without needing to re-parse CLI args early.
+    subprocess path also reads this from ``NEWTON_DET_WP_DET`` so settings
+    propagate without needing to re-parse CLI args early.
     """
     effective = mode or os.environ.get("NEWTON_DET_WP_DET")
     if effective:
@@ -293,6 +303,8 @@ def _compare(args: argparse.Namespace) -> int:
     ]
     if args.warp_deterministic:
         sub_args += ["--warp-deterministic", args.warp_deterministic]
+    if args.mujoco_deterministic_max_records is not None:
+        sub_args += ["--mujoco-deterministic-max-records", str(args.mujoco_deterministic_max_records)]
     if args.collision_pipeline_deterministic:
         sub_args += ["--collision-pipeline-deterministic"]
     if args.collision_pipeline_warp_deterministic:
@@ -307,6 +319,8 @@ def _compare(args: argparse.Namespace) -> int:
     print(f"  world_count={args.world_count} num_steps={args.num_steps} substeps={args.substeps} fps={args.fps}")
     if args.warp_deterministic:
         print(f"  wp.config.deterministic = {args.warp_deterministic}")
+    if args.mujoco_deterministic_max_records is not None:
+        print(f"  MJWarp deterministic_max_records = {args.mujoco_deterministic_max_records}")
     if args.collision_pipeline_deterministic or args.collision_pipeline_warp_deterministic:
         print(
             "  collision pipeline:"
@@ -385,6 +399,8 @@ def main(argv: list[str] | None = None) -> int:
         # Propagate the mode to match any later subprocess invocations.
         if args.warp_deterministic:
             os.environ["NEWTON_DET_WP_DET"] = args.warp_deterministic
+        if args.mujoco_deterministic_max_records is not None:
+            os.environ["NEWTON_DET_MJW_MAX_RECORDS"] = str(args.mujoco_deterministic_max_records)
         # Subruns are headless by construction — the comparison path
         # doesn't need (and often can't open) a viewer.
         args.viewer = "null"
@@ -420,6 +436,8 @@ def main(argv: list[str] | None = None) -> int:
     # value is re-parsed inside the subrun as well.
     if args.warp_deterministic:
         os.environ["NEWTON_DET_WP_DET"] = args.warp_deterministic
+    if args.mujoco_deterministic_max_records is not None:
+        os.environ["NEWTON_DET_MJW_MAX_RECORDS"] = str(args.mujoco_deterministic_max_records)
     return _compare(args)
 
 
