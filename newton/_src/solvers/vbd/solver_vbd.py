@@ -240,6 +240,7 @@ class SolverVBD(SolverBase):
         rigid_joint_angular_kd: float = 0.0,  # Rayleigh damping for non-cable angular joint constraints
         rigid_enable_dahl_friction: bool | None = None,  # Deprecated: auto-detected from model attributes
         deterministic: bool | str | None = None,
+        deterministic_max_records: int | None = None,
     ):
         """
         Args:
@@ -355,6 +356,9 @@ class SolverVBD(SolverBase):
                 ``"not_guaranteed"``, ``"run_to_run"``, ``"gpu_to_gpu"``, or
                 ``None`` (default) to defer to ``wp.config.deterministic`` at
                 compile time.
+            deterministic_max_records: Per-target, per-thread upper bound for
+                deterministic scatter records. ``None`` leaves the module option
+                untouched.
 
         Note:
             - The `integrate_with_external_rigid_solver` argument enables one-way coupling between rigid body and soft body
@@ -396,6 +400,7 @@ class SolverVBD(SolverBase):
                 _vbd_rigid_kernel_module,
                 _xpbd_kernel_module,
             ],
+            deterministic_max_records=deterministic_max_records,
         )
 
         # Common parameters

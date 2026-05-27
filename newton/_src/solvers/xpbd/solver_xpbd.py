@@ -110,10 +110,15 @@ class SolverXPBD(SolverBase):
         angular_damping: float = 0.0,
         enable_restitution: bool = False,
         deterministic: bool | str | None = None,
+        deterministic_max_records: int | None = None,
     ):
         super().__init__(model=model)
         self.deterministic = deterministic
-        self._apply_deterministic_options(deterministic, [_xpbd_kernel_module])
+        self._apply_deterministic_options(
+            deterministic,
+            [_xpbd_kernel_module],
+            deterministic_max_records=deterministic_max_records,
+        )
 
         self.iterations = iterations
 

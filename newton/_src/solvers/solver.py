@@ -188,30 +188,32 @@ class SolverBase:
         self.deterministic: bool | str | None = None
 
     @staticmethod
-    def _apply_deterministic_options(mode: bool | str | None, modules) -> None:
-        """Apply ``wp.set_module_options({"deterministic": mode})`` to each module.
-
-        Each solver passes the list of Warp kernel modules whose atomics it
-        launches; this routes them through Warp's deterministic codegen
-        without mutating the global ``wp.config.deterministic`` flag. When
-        ``mode`` is ``None`` (the default), nothing is done — module
-        compilation defers to the global config at kernel-load time.
-
-        Module options affect the compiled kernel hash, so this must run
-        before any kernel in those modules is launched. Calling it during
-        solver ``__init__`` is the intended use.
+    def _apply_deterministic_options(
+        mode: bool | str | None,
+        modules,
+        deterministic_max_records: int | None = None,
+    ) -> None:
+        """Apply deterministic Warp module options to each module.
 
         Args:
             mode: Deterministic mode. Accepts ``True``/``False``,
                 ``"not_guaranteed"``, ``"run_to_run"``, ``"gpu_to_gpu"``,
-                or ``None`` to leave the module options untouched.
+                or ``None`` to leave the module's deterministic mode untouched.
             modules: Iterable of Python module objects whose ``@wp.kernel``
                 definitions should be tagged.
+            deterministic_max_records: Per-target, per-thread upper bound for
+                deterministic scatter records. ``None`` leaves the module option
+                untouched; ``0`` uses Warp's inferred bound.
         """
-        if mode is None:
+        options: dict[str, bool | str | int] = {}
+        if mode is not None:
+            options["deterministic"] = mode
+        if deterministic_max_records is not None:
+            options["deterministic_max_records"] = deterministic_max_records
+        if not options:
             return
         for module in modules:
-            wp.set_module_options({"deterministic": mode}, module=module)
+            wp.set_module_options(options, module=module)
 
     @property
     def device(self) -> wp.Device:
