@@ -185,6 +185,33 @@ class SolverBase:
 
     def __init__(self, model: Model):
         self.model = model
+        self.deterministic: bool | str | None = None
+
+    @staticmethod
+    def _apply_deterministic_options(mode: bool | str | None, modules) -> None:
+        """Apply ``wp.set_module_options({"deterministic": mode})`` to each module.
+
+        Each solver passes the list of Warp kernel modules whose atomics it
+        launches; this routes them through Warp's deterministic codegen
+        without mutating the global ``wp.config.deterministic`` flag. When
+        ``mode`` is ``None`` (the default), nothing is done — module
+        compilation defers to the global config at kernel-load time.
+
+        Module options affect the compiled kernel hash, so this must run
+        before any kernel in those modules is launched. Calling it during
+        solver ``__init__`` is the intended use.
+
+        Args:
+            mode: Deterministic mode. Accepts ``True``/``False``,
+                ``"not_guaranteed"``, ``"run_to_run"``, ``"gpu_to_gpu"``,
+                or ``None`` to leave the module options untouched.
+            modules: Iterable of Python module objects whose ``@wp.kernel``
+                definitions should be tagged.
+        """
+        if mode is None:
+            return
+        for module in modules:
+            wp.set_module_options({"deterministic": mode}, module=module)
 
     @property
     def device(self) -> wp.Device:
