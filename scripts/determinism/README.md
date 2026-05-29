@@ -63,10 +63,10 @@ uv run --no-sync python scripts/run_determinism.py \
     --scenario box_stack --solver xpbd --runs 3 \
     --warp-deterministic run_to_run
 
-# MuJoCo/MJWarp stress cases can need a larger dynamic atomic bound.
+# MuJoCo determinism (the constructor pins deterministic_max_records=16).
 uv run --no-sync python scripts/run_determinism.py \
     --scenario box_stack --solver mujoco --runs 3 \
-    --warp-deterministic run_to_run --mujoco-deterministic-max-records 256
+    --warp-deterministic run_to_run --solver-deterministic run_to_run
 ```
 
 ## Scenario × solver matrix
@@ -139,9 +139,8 @@ Python-level state leaks between runs.
 - `SolverMuJoCo` requires cuSolverDx ≥ CUDA Toolkit 12.6.3 (build Warp
   against 12.8 or later).
 - Some MJWarp solver kernels emit data-dependent deterministic atomic records.
-  Use `--mujoco-deterministic-max-records 256` for the report/stress cases; the
-  harness scopes this override to MJWarp module construction so Newton's
-  collision kernels keep their generated bounds.
+  `SolverMuJoCo` pins `deterministic_max_records=16` in its constructor so the
+  harness gets a sensible default; tweak it directly in code for stress cases.
 - The `warp_*` micro-scenarios target specific deterministic-lowering
   patterns. With the determinism Warp branch, they are expected to be
   bit-exact under `--warp-deterministic run_to_run` except for

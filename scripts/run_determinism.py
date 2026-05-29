@@ -136,13 +136,6 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Set wp.config.deterministic before initializing Warp. Propagated to subprocesses via env var.",
     )
     parser.add_argument(
-        "--mujoco-deterministic-max-records",
-        type=int,
-        default=None,
-        dest="mujoco_deterministic_max_records",
-        help="Deprecated alias for --solver-deterministic-max-records used by MuJoCo scenarios.",
-    )
-    parser.add_argument(
         "--solver-deterministic",
         type=str,
         default=None,
@@ -150,12 +143,6 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Per-solver deterministic mode applied via wp.set_module_options on the "
         "solver's kernel modules. Independent of --warp-deterministic; when both are set, "
         "the solver flag pins the solver's modules and the global flag covers everything else.",
-    )
-    parser.add_argument(
-        "--solver-deterministic-max-records",
-        type=int,
-        default=None,
-        help="Per-solver deterministic_max_records module option. If omitted, each solver uses its constructor default.",
     )
     parser.add_argument(
         "--collision-pipeline-deterministic",
@@ -243,10 +230,6 @@ def _build_scenario(args: argparse.Namespace):
             f"'{args.solver}'. Supported: {scen_cls.supported_solvers}"
         )
 
-    solver_deterministic_max_records = getattr(args, "solver_deterministic_max_records", None)
-    if solver_deterministic_max_records is None and args.solver == "mujoco":
-        solver_deterministic_max_records = getattr(args, "mujoco_deterministic_max_records", None)
-
     sargs = ScenarioArgs(
         scenario=args.scenario,
         solver=solver,
@@ -259,7 +242,6 @@ def _build_scenario(args: argparse.Namespace):
         collision_pipeline_deterministic=args.collision_pipeline_deterministic,
         collision_pipeline_warp_deterministic=args.collision_pipeline_warp_deterministic,
         solver_deterministic=getattr(args, "solver_deterministic", None),
-        solver_deterministic_max_records=solver_deterministic_max_records,
     )
     return scen_cls(sargs)
 
@@ -321,12 +303,8 @@ def _compare(args: argparse.Namespace) -> int:
     ]
     if args.warp_deterministic:
         sub_args += ["--warp-deterministic", args.warp_deterministic]
-    if args.mujoco_deterministic_max_records is not None:
-        sub_args += ["--mujoco-deterministic-max-records", str(args.mujoco_deterministic_max_records)]
     if args.solver_deterministic:
         sub_args += ["--solver-deterministic", args.solver_deterministic]
-    if args.solver_deterministic_max_records is not None:
-        sub_args += ["--solver-deterministic-max-records", str(args.solver_deterministic_max_records)]
     if args.collision_pipeline_deterministic:
         sub_args += ["--collision-pipeline-deterministic"]
     if args.collision_pipeline_warp_deterministic:
@@ -341,12 +319,8 @@ def _compare(args: argparse.Namespace) -> int:
     print(f"  world_count={args.world_count} num_steps={args.num_steps} substeps={args.substeps} fps={args.fps}")
     if args.warp_deterministic:
         print(f"  wp.config.deterministic = {args.warp_deterministic}")
-    if args.mujoco_deterministic_max_records is not None:
-        print(f"  MJWarp deterministic_max_records = {args.mujoco_deterministic_max_records}")
     if args.solver_deterministic:
         print(f"  solver deterministic = {args.solver_deterministic}")
-    if args.solver_deterministic_max_records is not None:
-        print(f"  solver deterministic_max_records = {args.solver_deterministic_max_records}")
     if args.collision_pipeline_deterministic or args.collision_pipeline_warp_deterministic:
         print(
             "  collision pipeline:"

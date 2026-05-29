@@ -68,17 +68,13 @@ class SolverSpec:
     """Free-form note shown in ``--list`` output."""
 
 
-def _mj_factory(
-    model: newton.Model,
-    deterministic: str | None = None,
-    deterministic_max_records: int = 16,
-) -> Any:
+def _mj_factory(model: newton.Model, **kwargs: Any) -> Any:
     # Sensible defaults; scenarios can construct their own solver if they
     # need scenario-specific tuning. Contact count is sized for stacks of
     # small boxes; bumped as needed per scenario.
-    kwargs = {"solver": "cg"}
+    extra = {"solver": "cg"}
     if model.joint_dof_count <= 60:
-        kwargs["jacobian"] = "dense"
+        extra["jacobian"] = "dense"
 
     solver = newton_solvers.SolverMuJoCo(
         model,
@@ -87,8 +83,7 @@ def _mj_factory(
         njmax=200,
         nconmax=300,
         use_mujoco_contacts=False,
-        deterministic=deterministic,
-        deterministic_max_records=deterministic_max_records,
+        **extra,
         **kwargs,
     )
     if getattr(solver, "mjw_model", None) is not None:
@@ -96,72 +91,31 @@ def _mj_factory(
     return solver
 
 
-def _vbd_factory(
-    model: newton.Model,
-    deterministic: str | None = None,
-    deterministic_max_records: int | None = None,
-) -> Any:
+def _vbd_factory(model: newton.Model, **kwargs: Any) -> Any:
     return newton_solvers.SolverVBD(
         model,
         iterations=10,
         particle_enable_self_contact=False,
         particle_enable_tile_solve=False,
-        deterministic=deterministic,
-        deterministic_max_records=deterministic_max_records,
-    )
-
-
-def _xpbd_factory(
-    model: newton.Model,
-    deterministic: str | None = None,
-    deterministic_max_records: int | None = None,
-) -> Any:
-    return newton_solvers.SolverXPBD(
-        model,
-        deterministic=deterministic,
-        deterministic_max_records=deterministic_max_records,
-    )
-
-
-def _featherstone_factory(
-    model: newton.Model,
-    deterministic: str | None = None,
-    deterministic_max_records: int | None = None,
-) -> Any:
-    return newton_solvers.SolverFeatherstone(
-        model,
-        deterministic=deterministic,
-        deterministic_max_records=deterministic_max_records,
-    )
-
-
-def _semi_implicit_factory(
-    model: newton.Model,
-    deterministic: str | None = None,
-    deterministic_max_records: int | None = None,
-) -> Any:
-    return newton_solvers.SolverSemiImplicit(
-        model,
-        deterministic=deterministic,
-        deterministic_max_records=deterministic_max_records,
+        **kwargs,
     )
 
 
 SOLVER_SPECS: dict[str, SolverSpec] = {
     "xpbd": SolverSpec(
         name="xpbd",
-        factory=_xpbd_factory,
+        factory=newton_solvers.SolverXPBD,
         notes="Position-based dynamics; fast rigid contacts.",
     ),
     "featherstone": SolverSpec(
         name="featherstone",
-        factory=_featherstone_factory,
+        factory=newton_solvers.SolverFeatherstone,
         needs_articulated=True,
         notes="Featherstone articulated-body algorithm; requires joints.",
     ),
     "semi_implicit": SolverSpec(
         name="semi_implicit",
-        factory=_semi_implicit_factory,
+        factory=newton_solvers.SolverSemiImplicit,
         notes="Explicit symplectic integrator; simple dynamics only.",
     ),
     "vbd": SolverSpec(
@@ -201,7 +155,6 @@ class ScenarioArgs:
     collision_pipeline_deterministic: bool = False
     collision_pipeline_warp_deterministic: str | None = None
     solver_deterministic: str | None = None
-    solver_deterministic_max_records: int | None = None
 
 
 @dataclasses.dataclass
@@ -304,10 +257,7 @@ class Scenario(ABC):
             builder.color(include_bending=self.use_vbd_bending_coloring())
 
         self.model = builder.finalize()
-        solver_kwargs = {"deterministic": self.args.solver_deterministic}
-        if self.args.solver_deterministic_max_records is not None:
-            solver_kwargs["deterministic_max_records"] = self.args.solver_deterministic_max_records
-        self.solver = self.args.solver.factory(self.model, **solver_kwargs)
+        self.solver = self.args.solver.factory(self.model, deterministic=self.args.solver_deterministic)
 
         self.state_0 = self.model.state()
         self.state_1 = self.model.state()

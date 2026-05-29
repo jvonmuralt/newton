@@ -86,7 +86,6 @@ class SolverSemiImplicit(SolverBase):
         joint_attach_kd: float = 1.0e2,
         enable_tri_contact: bool = True,
         deterministic: bool | str | None = None,
-        deterministic_max_records: int | None = None,
     ):
         """
         Args:
@@ -100,17 +99,10 @@ class SolverSemiImplicit(SolverBase):
                 kernel modules. Accepts ``True``/``False``, ``"not_guaranteed"``,
                 ``"run_to_run"``, ``"gpu_to_gpu"``, or ``None`` (default) to
                 defer to ``wp.config.deterministic`` at compile time.
-            deterministic_max_records: Per-target, per-thread upper bound for
-                deterministic scatter records. ``None`` leaves the module option
-                untouched.
         """
         super().__init__(model=model)
         self.deterministic = deterministic
-        self._apply_deterministic_options(
-            deterministic,
-            _SI_KERNEL_MODULES,
-            deterministic_max_records=deterministic_max_records,
-        )
+        self._apply_deterministic_options(deterministic, _SI_KERNEL_MODULES)
         self.angular_damping = angular_damping
         self.friction_smoothing = friction_smoothing
         self.joint_attach_ke = joint_attach_ke

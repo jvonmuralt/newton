@@ -139,7 +139,6 @@ class SolverFeatherstone(SolverBase):
         use_tile_gemm: bool = False,
         fuse_cholesky: bool = True,
         deterministic: bool | str | None = None,
-        deterministic_max_records: int | None = None,
     ):
         """
         Args:
@@ -155,9 +154,6 @@ class SolverFeatherstone(SolverBase):
                 ``"not_guaranteed"``, ``"run_to_run"``, ``"gpu_to_gpu"``, or
                 ``None`` (default) to defer to ``wp.config.deterministic`` at
                 compile time.
-            deterministic_max_records: Per-target, per-thread upper bound for
-                deterministic scatter records. ``None`` leaves the module option
-                untouched.
         """
         super().__init__(model)
         self.deterministic = deterministic
@@ -169,7 +165,6 @@ class SolverFeatherstone(SolverBase):
                 _si_kernels_muscle,
                 _si_kernels_particle,
             ],
-            deterministic_max_records=deterministic_max_records,
         )
 
         self.angular_damping = angular_damping
