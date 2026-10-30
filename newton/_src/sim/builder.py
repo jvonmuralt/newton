@@ -3367,8 +3367,7 @@ class ModelBuilder:
                 one, a joint parameter of an input
                 processor does not identify a single-DOF joint of the current
                 world or a global joint, of the same type as the actuated joint,
-                a clamping takes parameters from a motor that does not have them (see
-                :attr:`~newton.actuators.ClampingBase.MOTOR_PARAMS`), or the
+                or the
                 drive and clamps do not match the modeling path: DUTY with
                 a motor, EFFORT without one.
         """
@@ -3484,13 +3483,6 @@ class ModelBuilder:
             ),
             motor is not None,
         )
-        for comp_class in clamping_classes:
-            missing = getattr(comp_class, "MOTOR_PARAMS", set()) - set(motor_array_params)
-            if missing:
-                raise ValueError(
-                    f"add_actuator: {comp_class.__name__} takes {', '.join(sorted(missing))} from the motor, "
-                    "which requires a motor with these parameters"
-                )
 
         # --- Build entry key: identifies a group of compatible actuators ---
         # Groups differ when drive class, input processor types/shared-params,
@@ -16259,10 +16251,7 @@ class ModelBuilder:
                     comp_arrays = self._stack_args_to_arrays(
                         comp_args_per_actuator, device=device, requires_grad=requires_grad
                     )
-                    motor_params = {
-                        name: getattr(motor_obj, name) for name in getattr(comp_class, "MOTOR_PARAMS", set())
-                    }
-                    clamping_objs.append(comp_class(**comp_arrays, **motor_params, **shared_kw))
+                    clamping_objs.append(comp_class(**comp_arrays, **shared_kw))
 
                 has_rows = len(entry.actuator_indices) == len(entry.indices)
                 actuator = Actuator(

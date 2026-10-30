@@ -21,7 +21,6 @@ from typing import TYPE_CHECKING
 from ._src.actuators import (
     Actuator,
     ActuatorParsed,
-    ActuatorSpace,
     BatteryBase,
     BatteryConstantResistance,
     BatteryParsed,
@@ -36,6 +35,7 @@ from ._src.actuators import (
     DriveNeuralGRU,
     DriveNeuralLSTM,
     DriveNeuralMLP,
+    DriveOutputSpace,
     DrivePD,
     DrivePID,
     InputProcessorBase,
@@ -53,7 +53,6 @@ from ._src.exceptions import NewtonDeprecationWarning
 __all__ = [
     "Actuator",
     "ActuatorParsed",
-    "ActuatorSpace",
     "BatteryBase",
     "BatteryConstantResistance",
     "BatteryParsed",
@@ -68,6 +67,7 @@ __all__ = [
     "DriveNeuralGRU",
     "DriveNeuralLSTM",
     "DriveNeuralMLP",
+    "DriveOutputSpace",
     "DrivePD",
     "DrivePID",
     "InputProcessorBase",

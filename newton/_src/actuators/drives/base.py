@@ -11,7 +11,7 @@ from typing import Any, ClassVar
 import warp as wp
 
 from ...utils.deprecation import warn_deprecation
-from ..space import ActuatorSpace
+from ..space import DriveOutputSpace
 
 _COMPUTE_FORCES_DEPRECATION_MSG = (
     "The forces argument of DriveBase.compute() is deprecated in Newton 1.8; use output instead."
@@ -78,7 +78,7 @@ class DriveBase:
 
     SHARED_PARAMS: ClassVar[set[str]] = set()
 
-    output_space: ActuatorSpace = ActuatorSpace.EFFORT
+    output_space: DriveOutputSpace = DriveOutputSpace.EFFORT
     """Output units; configurable drives may select DUTY when paired with a motor.
 
     Gains, bias and feedforward must use the selected output units. Selecting

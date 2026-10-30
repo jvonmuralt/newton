@@ -7,7 +7,7 @@ from typing import Any, ClassVar
 
 import warp as wp
 
-from ..space import ActuatorSpace
+from ..space import DriveOutputSpace
 
 
 class ClampingBase:
@@ -28,18 +28,10 @@ class ClampingBase:
     copy on every construction.
     """
 
-    input_space: ActuatorSpace = ActuatorSpace.EFFORT
+    input_space: DriveOutputSpace = DriveOutputSpace.EFFORT
     """Space accepted by this clamp. Physical effort clamps keep the default."""
 
     SHARED_PARAMS: ClassVar[set[str]] = set()
-
-    MOTOR_PARAMS: ClassVar[set[str]] = set()
-    """Constructor parameters taken from the motor of the actuator.
-
-    :meth:`ModelBuilder.add_actuator <newton.ModelBuilder.add_actuator>`
-    requires a motor with these parameters and passes the motor's arrays of
-    the same name, so they are authored once, on the motor.
-    """
 
     @classmethod
     def resolve_arguments(cls, args: dict[str, Any]) -> dict[str, Any]:

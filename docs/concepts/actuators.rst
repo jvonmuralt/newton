@@ -60,18 +60,17 @@ An actuator is composed of four building blocks, applied in this order:
    PID and neural-network-based control.  See the individual drive class
    documentation for the control-law equations.
 
-   Drives select ``output_space=ActuatorSpace.EFFORT`` (the default) or
-   ``DUTY``. A motor requires DUTY; EFFORT drives require no motor. Gains,
-   bias and feedforward must use the selected units; the flag does not convert
-   them. A position-only duty controller uses :class:`DrivePD` with ``kd=0``
-   and zero bias/feedforward.
+   Drives select ``output_space=DriveOutputSpace.EFFORT`` (the default) or
+   ``DUTY``. A motor (e.g. :class:`MotorDC`) requires DUTY; EFFORT drives require
+   no motor. Gains, bias and feedforward must use the selected units; the flag
+   does not convert them.
 
 **Clamping**
    Clamps the drive output in list order. Each clamp's ``input_space`` must
    match the drive's ``output_space``. :class:`ClampingSymmetric` accepts either
    space; physical effort clamps cannot be combined with a motor. There are
-   no post-motor effort clamps. A clamp may take parameters from the motor
-   (:attr:`ClampingBase.MOTOR_PARAMS`), so they are authored once.
+   no post-motor effort clamps. Current limiting uses firmware estimates of
+   the motor parameters, configured independently of the physical motor.
 
 **Motor**
    Provides the supply voltage, and turns the motor voltage into the effort a
@@ -86,7 +85,7 @@ The per-step pipeline is:
 
 .. code-block:: text
 
-   Input processors → Supply voltage → Drive → Clamping → Duty-to-voltage conversion and Motor (if present) → Scatter-add → Drive state update
+   Input processors → Supply voltage → Drive → Clamping → Motor (optional) → Scatter-add → Drive state update
 
 Drives, clamping objects, and input processors are pluggable: implement the
 :class:`DriveBase`, :class:`ClampingBase` or :class:`InputProcessorBase` class
@@ -95,7 +94,7 @@ to add new models.
 .. deprecated:: 1.8
 
    :class:`ClampingMaxEffort` is an effort-only compatibility wrapper for
-   ``ClampingSymmetric(limit=...)``. Its ``max_effort`` array remains available.
+   ``ClampingSymmetric(limit=...)``.
 
 .. deprecated:: 1.8
 
@@ -667,17 +666,8 @@ in sequence and must match its drive's output space.
 ``ClampingCurrentDuty.voltage_source`` selects ``VoltageSource.INPUT`` (the
 supplied voltage, by default) or ``NOMINAL`` (requiring ``nominal_voltage``).
 The nominal estimate is independent of actual motor voltage, including when
-using a battery. ``max_current=0`` disables the current window; an estimate at
-or below ``v_min`` (default 1e-6 V) also skips it. Duty remains bounded.
-See :class:`ClampingCurrentDuty` for the current-window equations.
-
-In USD, ``newton:outputSpace`` and ``newton:inputSpace`` select ``"effort"`` or
-``"duty"``. ``NewtonSymmetricClampingAPI`` uses ``newton:limit``;
-``NewtonCurrentDutyClampingAPI`` uses ``newton:maxCurrent``,
-``newton:voltageSource`` (``"input"`` or ``"nominal"``),
-``newton:nominalVoltage`` and ``newton:vMin``. The importer accepts authored
-attributes before these additions are registered by the schema package;
-schema definitions still need to be coordinated before release.
+using a battery. See :class:`ClampingCurrentDuty` for the limiting equations
+and voltage threshold.
 
 Motors
 ^^^^^^
@@ -738,7 +728,7 @@ Below, the hip and knee share one battery and the ankle draws from another:
 .. testcode:: actuator-battery
 
    import newton
-   from newton.actuators import ActuatorSpace, BatteryConstantResistance, ClampingCurrentDuty, DrivePD, MotorDC
+   from newton.actuators import DriveOutputSpace, BatteryConstantResistance, ClampingCurrentDuty, DrivePD, MotorDC
 
    builder = newton.ModelBuilder()
    actuators = []
@@ -749,10 +739,10 @@ Below, the hip and knee share one battery and the ankle draws from another:
        builder.add_articulation([joint])
        actuator = builder.add_actuator(
            DrivePD,
-           output_space=ActuatorSpace.DUTY,
+           output_space=DriveOutputSpace.DUTY,
            index=builder.joint_qd_start[joint],
            kp=0.5,
-           clamping=[(ClampingCurrentDuty, {"max_current": 2.0})],
+           clamping=[(ClampingCurrentDuty, {"max_current": 2.0, "kt_estimate": 0.5, "resistance_estimate": 2.0})],
            motor=(MotorDC, {"kt": 0.5, "resistance": 2.0, "vin": 12.0, "supply_from_battery": True}),
        )
        actuators.append(actuator)
@@ -874,10 +864,8 @@ Torch-backed neural checkpoint. Leaving
 Similarly, a custom clamping stage subclasses :class:`ClampingBase` and
 implements :meth:`~ClampingBase.modify_forces` (which reads effort from a source
 buffer and writes bounded effort to a destination buffer). A duty clamp uses
-the same base and declares ``input_space = ActuatorSpace.DUTY``. Configurable
-spaces belong in ``SHARED_PARAMS`` so different spaces batch separately. It accepts
-a ``supply_voltage`` keyword containing the actual supply voltage; clamps that
-do not need this input can ignore it.
+the same base and declares ``input_space = DriveOutputSpace.DUTY``; its
+:meth:`~ClampingBase.modify_forces` also receives the supply voltage.
 
 See Also
 --------

@@ -9,7 +9,7 @@ from typing import Any, ClassVar
 
 import warp as wp
 
-from ..space import ActuatorSpace
+from ..space import DriveOutputSpace
 from .base import DriveBase, _masked_zero_1d
 
 
@@ -167,7 +167,7 @@ class DrivePID(DriveBase):
         if integral_max < 0:
             raise ValueError(f"integral_max must be non-negative, got {integral_max}")
         return {
-            "output_space": ActuatorSpace(args.get("output_space", ActuatorSpace.EFFORT)),
+            "output_space": DriveOutputSpace(args.get("output_space", DriveOutputSpace.EFFORT)),
             "kp": kp,
             "ki": ki,
             "kd": kd,
@@ -183,7 +183,7 @@ class DrivePID(DriveBase):
         integral_max: wp.array[float],
         const_effort: wp.array[float] | None = None,
         *,
-        output_space: ActuatorSpace = ActuatorSpace.EFFORT,
+        output_space: DriveOutputSpace = DriveOutputSpace.EFFORT,
     ):
         """Initialize the PID drive.
 
@@ -204,7 +204,7 @@ class DrivePID(DriveBase):
             raise ValueError(f"kp shape {kp.shape} must match integral_max shape {integral_max.shape}")
         if const_effort is not None and const_effort.shape != kp.shape:
             raise ValueError(f"const_effort shape {const_effort.shape} must match kp shape {kp.shape}")
-        self.output_space = ActuatorSpace(output_space)
+        self.output_space = DriveOutputSpace(output_space)
         self.kp = kp
         self.ki = ki
         self.kd = kd

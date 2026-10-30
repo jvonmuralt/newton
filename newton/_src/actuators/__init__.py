@@ -26,7 +26,7 @@ from .input_processors import (
 )
 from .joint_space_response import JointSpaceResponse
 from .motor_dc import MotorDC
-from .space import ActuatorSpace
+from .space import DriveOutputSpace
 from .usd_parser import (
     ActuatorParsed,
     BatteryParsed,
@@ -40,7 +40,6 @@ from .usd_parser import (
 __all__ = [
     "Actuator",
     "ActuatorParsed",
-    "ActuatorSpace",
     "BatteryBase",
     "BatteryConstantResistance",
     "BatteryParsed",
@@ -55,6 +54,7 @@ __all__ = [
     "DriveNeuralGRU",
     "DriveNeuralLSTM",
     "DriveNeuralMLP",
+    "DriveOutputSpace",
     "DrivePD",
     "DrivePID",
     "InputProcessorBase",

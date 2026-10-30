@@ -27,7 +27,7 @@ construction.
    :nosignatures:
 
    Actuator
-   ActuatorSpace
+   DriveOutputSpace
    ActuatorParsed
    BatteryBase
    BatteryConstantResistance

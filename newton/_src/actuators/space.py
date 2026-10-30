@@ -4,7 +4,7 @@
 from enum import Enum
 
 
-class ActuatorSpace(str, Enum):
+class DriveOutputSpace(str, Enum):
     """Physical interpretation of a drive output or clamping input."""
 
     EFFORT = "effort"
@@ -15,15 +15,15 @@ class ActuatorSpace(str, Enum):
 
 def _validate_spaces(output_space, clamp_spaces, has_motor):
     """Reject mixed modeling paths before allocating or stepping components."""
-    expected = ActuatorSpace.DUTY if has_motor else ActuatorSpace.EFFORT
-    if ActuatorSpace(output_space) is not expected:
+    expected = DriveOutputSpace.DUTY if has_motor else DriveOutputSpace.EFFORT
+    if DriveOutputSpace(output_space) is not expected:
         raise ValueError(
             "A motor requires a DUTY drive; an EFFORT drive cannot be combined with a motor"
             if has_motor
             else "A DUTY drive requires a motor"
         )
     for space in clamp_spaces:
-        if ActuatorSpace(space) is not expected:
+        if DriveOutputSpace(space) is not expected:
             raise ValueError(
                 "A motor accepts only DUTY clamps; EFFORT clamps cannot be combined with a motor"
                 if has_motor

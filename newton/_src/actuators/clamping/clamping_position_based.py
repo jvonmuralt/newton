@@ -9,7 +9,7 @@ from typing import Any, ClassVar
 import numpy as np
 import warp as wp
 
-from ..space import ActuatorSpace
+from ..space import DriveOutputSpace
 from .base import ClampingBase
 
 
@@ -121,7 +121,7 @@ class ClampingPositionBased(ClampingBase):
         Returns:
             Complete arguments with defaults filled in.
         """
-        if ActuatorSpace(args.get("input_space", cls.input_space)) is not ActuatorSpace.EFFORT:
+        if DriveOutputSpace(args.get("input_space", cls.input_space)) is not DriveOutputSpace.EFFORT:
             raise ValueError(f"{cls.__name__} accepts only EFFORT inputs")
         has_path = "lookup_table_path" in args
         has_direct = "lookup_positions" in args or "lookup_efforts" in args

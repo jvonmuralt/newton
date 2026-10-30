@@ -6,7 +6,7 @@ from typing import Any, ClassVar
 import warp as wp
 
 from ...utils.deprecation import warn_deprecation
-from ..space import ActuatorSpace
+from ..space import DriveOutputSpace
 from .clamping_symmetric import ClampingSymmetric
 
 
@@ -14,14 +14,14 @@ class ClampingMaxEffort(ClampingSymmetric):
     """Deprecated effort-only wrapper for ClampingSymmetric.
 
     .. deprecated:: 1.8
-        Use ``ClampingSymmetric(limit=..., input_space=ActuatorSpace.EFFORT)``.
+        Use ``ClampingSymmetric(limit=..., input_space=DriveOutputSpace.EFFORT)``.
     """
 
     SHARED_PARAMS: ClassVar[set[str]] = set()
 
     @classmethod
     def resolve_arguments(cls, args: dict[str, Any]) -> dict[str, Any]:
-        if ActuatorSpace(args.get("input_space", ActuatorSpace.EFFORT)) is not ActuatorSpace.EFFORT:
+        if DriveOutputSpace(args.get("input_space", DriveOutputSpace.EFFORT)) is not DriveOutputSpace.EFFORT:
             raise ValueError("ClampingMaxEffort accepts only EFFORT inputs; use ClampingSymmetric for duty")
         resolved = ClampingSymmetric.resolve_arguments({"limit": args.get("max_effort", float("inf"))})
         return {"max_effort": resolved["limit"]}

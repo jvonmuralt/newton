@@ -9,7 +9,7 @@ from typing import Any, ClassVar
 
 import warp as wp
 
-from ..space import ActuatorSpace
+from ..space import DriveOutputSpace
 from ..utils import (
     _looks_like_torch_checkpoint,
     _parse_metadata_scale,
@@ -175,9 +175,12 @@ class DriveNeuralLSTM(DriveBase):
         model_path = args["model_path"]
         if not model_path:
             raise ValueError("DriveNeuralLSTM requires a non-empty 'model_path'")
-        return {"model_path": model_path, "output_space": ActuatorSpace(args.get("output_space", ActuatorSpace.EFFORT))}
+        return {
+            "model_path": model_path,
+            "output_space": DriveOutputSpace(args.get("output_space", DriveOutputSpace.EFFORT)),
+        }
 
-    def __init__(self, model_path: str, *, output_space: ActuatorSpace = ActuatorSpace.EFFORT):
+    def __init__(self, model_path: str, *, output_space: DriveOutputSpace = DriveOutputSpace.EFFORT):
         """Initialize the LSTM drive from a checkpoint file.
 
         Args:
@@ -186,7 +189,7 @@ class DriveNeuralLSTM(DriveBase):
             output_space: Interpretation of checkpoint outputs, EFFORT or DUTY.
                 The checkpoint must be trained for these units.
         """
-        self.output_space = ActuatorSpace(output_space)
+        self.output_space = DriveOutputSpace(output_space)
         self.model_path = model_path
 
         self._is_torch_checkpoint = _looks_like_torch_checkpoint(model_path)

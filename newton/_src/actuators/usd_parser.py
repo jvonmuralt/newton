@@ -32,7 +32,7 @@ from .drives import (
 from .input_processors import InputProcessorBase, InputProcessorEncoder
 from .input_processors.input_processor_delay import InputProcessorDelay
 from .motor_dc import MotorDC
-from .space import ActuatorSpace
+from .space import DriveOutputSpace
 from .utils import _looks_like_torch_checkpoint, load_metadata
 
 _DEPRECATED_UNSET = object()
@@ -218,7 +218,15 @@ def _read_schema_attrs(prim, schema_name: str) -> dict[str, Any]:
         elif schema_name == "NewtonSymmetricClampingAPI":
             schema_props.update(("newton:inputSpace", "newton:limit"))
         elif schema_name == "NewtonCurrentDutyClampingAPI":
-            schema_props.update(("newton:voltageSource", "newton:nominalVoltage", "newton:vMin"))
+            schema_props.update(
+                (
+                    "newton:voltageSource",
+                    "newton:nominalVoltage",
+                    "newton:vMin",
+                    "newton:ktEstimate",
+                    "newton:resistanceEstimate",
+                )
+            )
 
     kwargs: dict[str, Any] = {}
     for prop in prim.GetAuthoredPropertiesInNamespace("newton"):
@@ -497,7 +505,7 @@ def parse_actuator_prim(prim, *, allow_unsafe_torch_checkpoints: bool = False) -
         kwargs = _read_schema_attrs(prim, schema_name)
         if schema_name == SchemaNames.MAX_EFFORT_CLAMPING:
             kwargs["limit"] = kwargs.pop("max_effort", float("inf"))
-            kwargs["input_space"] = ActuatorSpace.EFFORT
+            kwargs["input_space"] = DriveOutputSpace.EFFORT
         if (
             schema_name == SchemaNames.NEURAL_CONTROL
             and not allow_unsafe_torch_checkpoints

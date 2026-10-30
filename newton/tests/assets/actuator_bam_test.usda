@@ -98,6 +98,8 @@ def Xform "World"
             rel newton:battery = </World/Robot/Battery>
             token newton:outputSpace = "duty"
             float newton:kp = 0.5
+            float newton:ktEstimate = 0.6
+            float newton:resistanceEstimate = 2.0
             float newton:kt = 0.6
             float newton:resistance = 2.0
             float newton:vin = 6.0
@@ -119,6 +121,8 @@ def Xform "World"
             rel newton:battery = </World/Robot/Battery>
             token newton:outputSpace = "duty"
             float newton:kp = 0.5
+            float newton:ktEstimate = 0.6
+            float newton:resistanceEstimate = 2.0
             float newton:kt = 0.6
             float newton:resistance = 2.0
             float newton:vin = 6.0
@@ -142,6 +146,8 @@ def Xform "World"
             float newton:kp = 0.5
             token newton:inputSpace = "duty"
             float newton:limit = 1.0
+            float newton:ktEstimate = 0.8
+            float newton:resistanceEstimate = 3.0
             float newton:kt = 0.6
             float newton:resistance = 2.0
             float newton:vin = 5.0

@@ -30,7 +30,6 @@ from newton._src.utils.import_usd import parse_usd
 from newton.actuators import (
     Actuator,
     ActuatorParsed,
-    ActuatorSpace,
     BatteryConstantResistance,
     ClampingBase,
     ClampingCurrentDuty,
@@ -42,6 +41,7 @@ from newton.actuators import (
     DriveNeuralGRU,
     DriveNeuralLSTM,
     DriveNeuralMLP,
+    DriveOutputSpace,
     DrivePD,
     DrivePID,
     InputProcessorBase,
@@ -2709,13 +2709,15 @@ class TestMotorDC(unittest.TestCase):
                     link = builder.add_link(mass=1.0, inertia=_POINT_MASS_INERTIA)
                     joint = builder.add_joint_revolute(-1, link)
                     clamps = (
-                        [(ClampingSymmetric, {"limit": 0.5, "input_space": ActuatorSpace.DUTY})] if with_clamp else []
+                        [(ClampingSymmetric, {"limit": 0.5, "input_space": DriveOutputSpace.DUTY})]
+                        if with_clamp
+                        else []
                     )
                     slot = builder.add_actuator(
                         DrivePD,
                         index=builder.joint_qd_start[joint],
                         kp=1.0,
-                        output_space=ActuatorSpace.DUTY,
+                        output_space=DriveOutputSpace.DUTY,
                         clamping=clamps,
                         motor=(MotorDC, {"kt": 0.5, "resistance": 2.0, "supply_from_battery": True}),
                     )
@@ -2816,8 +2818,8 @@ class TestMotorDC(unittest.TestCase):
         knee, ankle = template.joint_qd_start[joints[0]], template.joint_qd_start[joints[2]]
         servo = {
             "kp": kp,
-            "output_space": ActuatorSpace.DUTY,
-            "clamping": [(ClampingSymmetric, {"limit": max_pwm, "input_space": ActuatorSpace.DUTY})],
+            "output_space": DriveOutputSpace.DUTY,
+            "clamping": [(ClampingSymmetric, {"limit": max_pwm, "input_space": DriveOutputSpace.DUTY})],
             "motor": (MotorDC, {"kt": kt, "resistance": resistance, "vin": vin, "supply_from_battery": True}),
         }
         knee_servo = template.add_actuator(
@@ -3121,7 +3123,7 @@ class TestInputProcessors(unittest.TestCase):
 
 
 class TestClampingCurrentDuty(unittest.TestCase):
-    """ClampingCurrentDuty: current limit, then duty limit, with the motor's kt and resistance."""
+    """ClampingCurrentDuty: current limit, then duty limit, with independent firmware estimates."""
 
     def test_modify_forces(self):
         """Construct the clamp directly and call modify_forces() with each limit.
@@ -3141,8 +3143,8 @@ class TestClampingCurrentDuty(unittest.TestCase):
         indices = wp.array(list(range(n)), dtype=wp.uint32)
         clamp = ClampingCurrentDuty(
             max_current=_f([max_current, max_current, 0.0, max_current]),
-            kt=_f([kt] * n),
-            resistance=_f([resistance] * n),
+            kt_estimate=_f([kt] * n),
+            resistance_estimate=_f([resistance] * n),
         )
         dst = wp.zeros(n, dtype=wp.float32)
 
@@ -3182,12 +3184,12 @@ class TestClampingCurrentDuty(unittest.TestCase):
                     )
                     clamp = ClampingCurrentDuty(
                         max_current=array([1.0] * 5),
-                        kt=motor.kt,
-                        resistance=motor.resistance,
+                        kt_estimate=motor.kt,
+                        resistance_estimate=motor.resistance,
                         voltage_source=mode,
                         nominal_voltage=array([10.0, 5.0, 20.0, 10.0, 10.0]) if mode is source.NOMINAL else None,
                     )
-                    drive = DrivePD(output_space=ActuatorSpace.DUTY, kp=array([0.6] * 5), kd=array([0.0] * 5))
+                    drive = DrivePD(output_space=DriveOutputSpace.DUTY, kp=array([0.6] * 5), kd=array([0.0] * 5))
                     actuator = Actuator(
                         indices=indices,
                         drive=drive,
@@ -3240,7 +3242,7 @@ class TestClampingCurrentDuty(unittest.TestCase):
         def array(values):
             return wp.array(values, dtype=float)
 
-        params = {"max_current": array([1.0]), "kt": array([0.5]), "resistance": array([2.0])}
+        params = {"max_current": array([1.0]), "kt_estimate": array([0.5]), "resistance_estimate": array([2.0])}
         indices = wp.array([0], dtype=wp.uint32)
         positions = array([0.0])
         command, result = array([0.8]), array([0.0])
@@ -3284,8 +3286,17 @@ class TestClampingCurrentDuty(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "NOMINAL"):
             ClampingCurrentDuty(**params, nominal_voltage=array([10.0]))
 
-    def test_motor_params(self):
-        """The builder passes the motor's kt and resistance arrays, and requires a motor that has them."""
+    def test_firmware_estimates(self):
+        """Use independent firmware estimates when computing limits and physical motor effort."""
+        for name in ("kt_estimate", "resistance_estimate"):
+            for invalid in (None, 0.0, -1.0, float("nan"), float("inf")):
+                params = {"kt_estimate": 1.0, "resistance_estimate": 4.0}
+                if invalid is None:
+                    del params[name]
+                else:
+                    params[name] = invalid
+                with self.subTest(parameter=name, value=invalid), self.assertRaisesRegex(ValueError, name):
+                    ClampingCurrentDuty.resolve_arguments(params)
         builder = newton.ModelBuilder()
         link = builder.add_link()
         joint = builder.add_joint_revolute(parent=-1, child=link, axis=newton.Axis.Z)
@@ -3294,6 +3305,8 @@ class TestClampingCurrentDuty(unittest.TestCase):
                 ClampingCurrentDuty,
                 {
                     "max_current": 1.0,
+                    "kt_estimate": 1.0,
+                    "resistance_estimate": 4.0,
                     "voltage_source": ClampingCurrentDuty.VoltageSource.NOMINAL,
                     "nominal_voltage": 12.0,
                     "v_min": 0.5,
@@ -3302,11 +3315,15 @@ class TestClampingCurrentDuty(unittest.TestCase):
         ]
         with self.assertRaisesRegex(ValueError, "DUTY drive requires a motor"):
             builder.add_actuator(
-                DrivePD, output_space=ActuatorSpace.DUTY, index=builder.joint_qd_start[joint], kp=1.0, clamping=clamping
+                DrivePD,
+                output_space=DriveOutputSpace.DUTY,
+                index=builder.joint_qd_start[joint],
+                kp=1.0,
+                clamping=clamping,
             )
         builder.add_actuator(
             DrivePD,
-            output_space=ActuatorSpace.DUTY,
+            output_space=DriveOutputSpace.DUTY,
             index=builder.joint_qd_start[joint],
             kp=1.0,
             clamping=clamping,
@@ -3315,14 +3332,24 @@ class TestClampingCurrentDuty(unittest.TestCase):
         model = builder.finalize()
         (actuator,) = model.actuators
         (clamp,) = actuator.clamping
-        self.assertIs(clamp.kt, actuator.motor.kt)
-        self.assertIs(clamp.resistance, actuator.motor.resistance)
+        np.testing.assert_array_equal(clamp.kt_estimate.numpy(), [1.0])
+        np.testing.assert_array_equal(clamp.resistance_estimate.numpy(), [4.0])
+        np.testing.assert_array_equal(actuator.motor.kt.numpy(), [0.5])
+        np.testing.assert_array_equal(actuator.motor.resistance.numpy(), [2.0])
         np.testing.assert_array_equal(clamp.nominal_voltage.numpy(), [12.0])
         np.testing.assert_array_equal(clamp.v_min.numpy(), [0.5])
         state, control = model.state(), model.control()
         control.joint_target_q.fill_(1.0)
+        state.joint_qd.fill_(2.0)
         actuator.step(state, control, dt=0.01)
-        np.testing.assert_allclose(control.joint_f.numpy(), [0.5])
+        # Firmware bounds duty at (1 * 2 + 4 * 1) / 12 = 0.5.
+        # Physical torque is 0.5 * (12 * 0.5 - 0.5 * 2) / 2 = 1.25.
+        np.testing.assert_allclose(control.joint_f.numpy(), [1.25])
+        clamp.resistance_estimate.fill_(2.0)
+        control.joint_f.zero_()
+        actuator.step(state, control, dt=0.01)
+        np.testing.assert_allclose(control.joint_f.numpy(), [0.75])
+        np.testing.assert_array_equal(actuator.motor.resistance.numpy(), [2.0])
 
 
 class TestClampingSymmetric(unittest.TestCase):
@@ -3334,7 +3361,7 @@ class TestClampingSymmetric(unittest.TestCase):
         with self.assertWarnsRegex(NewtonDeprecationWarning, "ClampingMaxEffort"):
             clamp = ClampingMaxEffort(max_effort=limits)
         self.assertIs(clamp.max_effort, limits)
-        self.assertEqual(clamp.input_space, ActuatorSpace.EFFORT)
+        self.assertEqual(clamp.input_space, DriveOutputSpace.EFFORT)
         values = wp.array([2.0], dtype=float)
         result = wp.zeros(1, dtype=float)
         index = wp.array([0], dtype=wp.uint32)
@@ -5194,16 +5221,20 @@ class TestActuatorBuilder(unittest.TestCase):
         motor = (MotorDC, {"kt": 0.5, "resistance": 2.0, "vin": 12.0})
         invalid = [
             ({"motor": motor}, "DUTY drive"),
-            ({"output_space": ActuatorSpace.DUTY}, "requires a motor"),
-            ({"clamping": [(ClampingSymmetric, {"limit": 1.0, "input_space": ActuatorSpace.DUTY})]}, "DUTY clamp"),
+            ({"output_space": DriveOutputSpace.DUTY}, "requires a motor"),
+            ({"clamping": [(ClampingSymmetric, {"limit": 1.0, "input_space": DriveOutputSpace.DUTY})]}, "DUTY clamp"),
             (
-                {"motor": motor, "output_space": ActuatorSpace.DUTY, "clamping": [(ClampingSymmetric, {"limit": 1.0})]},
+                {
+                    "motor": motor,
+                    "output_space": DriveOutputSpace.DUTY,
+                    "clamping": [(ClampingSymmetric, {"limit": 1.0})],
+                },
                 "EFFORT clamps",
             ),
             (
                 {
                     "motor": motor,
-                    "output_space": ActuatorSpace.DUTY,
+                    "output_space": DriveOutputSpace.DUTY,
                     "clamping": [(ClampingDCMotor, {"saturation_effort": 1.0, "velocity_limit": 10.0})],
                 },
                 "EFFORT clamps",
@@ -5213,11 +5244,11 @@ class TestActuatorBuilder(unittest.TestCase):
             with self.subTest(kwargs=kwargs), self.assertRaisesRegex(ValueError, message):
                 builder.add_actuator(DrivePD, index=index, kp=1.0, **kwargs)
         with self.assertRaisesRegex(ValueError, "only DUTY"):
-            ClampingCurrentDuty.resolve_arguments({"input_space": ActuatorSpace.EFFORT})
+            ClampingCurrentDuty.resolve_arguments({"input_space": DriveOutputSpace.EFFORT})
         with self.assertRaisesRegex(ValueError, "only EFFORT"):
-            ClampingDCMotor.resolve_arguments({"input_space": ActuatorSpace.DUTY})
+            ClampingDCMotor.resolve_arguments({"input_space": DriveOutputSpace.DUTY})
         builder.add_actuator(DrivePD, index=index, kp=1.0, clamping=[(ClampingSymmetric, {"limit": 0.1})])
-        builder.add_actuator(DrivePD, index=index, kp=1.0, output_space=ActuatorSpace.DUTY, motor=motor)
+        builder.add_actuator(DrivePD, index=index, kp=1.0, output_space=DriveOutputSpace.DUTY, motor=motor)
         model = builder.finalize()
         self.assertEqual(len(model.actuators), 2)
         state, control = model.state(), model.control()
@@ -5240,7 +5271,7 @@ class TestActuatorBuilder(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "EFFORT clamps"):
             Actuator(
                 indices,
-                drive=DrivePD(array(1.0), array(0.0), output_space=ActuatorSpace.DUTY),
+                drive=DrivePD(array(1.0), array(0.0), output_space=DriveOutputSpace.DUTY),
                 clamping=[ClampingSymmetric(array(1.0))],
                 motor=MotorDC(array(0.5), array(2.0), array(12.0), array(0.0)),
             )
@@ -5461,7 +5492,7 @@ class TestActuatorBuilder(unittest.TestCase):
         joint = template.add_joint_revolute(parent=-1, child=link, axis=newton.Axis.Z)
         template.add_actuator(
             DrivePD,
-            output_space=ActuatorSpace.DUTY,
+            output_space=DriveOutputSpace.DUTY,
             index=template.joint_qd_start[joint],
             kp=1.0,
             motor=(MotorDC, {"kt": 1.0, "resistance": 1.0, "vin": 12.0, "supply_from_battery": True}),
@@ -5512,7 +5543,7 @@ class TestActuatorBuilder(unittest.TestCase):
         )
         servo = template.add_actuator(
             DrivePD,
-            output_space=ActuatorSpace.DUTY,
+            output_space=DriveOutputSpace.DUTY,
             index=template.joint_qd_start[joints[1]],
             kp=1.0,
             motor=(MotorDC, {"kt": 1.0, "resistance": 1.0, "vin": 12.0, "supply_from_battery": True}),
@@ -5576,6 +5607,12 @@ class TestActuatorBuilder(unittest.TestCase):
         builder.replicate(template, 2)
         model = builder.finalize()
 
+        fixed_supply = next(a for a in model.actuators if not a.motor.uses_battery)
+        limiter = next(c for c in fixed_supply.clamping if isinstance(c, ClampingCurrentDuty))
+        np.testing.assert_allclose(limiter.kt_estimate.numpy(), [0.8, 0.8])
+        np.testing.assert_allclose(limiter.resistance_estimate.numpy(), [3.0, 3.0])
+        np.testing.assert_allclose(fixed_supply.motor.kt.numpy(), [0.6, 0.6])
+        np.testing.assert_allclose(fixed_supply.motor.resistance.numpy(), [2.0, 2.0])
         self.assertEqual(len(model.actuators), 3)
         (batteries,) = model.batteries
         np.testing.assert_array_equal(batteries.actuator_start.numpy(), [0, 2, 4])
@@ -5606,7 +5643,8 @@ class TestActuatorBuilder(unittest.TestCase):
                 actuator.step(state, control, current, nxt, dt=0.01)
             states = [(actuator, nxt, current) for actuator, current, nxt in states]
 
-            duty = np.clip(0.5 * (targets[max(step - 2, 0)] - measured), -2.0 / supply, 2.0 / supply)
+            current_window = np.tile([2.0, 2.0, 3.0], 2) / supply
+            duty = np.clip(0.5 * (targets[max(step - 2, 0)] - measured), -current_window, current_window)
             duty = np.clip(duty, -1.0, 1.0)
             expected = 0.6 * supply * duty / 2.0
             np.testing.assert_allclose(control.joint_f.numpy()[dof], expected, rtol=1e-5, err_msg=f"step {step}")

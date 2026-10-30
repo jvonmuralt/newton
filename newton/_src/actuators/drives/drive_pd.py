@@ -7,7 +7,7 @@ from typing import Any, ClassVar
 
 import warp as wp
 
-from ..space import ActuatorSpace
+from ..space import DriveOutputSpace
 from .base import DriveBase
 
 
@@ -88,7 +88,7 @@ class DrivePD(DriveBase):
             "kp": kp,
             "kd": kd,
             "const_effort": args.get("const_effort", 0.0),
-            "output_space": ActuatorSpace(args.get("output_space", ActuatorSpace.EFFORT)),
+            "output_space": DriveOutputSpace(args.get("output_space", DriveOutputSpace.EFFORT)),
         }
 
     def __init__(
@@ -97,7 +97,7 @@ class DrivePD(DriveBase):
         kd: wp.array[float],
         const_effort: wp.array[float] | None = None,
         *,
-        output_space: ActuatorSpace = ActuatorSpace.EFFORT,
+        output_space: DriveOutputSpace = DriveOutputSpace.EFFORT,
     ):
         """Initialize the PD drive.
 
@@ -112,7 +112,7 @@ class DrivePD(DriveBase):
             raise ValueError(f"kp shape {kp.shape} must match kd shape {kd.shape}")
         if const_effort is not None and const_effort.shape != kp.shape:
             raise ValueError(f"const_effort shape {const_effort.shape} must match kp shape {kp.shape}")
-        self.output_space = ActuatorSpace(output_space)
+        self.output_space = DriveOutputSpace(output_space)
         self.kp = kp
         self.kd = kd
         self.const_effort = const_effort

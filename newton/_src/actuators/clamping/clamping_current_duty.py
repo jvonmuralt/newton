@@ -8,7 +8,7 @@ from typing import Any, ClassVar
 
 import warp as wp
 
-from ..space import ActuatorSpace
+from ..space import DriveOutputSpace
 from .base import ClampingBase
 
 
@@ -19,8 +19,8 @@ def _current_duty_clamp_kernel(
     voltage_estimate: wp.array[float],
     max_current: wp.array[float],
     v_min: wp.array[float],
-    kt: wp.array[float],
-    resistance: wp.array[float],
+    kt_estimate: wp.array[float],
+    resistance_estimate: wp.array[float],
     src: wp.array[float],
     dst: wp.array[float],
 ):
@@ -28,8 +28,8 @@ def _current_duty_clamp_kernel(
     duty = src[i]
     voltage = voltage_estimate[i]
     if max_current[i] > 0.0 and voltage > v_min[i]:
-        back_emf = kt[i] * velocities[vel_indices[i]]
-        span = resistance[i] * max_current[i]
+        back_emf = kt_estimate[i] * velocities[vel_indices[i]]
+        span = resistance_estimate[i] * max_current[i]
         duty = wp.clamp(duty, (back_emf - span) / voltage, (back_emf + span) / voltage)
     dst[i] = wp.clamp(duty, -1.0, 1.0)
 
@@ -40,8 +40,8 @@ class ClampingCurrentDuty(ClampingBase):
     Input and output are dimensionless duty commands. For a voltage
     estimate ``V > v_min``, the current-derived duty window is::
 
-        lower = (kt * velocity - resistance * max_current) / V
-        upper = (kt * velocity + resistance * max_current) / V
+        lower = (kt_estimate * velocity - resistance_estimate * max_current) / V
+        upper = (kt_estimate * velocity + resistance_estimate * max_current) / V
         duty = clamp(requested_duty, lower, upper)
         duty = clamp(duty, -1, 1)
 
@@ -49,6 +49,9 @@ class ClampingCurrentDuty(ClampingBase):
     supplied voltage; ``NOMINAL`` uses ``nominal_voltage``. The actuator
     separately uses actual supply voltage to convert the resulting duty into
     motor voltage. This clamp never performs that conversion.
+
+    ``kt_estimate`` and ``resistance_estimate`` are independent firmware
+    parameters; they need not match the physical motor.
 
     A zero ``max_current`` disables the current window. An estimated voltage at or below
     ``v_min`` also skips it, avoiding division by a near-zero voltage. This
@@ -67,14 +70,13 @@ class ClampingCurrentDuty(ClampingBase):
         NOMINAL = "nominal"
         """Use the configured nominal voltage, independently of the live supply."""
 
-    input_space = ActuatorSpace.DUTY
+    input_space = DriveOutputSpace.DUTY
 
     SHARED_PARAMS: ClassVar[set[str]] = {"voltage_source"}
-    MOTOR_PARAMS: ClassVar[set[str]] = {"kt", "resistance"}
 
     @classmethod
     def resolve_arguments(cls, args: dict[str, Any]) -> dict[str, Any]:
-        if ActuatorSpace(args.get("input_space", cls.input_space)) is not cls.input_space:
+        if DriveOutputSpace(args.get("input_space", cls.input_space)) is not cls.input_space:
             raise ValueError("ClampingCurrentDuty accepts only DUTY inputs")
         source = cls.VoltageSource(args.get("voltage_source", cls.VoltageSource.INPUT))
         resolved = {
@@ -93,13 +95,18 @@ class ClampingCurrentDuty(ClampingBase):
             raise ValueError(f"max_current must be non-negative, got {resolved['max_current']}")
         if not 0.0 < resolved["v_min"] < float("inf"):
             raise ValueError("v_min must be finite and positive")
+        for name in ("kt_estimate", "resistance_estimate"):
+            value = args.get(name)
+            if value is None or not 0.0 < value < float("inf"):
+                raise ValueError(f"{name} must be supplied, finite and positive")
+            resolved[name] = value
         return resolved
 
     def __init__(
         self,
         max_current: wp.array[float],
-        kt: wp.array[float],
-        resistance: wp.array[float],
+        kt_estimate: wp.array[float],
+        resistance_estimate: wp.array[float],
         *,
         voltage_source: VoltageSource = VoltageSource.INPUT,
         nominal_voltage: wp.array[float] | None = None,
@@ -109,8 +116,8 @@ class ClampingCurrentDuty(ClampingBase):
 
         Args:
             max_current: Current limit [A], shape (N,). Zero disables it.
-            kt: Motor torque constant [N·m/A or N/A], shape (N,).
-            resistance: Motor winding resistance [Ω], shape (N,).
+            kt_estimate: Firmware estimate of the motor torque constant [N·m/A or N/A], shape (N,).
+            resistance_estimate: Firmware estimate of the motor winding resistance [Ω], shape (N,).
             voltage_source: Select supplied or nominal voltage for the current
                 estimate. Shared by all slots in this component.
             nominal_voltage: Positive firmware voltage estimate [V], shape (N,).
@@ -139,11 +146,11 @@ class ClampingCurrentDuty(ClampingBase):
             wp.full(max_current.shape, 1.0e-6, dtype=float, device=max_current.device) if v_min is None else v_min
         )
         """Minimum voltage estimate for applying the current window [V], shape (N,)."""
-        self.kt = kt
-        """Motor torque constant [N·m/A or N/A], shape (N,)."""
-        self.resistance = resistance
-        """Motor winding resistance [Ω], shape (N,)."""
-        for name in ("kt", "resistance", "nominal_voltage", "v_min"):
+        self.kt_estimate = kt_estimate
+        """Firmware estimate of the motor torque constant [N·m/A or N/A], shape (N,)."""
+        self.resistance_estimate = resistance_estimate
+        """Firmware estimate of the motor winding resistance [Ω], shape (N,)."""
+        for name in ("kt_estimate", "resistance_estimate", "nominal_voltage", "v_min"):
             value = getattr(self, name)
             if value is not None and value.shape != max_current.shape:
                 raise ValueError(f"{name} shape {value.shape} must match max_current shape {max_current.shape}")
@@ -188,8 +195,8 @@ class ClampingCurrentDuty(ClampingBase):
                 estimate,
                 self.max_current,
                 self.v_min,
-                self.kt,
-                self.resistance,
+                self.kt_estimate,
+                self.resistance_estimate,
                 src_forces,
             ],
             outputs=[dst_forces],

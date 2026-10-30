@@ -8,7 +8,7 @@ from typing import Any, ClassVar
 
 import warp as wp
 
-from ..space import ActuatorSpace
+from ..space import DriveOutputSpace
 from .base import ClampingBase
 
 
@@ -51,16 +51,16 @@ class ClampingSymmetric(ClampingBase):
         limit = args.get("limit", math.inf)
         if limit < 0:
             raise ValueError(f"limit must be non-negative, got {limit}")
-        return {"limit": limit, "input_space": ActuatorSpace(args.get("input_space", ActuatorSpace.EFFORT))}
+        return {"limit": limit, "input_space": DriveOutputSpace(args.get("input_space", DriveOutputSpace.EFFORT))}
 
-    def __init__(self, limit: wp.array[float], *, input_space: ActuatorSpace = ActuatorSpace.EFFORT):
+    def __init__(self, limit: wp.array[float], *, input_space: DriveOutputSpace = DriveOutputSpace.EFFORT):
         """Initialize max-effort clamp.
 
         Args:
             limit: Non-negative bounds in the selected input units. Shape ``(N,)``.
             input_space: EFFORT [N or N·m] or dimensionless DUTY.
         """
-        self.input_space = ActuatorSpace(input_space)
+        self.input_space = DriveOutputSpace(input_space)
         self.limit = limit
 
     evaluate_clamp = _evaluate_symmetric_clamp
