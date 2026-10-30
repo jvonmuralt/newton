@@ -14,6 +14,7 @@ import numpy as np
 import warp as wp
 
 from ...utils.onnx import require_onnx
+from ..space import DriveOutputSpace
 from ..utils import load_metadata
 from .base import DriveBase
 
@@ -548,7 +549,7 @@ class DriveNeuralGRU(DriveBase):
         inputs it declares may change without the normal deprecation period.
     """
 
-    SHARED_PARAMS: ClassVar[set[str]] = {"model_path"}
+    SHARED_PARAMS: ClassVar[set[str]] = {"model_path", "output_space"}
 
     @dataclass
     class State(DriveBase.State):
@@ -593,14 +594,20 @@ class DriveNeuralGRU(DriveBase):
         model_path = args["model_path"]
         if not model_path:
             raise ValueError("DriveNeuralGRU requires a non-empty 'model_path'")
-        return {"model_path": model_path}
+        return {
+            "model_path": model_path,
+            "output_space": DriveOutputSpace(args.get("output_space", DriveOutputSpace.EFFORT)),
+        }
 
-    def __init__(self, model_path: str):
+    def __init__(self, model_path: str, *, output_space: DriveOutputSpace = DriveOutputSpace.EFFORT):
         """Initialize the drive from an ONNX GRU network.
 
         Args:
             model_path: Local path to an ONNX checkpoint.
+            output_space: Interpretation of checkpoint outputs, EFFORT or DUTY.
+                The checkpoint must be trained for these units.
         """
+        self.output_space = DriveOutputSpace(output_space)
         self.model_path = os.fspath(model_path)
         """Local path to the ONNX checkpoint."""
         self._description = _load_network_description(self.model_path)

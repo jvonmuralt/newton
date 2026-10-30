@@ -10,6 +10,7 @@ from typing import Any
 import warp as wp
 
 from ...exceptions import NewtonDeprecationWarning
+from ..space import DriveOutputSpace
 from .base import ClampingBase
 
 
@@ -116,6 +117,8 @@ class ClampingDCMotor(ClampingBase):
 
     @classmethod
     def resolve_arguments(cls, args: dict[str, Any]) -> dict[str, Any]:
+        if DriveOutputSpace(args.get("input_space", cls.input_space)) is not DriveOutputSpace.EFFORT:
+            raise ValueError(f"{cls.__name__} accepts only EFFORT inputs")
         sat = args.get("saturation_effort", math.inf)
         if sat < 0:
             raise ValueError(f"saturation_effort must be non-negative, got {sat}")

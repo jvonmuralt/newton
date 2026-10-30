@@ -2572,7 +2572,6 @@ class ArticulationView:
             component: The component that owns the parameter — a
                 :class:`~newton.actuators.DriveBase`,
                 :class:`~newton.actuators.ClampingBase`,
-                :class:`~newton.actuators.CommandClampingBase`,
                 :class:`~newton.actuators.MotorDC`, or
                 :class:`~newton.actuators.InputProcessorDelay` instance.
             name: Attribute name on *component* (e.g. ``"kp"``, ``"max_effort"``,
@@ -2626,7 +2625,6 @@ class ArticulationView:
             component: The component that owns the parameter — a
                 :class:`~newton.actuators.DriveBase`,
                 :class:`~newton.actuators.ClampingBase`,
-                :class:`~newton.actuators.CommandClampingBase`,
                 :class:`~newton.actuators.MotorDC`, or
                 :class:`~newton.actuators.InputProcessorDelay` instance.
             name: Attribute name on *component* (e.g. ``"kp"``, ``"max_effort"``,

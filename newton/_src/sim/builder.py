@@ -102,7 +102,6 @@ if TYPE_CHECKING:
 
     from ..actuators.batteries.base import BatteryBase
     from ..actuators.clamping.base import ClampingBase
-    from ..actuators.command_clamping.base import CommandClampingBase
     from ..actuators.drives.base import DriveBase
     from ..actuators.input_processors.base import InputProcessorBase
     from ..actuators.motor_dc import MotorDC
@@ -3315,7 +3314,7 @@ class ModelBuilder:
         self,
         drive_class: type[DriveBase] | None = None,
         index: int | None = None,
-        clamping: list[tuple[type[ClampingBase | CommandClampingBase], dict[str, Any]]] | None = None,
+        clamping: list[tuple[type[ClampingBase], dict[str, Any]]] | None = None,
         delay_steps: int | None = None,
         pos_index: int | None = None,
         *,
@@ -3340,8 +3339,8 @@ class ModelBuilder:
                 velocity targets, feedforward, forces).
             clamping: Optional list of ``(ClampingClass, kwargs)`` tuples applied
                 post-drive. E.g. ``[(ClampingMaxEffort, {'max_effort': 50.0})]``.
-                A :class:`~newton.actuators.CommandClampingBase` subclass
-                bounds the motor command before the motor.
+                Clamps must accept the drive output space. DUTY clamps run
+                before the motor; EFFORT clamps require an actuator without a motor.
             delay_steps: Deprecated in Newton 1.8; use
                 ``input_processors=[(InputProcessorDelay, {"delay_steps": ...})]`` instead.
             pos_index: DOF index into ``joint_q``-shaped arrays (positions,
@@ -3354,8 +3353,8 @@ class ModelBuilder:
                 class's :attr:`~newton.actuators.InputProcessorBase.JOINT_PARAMS`
                 take a joint index or a joint label; ``None`` selects the
                 actuated joint.
-            motor: Optional ``(MotorClass, kwargs)`` tuple applied between the
-                command clamping and the effort clamping. E.g. ``(MotorDC, {"kt": 1.0, "resistance": 2.0, "vin": 12.0})``.
+            motor: Optional ``(MotorClass, kwargs)`` tuple applied after DUTY
+                clamping and duty-to-voltage conversion. E.g. ``(MotorDC, {"kt": 1.0, "resistance": 2.0, "vin": 12.0})``.
             controller_class: Deprecated in Newton 1.6; use ``drive_class`` instead.
             **kwargs: Per-DOF drive parameters (e.g. ``kp``, ``kd``).
 
@@ -3368,13 +3367,9 @@ class ModelBuilder:
                 one, a joint parameter of an input
                 processor does not identify a single-DOF joint of the current
                 world or a global joint, of the same type as the actuated joint,
-                a clamping takes parameters from a motor that does not have them (see
-                :attr:`~newton.actuators.CommandClampingBase.MOTOR_PARAMS`), a
-                :class:`~newton.actuators.CommandClampingBase` has no motor, a
-                drive that outputs a motor command (see
-                :attr:`~newton.actuators.DriveBase.OUTPUTS_MOTOR_COMMAND`) has
-                no motor, a drive that outputs an effort has a motor, or a
-                :class:`~newton.actuators.ClampingDCMotor` has a motor.
+                or the
+                drive and clamps do not match the modeling path: DUTY with
+                a motor, EFFORT without one.
         """
         if controller_class is not _DEPRECATED_ACTUATOR_DRIVE_UNSET:
             if drive_class is not None:
@@ -3478,31 +3473,16 @@ class ModelBuilder:
             motor_shared_names = getattr(motor_class, "SHARED_PARAMS", set())
             motor_shared = {k: resolved_motor[k] for k in motor_shared_names if k in resolved_motor}
             motor_array_params = {k: v for k, v in resolved_motor.items() if k not in motor_shared_names}
-        from ..actuators.clamping.clamping_dc_motor import ClampingDCMotor  # noqa: PLC0415
-        from ..actuators.command_clamping.base import CommandClampingBase  # noqa: PLC0415
+        from ..actuators.space import _validate_spaces  # noqa: PLC0415
 
-        for comp_class in clamping_classes:
-            if issubclass(comp_class, CommandClampingBase) and motor is None:
-                raise ValueError(
-                    f"add_actuator: {comp_class.__name__} bounds the motor command and requires a motor, such as MotorDC"
-                )
-            if issubclass(comp_class, ClampingDCMotor) and motor is not None:
-                raise ValueError(
-                    f"add_actuator: {comp_class.__name__} cannot be combined with a motor, which models the "
-                    "effort-speed limit itself"
-                )
-            missing = getattr(comp_class, "MOTOR_PARAMS", set()) - set(motor_array_params)
-            if missing:
-                raise ValueError(
-                    f"add_actuator: {comp_class.__name__} takes {', '.join(sorted(missing))} from the motor, "
-                    "which requires a motor with these parameters"
-                )
-        if drive_class.OUTPUTS_MOTOR_COMMAND and motor is None:
-            raise ValueError(f"add_actuator: {drive_class.__name__} requires a motor, such as MotorDC")
-        if not drive_class.OUTPUTS_MOTOR_COMMAND and motor is not None:
-            raise ValueError(
-                f"add_actuator: {drive_class.__name__} outputs an effort and cannot be combined with a motor"
-            )
+        _validate_spaces(
+            resolved_drive.get("output_space", drive_class.output_space),
+            (
+                shared.get("input_space", cc.input_space)
+                for cc, shared in zip(clamping_classes, clamping_shared_list, strict=True)
+            ),
+            motor is not None,
+        )
 
         # --- Build entry key: identifies a group of compatible actuators ---
         # Groups differ when drive class, input processor types/shared-params,
@@ -16271,10 +16251,7 @@ class ModelBuilder:
                     comp_arrays = self._stack_args_to_arrays(
                         comp_args_per_actuator, device=device, requires_grad=requires_grad
                     )
-                    motor_params = {
-                        name: getattr(motor_obj, name) for name in getattr(comp_class, "MOTOR_PARAMS", set())
-                    }
-                    clamping_objs.append(comp_class(**comp_arrays, **motor_params, **shared_kw))
+                    clamping_objs.append(comp_class(**comp_arrays, **shared_kw))
 
                 has_rows = len(entry.actuator_indices) == len(entry.indices)
                 actuator = Actuator(
