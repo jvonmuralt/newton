@@ -27,16 +27,17 @@ construction.
    :nosignatures:
 
    Actuator
+   ActuatorSpace
    ActuatorParsed
    BatteryBase
    BatteryConstantResistance
    BatteryParsed
    ClampingBase
-   ClampingCurrentPWM
+   ClampingCurrentDuty
    ClampingDCMotor
    ClampingMaxEffort
+   ClampingSymmetric
    ClampingPositionBased
-   CommandClampingBase
    ComponentKind
    DriveBase
    DriveNeuralGRU
@@ -44,7 +45,6 @@ construction.
    DriveNeuralMLP
    DrivePD
    DrivePID
-   DriveVoltageControlled
    InputProcessorBase
    InputProcessorDelay
    InputProcessorEncoder

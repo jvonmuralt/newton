@@ -62,18 +62,11 @@ class MotorDC:
     where :math:`I` is the motor current [A], :math:`\\tau` the effort
     [N·m or N], :math:`k_t` is ``kt`` and :math:`R` is ``resistance``.
 
-    The command :math:`u` is the output of the drive, e.g. a
-    :class:`~newton.actuators.DriveVoltageControlled`, bounded by the
-    command clamping, e.g. a :class:`~newton.actuators.ClampingCurrentPWM`,
-    which takes ``kt`` and ``resistance`` from this motor. The other clamping
-    bounds the effort of the motor.
-
-    The motor runs after the drive and the command clamping. It provides
-    the supply voltage :math:`V` of the actuator: ``vin``, or the battery
-    voltage with ``supply_from_battery=True``. It then
-    reports the current :math:`d\\, I` it draws, with the duty cycle
-    :math:`d = u / V`, since the battery supplies the motor current only
-    during the PWM on-time (see :class:`~newton.actuators.BatteryBase`).
+    Standalone calls accept average terminal voltage. In an actuator, the
+    actuator bounds signed duty to [-1, 1] and multiplies it by the actual
+    fixed or battery supply voltage. The motor reports source current d * I,
+    where d = u / V for positive V, and zero at zero supply voltage.
+    Effort clamps cannot be combined with this motor.
 
     .. note::
 

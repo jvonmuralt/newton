@@ -1,0 +1,1 @@
+Add `ClampingSymmetric(limit, input_space=...)` for effort or duty bounds. PD, PID and neural drives accept `output_space=ActuatorSpace.EFFORT` or `DUTY`; motor configurations reject effort drives/clamps, and motor-free configurations reject duty components. The actuator always bounds duty to `[-1, 1]`.

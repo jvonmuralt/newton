@@ -29,7 +29,7 @@ customize and extend for specific actuator models.
 Architecture
 ------------
 
-An actuator is composed of five building blocks, applied in this order:
+An actuator is composed of four building blocks, applied in this order:
 
 .. code-block:: text
 
@@ -38,14 +38,13 @@ An actuator is composed of five building blocks, applied in this order:
    │   ├── InputProcessorDelay       (delays command inputs by N actuator timesteps)
    │   └── InputProcessorEncoder     (position encoder, e.g. behind a backlash joint)
    ├── Drive      (control law that computes raw effort, or the motor command)
-   ├── CommandClamping[]  (optional, with a motor: clamps the motor command)
-   │   └── ClampingCurrentPWM       (current and PWM limits of a servo firmware)
-   ├── Motor       (optional: turns the motor command into the effort of a motor)
-   │   └── MotorDC                 (PWM-driven DC motor, optionally on a battery)
-   └── Clamping[]  (clamps effort to model actuator limits)
-       ├── ClampingMaxEffort        (±max_effort symmetric clamp)
-       ├── ClampingDCMotor         (velocity-dependent saturation)
-       └── ClampingPositionBased   (position-dependent lookup table)
+   ├── Clamping[]  (bounds the drive output in its declared space)
+   │   ├── ClampingSymmetric       (±limit in EFFORT or DUTY)
+   │   ├── ClampingCurrentDuty     (current estimate and duty limits; DUTY only)
+   │   ├── ClampingDCMotor         (velocity-dependent saturation; EFFORT only)
+   │   └── ClampingPositionBased   (position-dependent lookup table; EFFORT only)
+   └── Motor       (optional: converts motor voltage into joint effort)
+       └── MotorDC                 (DC motor, optionally on a battery)
 
 **Input processor**
    Transforms the inputs to the drive: the simulation state (positions,
@@ -56,46 +55,47 @@ An actuator is composed of five building blocks, applied in this order:
    documentation for details.
 
 **Drive**
-   Computes raw actuator effort [N or N·m] from the simulation state and
-   control targets.  This is the actuator's control law.  Examples include PD,
+   Computes raw actuator effort [N or N·m] or dimensionless duty from the
+   simulation state and control targets.  This is the actuator's control law.  Examples include PD,
    PID and neural-network-based control.  See the individual drive class
    documentation for the control-law equations.
 
-   In an actuator with a motor, the drive must compute the motor command
-   instead, e.g. the voltage of the firmware of a voltage-controlled servo
-   (:class:`DriveVoltageControlled`), and receives the supply voltage of the
-   motor.  Drives that compute an effort, such as :class:`DrivePD`, cannot be
-   combined with a motor.
+   Drives select ``output_space=ActuatorSpace.EFFORT`` (the default) or
+   ``DUTY``. A motor requires DUTY; EFFORT drives require no motor. Gains,
+   bias and feedforward must use the selected units; the flag does not convert
+   them. A position-only duty controller uses :class:`DrivePD` with ``kd=0``
+   and zero bias/feedforward.
 
-**Command clamping**
-   Clamps the motor command to model the limits of the motor's electronics,
-   e.g. the current and PWM limits of a servo firmware
-   (:class:`ClampingCurrentPWM`) on its voltage.  Requires a motor.  A command
-   clamp may take parameters from the motor
-   (:attr:`CommandClampingBase.MOTOR_PARAMS`), so they are authored once.
+**Clamping**
+   Clamps the drive output in list order. Each clamp's ``input_space`` must
+   match the drive's ``output_space``. :class:`ClampingSymmetric` accepts either
+   space; physical effort clamps cannot be combined with a motor. There are
+   no post-motor effort clamps. A clamp may take parameters from the motor
+   (:attr:`ClampingBase.MOTOR_PARAMS`), so they are authored once.
 
 **Motor**
-   Provides the supply voltage, and turns the motor command into the effort a
+   Provides the supply voltage, and turns the motor voltage into the effort a
    motor produces at the joint velocity, e.g. with back-EMF.  A motor may draw
    from a battery (see :ref:`actuator-battery`).  At most one motor per
    actuator.
 
-**Clamping**
-   Clamps effort to model actuator limits.  Examples include saturation,
-   back-EMF losses, performance envelopes and position-dependent effort
-   limits.  Multiple clamping stages can be combined
-   on a single actuator.  With a motor, it clamps the effort of the motor.
+   Before the motor runs, the actuator bounds duty to ``[-1, 1]`` even without
+   a clamp, then multiplies it by the actual fixed or battery supply voltage.
 
 The per-step pipeline is:
 
 .. code-block:: text
 
-   Input processors → Supply voltage → Drive → Command clamping → Motor → Clamping → Scatter-add → Drive state update
+   Input processors → Supply voltage → Drive → Clamping → Duty-to-voltage conversion and Motor (if present) → Scatter-add → Drive state update
 
-Drives, clamping and command clamping objects, and input processors are
-pluggable: implement the :class:`DriveBase`, :class:`ClampingBase`,
-:class:`CommandClampingBase` or :class:`InputProcessorBase` class to add new
-models.
+Drives, clamping objects, and input processors are pluggable: implement the
+:class:`DriveBase`, :class:`ClampingBase` or :class:`InputProcessorBase` class
+to add new models.
+
+.. deprecated:: 1.8
+
+   :class:`ClampingMaxEffort` is an effort-only compatibility wrapper for
+   ``ClampingSymmetric(limit=...)``. Its ``max_effort`` array remains available.
 
 .. deprecated:: 1.8
 
@@ -646,34 +646,38 @@ Drives
   (stateful: position/velocity history buffers).
 * :class:`DriveNeuralLSTM` — LSTM neural-network drive
   (stateful: hidden/cell state).
-* :class:`DriveVoltageControlled` — firmware position controller of a
-  voltage-controlled servo as in `BAM <https://github.com/Rhoban/bam>`__
-  (Better Actuator Models), which outputs a voltage for a motor
-  (stateless).
 
 See the API documentation for each drive's control-law equations.
 
 Clamping
 ^^^^^^^^
 
-* :class:`ClampingMaxEffort` — symmetric clamp to ±max_effort per actuator.
+* :class:`ClampingSymmetric` — symmetric clamp to ±limit in EFFORT or DUTY.
 * :class:`ClampingDCMotor` — velocity-dependent effort saturation using the DC
   motor effort-speed characteristic.
 * :class:`ClampingPositionBased` — position-dependent effort limits via
   interpolated lookup table (e.g. for linkage-driven joints).
+* :class:`ClampingCurrentDuty` — attempts current limiting, then bounds duty
+  to ``[-1, 1]``. The duty bound takes precedence, so current is not guaranteed
+  to remain within the limit.
 
 Multiple clamping objects can be stacked on a single actuator; they are applied
-in sequence.
+in sequence and must match its drive's output space.
 
-Command clamping
-^^^^^^^^^^^^^^^^
+``ClampingCurrentDuty.voltage_source`` selects ``VoltageSource.INPUT`` (the
+supplied voltage, by default) or ``NOMINAL`` (requiring ``nominal_voltage``).
+The nominal estimate is independent of actual motor voltage, including when
+using a battery. ``max_current=0`` disables the current window; an estimate at
+or below ``v_min`` (default 1e-6 V) also skips it. Duty remains bounded.
+See :class:`ClampingCurrentDuty` for the current-window equations.
 
-* :class:`ClampingCurrentPWM` — current and PWM limits of the firmware of a
-  servo as in BAM, on the voltage command of a :class:`MotorDC`, applied in
-  this order.
-
-Command clamps are passed in the same ``clamping`` list as the other clamps and
-run in sequence before the motor.
+In USD, ``newton:outputSpace`` and ``newton:inputSpace`` select ``"effort"`` or
+``"duty"``. ``NewtonSymmetricClampingAPI`` uses ``newton:limit``;
+``NewtonCurrentDutyClampingAPI`` uses ``newton:maxCurrent``,
+``newton:voltageSource`` (``"input"`` or ``"nominal"``),
+``newton:nominalVoltage`` and ``newton:vMin``. The importer accepts authored
+attributes before these additions are registered by the schema package;
+schema definitions still need to be coordinated before release.
 
 Motors
 ^^^^^^
@@ -734,7 +738,7 @@ Below, the hip and knee share one battery and the ankle draws from another:
 .. testcode:: actuator-battery
 
    import newton
-   from newton.actuators import BatteryConstantResistance, ClampingCurrentPWM, DriveVoltageControlled, MotorDC
+   from newton.actuators import ActuatorSpace, BatteryConstantResistance, ClampingCurrentDuty, DrivePD, MotorDC
 
    builder = newton.ModelBuilder()
    actuators = []
@@ -744,11 +748,11 @@ Below, the hip and knee share one battery and the ankle draws from another:
        joint = builder.add_joint_revolute(parent=-1, child=link, axis=newton.Axis.Z, label=name)
        builder.add_articulation([joint])
        actuator = builder.add_actuator(
-           DriveVoltageControlled,
+           DrivePD,
+           output_space=ActuatorSpace.DUTY,
            index=builder.joint_qd_start[joint],
-           kp=5.0,
-           error_gain=0.1,
-           clamping=[(ClampingCurrentPWM, {"max_current": 2.0, "max_pwm": 0.9})],
+           kp=0.5,
+           clamping=[(ClampingCurrentDuty, {"max_current": 2.0})],
            motor=(MotorDC, {"kt": 0.5, "resistance": 2.0, "vin": 12.0, "supply_from_battery": True}),
        )
        actuators.append(actuator)
@@ -777,8 +781,7 @@ Customization
 Any actuator can be assembled from the existing building blocks — mix and
 match drives, clamping stages, input processors and motors to fit a specific use case.
 When the built-in components are not sufficient, implement new ones by
-subclassing :class:`DriveBase`, :class:`ClampingBase`,
-:class:`CommandClampingBase` or :class:`InputProcessorBase`.
+subclassing :class:`DriveBase`, :class:`ClampingBase` or :class:`InputProcessorBase`.
 
 For example, a custom drive needs to implement
 :meth:`~DriveBase.compute`, :meth:`~DriveBase.resolve_arguments`,
@@ -870,9 +873,11 @@ Torch-backed neural checkpoint. Leaving
 
 Similarly, a custom clamping stage subclasses :class:`ClampingBase` and
 implements :meth:`~ClampingBase.modify_forces` (which reads effort from a source
-buffer and writes bounded effort to a destination buffer).  A clamp of the
-motor command subclasses :class:`CommandClampingBase` instead, whose
-:meth:`~CommandClampingBase.modify_forces` also receives the supply voltage.
+buffer and writes bounded effort to a destination buffer). A duty clamp uses
+the same base and declares ``input_space = ActuatorSpace.DUTY``. Configurable
+spaces belong in ``SHARED_PARAMS`` so different spaces batch separately. It accepts
+a ``supply_voltage`` keyword containing the actual supply voltage; clamps that
+do not need this input can ignore it.
 
 See Also
 --------

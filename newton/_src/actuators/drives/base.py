@@ -11,6 +11,7 @@ from typing import Any, ClassVar
 import warp as wp
 
 from ...utils.deprecation import warn_deprecation
+from ..space import ActuatorSpace
 
 _COMPUTE_FORCES_DEPRECATION_MSG = (
     "The forces argument of DriveBase.compute() is deprecated in Newton 1.8; use output instead."
@@ -47,9 +48,8 @@ class DriveBase:
     Drives compute actuator output effort from authored drive
     parameters, commanded inputs (targets, feedforward), and simulation
     state. The output may still be constrained by one or more
-    :class:`~newton.actuators.ClampingBase` objects. Only drives that
-    output a motor command instead (see :attr:`OUTPUTS_MOTOR_COMMAND`) can be
-    combined with a motor (e.g. :class:`~newton.actuators.MotorDC`).
+    :class:`~newton.actuators.ClampingBase` objects. DUTY drives require a
+    motor; EFFORT drives use effort clamps without an explicit motor model.
 
     Subclasses must override ``compute`` and ``resolve_arguments``.
 
@@ -78,12 +78,11 @@ class DriveBase:
 
     SHARED_PARAMS: ClassVar[set[str]] = set()
 
-    OUTPUTS_MOTOR_COMMAND: ClassVar[bool] = False
-    """Whether :meth:`compute` outputs a motor command (e.g. a voltage) instead of an effort.
+    output_space: ActuatorSpace = ActuatorSpace.EFFORT
+    """Output units; configurable drives may select DUTY when paired with a motor.
 
-    A drive that outputs a motor command requires a motor, such as
-    :class:`~newton.actuators.MotorDC`, and receives its supply voltage; a
-    drive that outputs an effort cannot be combined with one.
+    Gains, bias and feedforward must use the selected output units. Selecting
+    a space does not convert values or gains.
     """
 
     custom_inputs: tuple[str, ...] = ()
@@ -165,9 +164,7 @@ class DriveBase:
             target_pos_indices: Indices into *target_pos*.
             target_vel_indices: Indices into *target_vel* and *feedforward*.
             output: Buffer to write the drive output to: the effort
-                [N or N·m], or the motor command for drives that output one
-                (e.g. a voltage [V] for
-                :class:`~newton.actuators.DriveVoltageControlled`). Shape
+                [N or N·m], or dimensionless duty according to output_space. Shape
                 ``(N,)``.
             state: Drive state (``None`` if stateless).
             dt: Timestep [s].

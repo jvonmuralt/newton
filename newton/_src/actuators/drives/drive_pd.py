@@ -3,10 +3,11 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, ClassVar
 
 import warp as wp
 
+from ..space import ActuatorSpace
 from .base import DriveBase
 
 
@@ -73,6 +74,8 @@ class DrivePD(DriveBase):
         effort = const_effort + feedforward + kp * (target_pos - current_pos) + kd * (target_vel - current_vel)
     """
 
+    SHARED_PARAMS: ClassVar[set[str]] = {"output_space"}
+
     @classmethod
     def resolve_arguments(cls, args: dict[str, Any]) -> dict[str, Any]:
         kp = args.get("kp", 0.0)
@@ -81,25 +84,35 @@ class DrivePD(DriveBase):
         kd = args.get("kd", 0.0)
         if kd < 0:
             raise ValueError(f"kd must be non-negative, got {kd}")
-        return {"kp": kp, "kd": kd, "const_effort": args.get("const_effort", 0.0)}
+        return {
+            "kp": kp,
+            "kd": kd,
+            "const_effort": args.get("const_effort", 0.0),
+            "output_space": ActuatorSpace(args.get("output_space", ActuatorSpace.EFFORT)),
+        }
 
     def __init__(
         self,
         kp: wp.array[float],
         kd: wp.array[float],
         const_effort: wp.array[float] | None = None,
+        *,
+        output_space: ActuatorSpace = ActuatorSpace.EFFORT,
     ):
         """Initialize the PD drive.
 
         Args:
             kp: Proportional gains [N/m or N·m/rad]. Shape ``(N,)``.
             kd: Derivative gains [N·s/m or N·m·s/rad]. Shape ``(N,)``.
-            const_effort: Constant bias effort [N or N·m]. Shape ``(N,)``. ``None`` to skip.
+            const_effort: Constant bias in the selected output units. Shape ``(N,)``. ``None`` to skip.
+            output_space: EFFORT or DUTY. Gains and feedforward must produce
+                these units; DUTY gains use duty in place of N or N·m above.
         """
         if kp.shape != kd.shape:
             raise ValueError(f"kp shape {kp.shape} must match kd shape {kd.shape}")
         if const_effort is not None and const_effort.shape != kp.shape:
             raise ValueError(f"const_effort shape {const_effort.shape} must match kp shape {kp.shape}")
+        self.output_space = ActuatorSpace(output_space)
         self.kp = kp
         self.kd = kd
         self.const_effort = const_effort
