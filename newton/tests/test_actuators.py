@@ -4196,8 +4196,147 @@ class TestActuatorImplicit(unittest.TestCase):
         np.testing.assert_allclose(control.joint_f.numpy(), 0.0, atol=1e-9)
 
 
+_FINGER_MASS = 0.01
+_FINGER_COM_TO_JOINT = 0.02
+_FINGER_INERTIA = wp.mat33(
+    (1.0 / 12.0) * _FINGER_MASS * (0.04**2 + 0.01**2),
+    0.0,
+    0.0,
+    0.0,
+    (1.0 / 12.0) * _FINGER_MASS * (2.0 * 0.01**2),
+    0.0,
+    0.0,
+    0.0,
+    (1.0 / 12.0) * _FINGER_MASS * (0.04**2 + 0.01**2),
+)
+_FINGER_JOINT_INERTIA = float(_FINGER_INERTIA[0, 0]) + _FINGER_MASS * _FINGER_COM_TO_JOINT**2
+_FINGER_TARGET = math.pi / 4.0
+_FINGER_MAX_TORQUE = 6.0
+_FINGER_KP = _FINGER_MAX_TORQUE / _FINGER_TARGET
+_FINGER_KD = 2.0 * math.sqrt(_FINGER_KP * _FINGER_JOINT_INERTIA)
+_FINGER_DTS = (0.001, 0.004, 0.008)
+
+
+def _build_gripper_finger(device: wp.Device, in_solver_kd: float | None = None) -> newton.Model:
+    """One finger of a PhysX gripper unit test: a light, stiffly driven revolute link.
+
+    The finger is a 10 g box 2 cm from its hinge, about 5.4e-6 kg·m² about the
+    joint. Its PD drive reaches the 6 N·m torque limit at the 45° target, with a
+    natural frequency near 190 Hz. With *in_solver_kd*, MuJoCo drives the joint
+    itself with that damping.
+    """
+    builder = newton.ModelBuilder(gravity=_NO_GRAVITY)
+    body = builder.add_link(com=wp.vec3(0.0, -_FINGER_COM_TO_JOINT, 0.0), inertia=_FINGER_INERTIA, mass=_FINGER_MASS)
+    joint = builder.add_joint_revolute(parent=-1, child=body, axis=newton.Axis.Z)
+    builder.add_articulation([joint])
+    builder.joint_effort_limit[0] = _FINGER_MAX_TORQUE
+    if in_solver_kd is not None:
+        builder.joint_target_mode[0] = int(newton.JointTargetMode.POSITION)
+        builder.joint_target_ke[0] = _FINGER_KP
+        builder.joint_target_kd[0] = in_solver_kd
+    return builder.finalize(device=device)
+
+
+def _finger_step(
+    model: newton.Model,
+    solver: newton.solvers.SolverMuJoCo,
+    dt: float,
+    actuator: Actuator | None = None,
+    response: JointSpaceResponse | None = None,
+) -> tuple[float, float]:
+    """One step from rest toward the target; returns (commanded, effective) torque [N·m].
+
+    The effective torque ``I qd / dt`` is the torque that produces the velocity
+    the step actually reaches.
+    """
+    state_in, state_out = model.state(), model.state()
+    control = model.control()
+    control.joint_target_q.assign(np.array([_FINGER_TARGET], dtype=np.float32))
+    control.joint_f.zero_()
+    if actuator is not None:
+        _refresh_and_step(actuator, response, state_in, control, dt)
+        commanded = float(control.joint_f.numpy()[0])
+    solver.step(state_in, state_out, control, None, dt)
+    if actuator is None:
+        commanded = float(solver.mjw_data.actuator_force.numpy()[0, 0])
+    effective = float(state_out.joint_qd.numpy()[0]) * _FINGER_JOINT_INERTIA / dt
+    return commanded, effective
+
+
 class TestActuatorSemiImplicit(unittest.TestCase):
     """Semi-implicit effort mode: velocity terms implicit, position terms explicit."""
+
+    def _make_finger_actuator(self, model: newton.Model, kd: float, semi_implicit: bool):
+        return _make_implicit_actuator(
+            model,
+            model.device,
+            kp=wp.array([_FINGER_KP], dtype=float, device=model.device),
+            kd=wp.array([kd], dtype=float, device=model.device),
+            max_effort=[_FINGER_MAX_TORQUE],
+            semi_implicit=semi_implicit,
+        )
+
+    def test_gripper_finger_semi_implicit_matches_mujoco_drive(self):
+        """Semi-implicit effort moves the finger exactly like MuJoCo's own drive.
+
+        Situation: a gripper finger from a PhysX unit test starts at rest and is
+        driven toward its target. Its drive is critically damped, and the step
+        uses MuJoCo's implicit integrator at 1, 4 and 8 ms.
+
+        MuJoCo's implicit integrator treats only damping implicitly. It reports
+        the force at the current state, ``kp e`` = 6 N·m, and solves
+        ``(I + dt kd) qdd = kp e``. The semi-implicit actuator folds the same
+        ``dt kd`` term into its effort instead: ``kp e / (1 + dt kd / I)``.
+        Both must give the same effective torque, matching that closed form.
+        """
+        device = wp.get_device()
+        mujoco_model = _build_gripper_finger(device, in_solver_kd=_FINGER_KD)
+        mujoco_solver = newton.solvers.SolverMuJoCo(mujoco_model, integrator="implicit", disable_contacts=True)
+        model = _build_gripper_finger(device)
+        solver = newton.solvers.SolverMuJoCo(model, integrator="implicit", disable_contacts=True)
+        actuator, response = self._make_finger_actuator(model, _FINGER_KD, semi_implicit=True)
+
+        for dt in _FINGER_DTS:
+            with self.subTest(dt=dt):
+                expected = _FINGER_KP * _FINGER_TARGET / (1.0 + dt * _FINGER_KD / _FINGER_JOINT_INERTIA)
+                mujoco_commanded, mujoco_effective = _finger_step(mujoco_model, mujoco_solver, dt)
+                semi_commanded, semi_effective = _finger_step(model, solver, dt, actuator, response)
+
+                self.assertAlmostEqual(mujoco_commanded, _FINGER_MAX_TORQUE, delta=1e-3)
+                self.assertAlmostEqual(mujoco_effective, expected, delta=expected * 2e-3)
+                self.assertAlmostEqual(semi_commanded, expected, delta=expected * 1e-3)
+                self.assertAlmostEqual(semi_effective, expected, delta=expected * 2e-3)
+
+    def test_gripper_finger_implicit_attenuates_with_timestep(self):
+        """Implicit effort also divides by ``dt^2 kp / I``, which grows fast with the timestep.
+
+        Situation: the same gripper finger, starting at rest. This is the effect
+        a PhysX gripper test compensates for: for a stiff drive on a light link,
+        the implicit effort ``kp e / (1 + dt kd / I + dt^2 kp / I)`` shrinks
+        quickly as the timestep grows, even without damping. At 4 ms and
+        ``kd = 0`` only about 4% of the 6 N·m drive torque remains, where the
+        semi-implicit effort keeps all of it.
+        """
+        device = wp.get_device()
+        model = _build_gripper_finger(device)
+        solver = newton.solvers.SolverMuJoCo(model, integrator="implicit", disable_contacts=True)
+
+        for kd in (0.0, _FINGER_KD):
+            implicit, implicit_response = self._make_finger_actuator(model, kd, semi_implicit=False)
+            semi, semi_response = self._make_finger_actuator(model, kd, semi_implicit=True)
+            for dt in _FINGER_DTS:
+                with self.subTest(kd=kd, dt=dt):
+                    damping = dt * kd / _FINGER_JOINT_INERTIA
+                    stiffness = dt * dt * _FINGER_KP / _FINGER_JOINT_INERTIA
+                    expected = _FINGER_KP * _FINGER_TARGET / (1.0 + damping + stiffness)
+                    commanded, effective = _finger_step(model, solver, dt, implicit, implicit_response)
+                    semi_commanded, _ = _finger_step(model, solver, dt, semi, semi_response)
+
+                    self.assertAlmostEqual(commanded, expected, delta=expected * 1e-3)
+                    self.assertAlmostEqual(effective, expected, delta=expected * 2e-3)
+                    self.assertLess(commanded, semi_commanded)
+                    if kd == 0.0:
+                        self.assertAlmostEqual(semi_commanded, _FINGER_MAX_TORQUE, delta=1e-3)
 
     def _single_dof_effort(self, kp: float, kd: float, q: float, qd: float, target: float, h: float, **kwargs):
         device = wp.get_device()
