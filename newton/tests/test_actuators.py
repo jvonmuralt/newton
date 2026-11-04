@@ -535,11 +535,13 @@ def _make_implicit_actuator(
     kp: wp.array[float],
     kd: wp.array[float],
     max_effort: Sequence[float] | np.ndarray | None = None,
+    semi_implicit: bool = False,
     **kwargs: Any,
 ) -> tuple[Actuator, JointSpaceResponse]:
     """Build an implicit PD Actuator over all DOFs, with an optional max-effort clamp.
 
-    Returns the actuator together with the response provider driving its solve.
+    With *semi_implicit*, install the semi-implicit mode instead. Returns the
+    actuator together with the response provider driving its solve.
     """
     clamping = None
     if max_effort is not None:
@@ -552,7 +554,10 @@ def _make_implicit_actuator(
         control_target_pos_attr="joint_target_q",
         control_target_vel_attr="joint_target_qd",
     )
-    actuator.set_effort_mode_implicit(**kwargs)
+    if semi_implicit:
+        actuator.set_effort_mode_semi_implicit(**kwargs)
+    else:
+        actuator.set_effort_mode_implicit(**kwargs)
     return actuator, response
 
 
@@ -4189,6 +4194,136 @@ class TestActuatorImplicit(unittest.TestCase):
         control.joint_f.zero_()
         _refresh_and_step(actuator, response, state, control, h)
         np.testing.assert_allclose(control.joint_f.numpy(), 0.0, atol=1e-9)
+
+
+class TestActuatorSemiImplicit(unittest.TestCase):
+    """Semi-implicit effort mode: velocity terms implicit, position terms explicit."""
+
+    def _single_dof_effort(self, kp: float, kd: float, q: float, qd: float, target: float, h: float, **kwargs):
+        device = wp.get_device()
+        model = _build_pendulum(device)
+        state = model.state()
+        state.joint_q.assign(np.array([q], dtype=np.float32))
+        state.joint_qd.assign(np.array([qd], dtype=np.float32))
+        control = model.control()
+        control.joint_target_q.assign(np.array([target], dtype=np.float32))
+        actuator, response = _make_implicit_actuator(
+            model,
+            device,
+            kp=wp.array([kp], dtype=float, device=device),
+            kd=wp.array([kd], dtype=float, device=device),
+            **kwargs,
+        )
+        control.joint_f.zero_()
+        _refresh_and_step(actuator, response, state, control, h)
+        alpha = _response_at_state(model, state)[0, 0]
+        return float(control.joint_f.numpy()[0]), alpha
+
+    def test_single_dof_matches_closed_form(self):
+        """A PD effort solves ``(1 + h kd A) tau = kp e - kd qd`` at the step-start position."""
+        kp, kd, q, qd, target, h = 400.0, 5.0, 0.2, 0.7, 1.0, 0.01
+        effort, alpha = self._single_dof_effort(kp, kd, q, qd, target, h, semi_implicit=True)
+        expected = (kp * (target - q) - kd * qd) / (1.0 + h * kd * alpha)
+        self.assertAlmostEqual(effort, expected, delta=abs(expected) * 1e-4)
+
+    def test_undamped_drive_keeps_full_stiffness_effort(self):
+        """Without damping the stiffness effort is not divided down, unlike the implicit mode."""
+        kp, q, target, h = 1.0e4, 0.0, 0.5, 0.01
+        semi, _ = self._single_dof_effort(kp, 0.0, q, 0.0, target, h, semi_implicit=True)
+        implicit, alpha = self._single_dof_effort(kp, 0.0, q, 0.0, target, h)
+        self.assertAlmostEqual(semi, kp * (target - q), delta=kp * target * 1e-5)
+        expected_implicit = kp * (target - q) / (1.0 + h * h * kp * alpha)
+        self.assertAlmostEqual(implicit, expected_implicit, delta=abs(expected_implicit) * 1e-4)
+        self.assertLess(implicit, 0.5 * semi)
+
+    def test_max_effort_clamp_binds(self):
+        """The clamp still applies inside the semi-implicit solve."""
+        effort, _ = self._single_dof_effort(1.0e4, 0.0, 0.0, 0.0, 0.5, 0.01, semi_implicit=True, max_effort=[100.0])
+        self.assertAlmostEqual(effort, 100.0, delta=1e-3)
+
+    def test_coupled_solve_matches_linear_system(self):
+        """Two coupled DOFs solve ``(I + h Kd A) p = h (Kp e - Kd qd)`` as one system."""
+        device = wp.get_device()
+        h = 0.01
+        kp = np.array([300.0, 200.0])
+        kd = np.array([30.0, 20.0])
+        q0 = np.array([0.3, -0.8], dtype=np.float32)
+        qd0 = np.array([0.5, -1.0], dtype=np.float32)
+        target = np.array([0.6, 0.4], dtype=np.float32)
+
+        model = _build_two_link(device)
+        state = model.state()
+        state.joint_q.assign(q0)
+        state.joint_qd.assign(qd0)
+        control = model.control()
+        control.joint_target_q.assign(target)
+        actuator, response = _make_implicit_actuator(
+            model,
+            device,
+            kp=wp.array(kp, dtype=float, device=device),
+            kd=wp.array(kd, dtype=float, device=device),
+            semi_implicit=True,
+        )
+        control.joint_f.zero_()
+        _refresh_and_step(actuator, response, state, control, h)
+
+        A = _response_at(model, q0, qd0)
+        lhs = np.eye(2) + h * np.diag(kd) @ A
+        p = np.linalg.solve(lhs, h * (kp * (target - q0) - kd * qd0))
+        np.testing.assert_allclose(control.joint_f.numpy(), p / h, rtol=1e-3, atol=1e-4)
+
+    def test_block_solve_matches_per_thread_solve(self):
+        """The CUDA block solve gives the per-thread solve's semi-implicit efforts."""
+        device = wp.get_device()
+        if not device.is_cuda:
+            self.skipTest("the block solve runs on CUDA only")
+        h = 0.004
+        model = _build_chain(device)
+        n = model.joint_dof_count
+        rng = np.random.default_rng(1)
+        state = model.state()
+        state.joint_q.assign(rng.uniform(-0.4, 0.4, n).astype(np.float32))
+        state.joint_qd.assign(rng.uniform(-2.0, 2.0, n).astype(np.float32))
+        control = model.control()
+        control.joint_target_q.assign(rng.uniform(-0.5, 0.5, n).astype(np.float32))
+
+        def run() -> tuple[np.ndarray, bool]:
+            actuator, response = _make_implicit_actuator(
+                model,
+                device,
+                kp=wp.full(n, 500.0, dtype=float, device=device),
+                kd=wp.full(n, 10.0, dtype=float, device=device),
+                max_effort=np.full(n, 30.0, dtype=np.float32),
+                semi_implicit=True,
+            )
+            control.joint_f.zero_()
+            _refresh_and_step(actuator, response, state, control, h)
+            return control.joint_f.numpy().copy(), actuator._effort_mode._block_kernel is not None
+
+        block, used_block = run()
+        with patch.object(effort_mode_implicit, "_BLOCK_SOLVE_MAX_ROWS", 0):
+            per_thread, used_block_after_patch = run()
+        self.assertTrue(used_block)
+        self.assertFalse(used_block_after_patch)
+        self.assertGreater(np.max(np.abs(per_thread)), 1.0)
+        np.testing.assert_allclose(block, per_thread, rtol=1e-3, atol=1e-3)
+
+    def test_requires_grad_rejected(self):
+        """The semi-implicit solve is not differentiable, like the implicit one."""
+        device = wp.get_device()
+        model = _build_pendulum(device)
+        actuator = Actuator(
+            indices=wp.array([0], dtype=wp.uint32, device=device),
+            drive=DrivePD(
+                kp=wp.array([1.0], dtype=float, device=device),
+                kd=wp.array([0.0], dtype=float, device=device),
+            ),
+            control_target_pos_attr="joint_target_q",
+            control_target_vel_attr="joint_target_qd",
+            requires_grad=True,
+        )
+        with self.assertRaisesRegex(NotImplementedError, "not differentiable"):
+            actuator.set_effort_mode_semi_implicit(response=JointSpaceResponse(model))
 
 
 # ---------------------------------------------------------------------------

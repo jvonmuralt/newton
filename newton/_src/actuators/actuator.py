@@ -17,7 +17,7 @@ from .clamping.base import ClampingBase
 from .delay import Delay
 from .drives.base import DriveBase
 from .effort_mode_explicit import _EffortModeExplicit
-from .effort_mode_implicit import ImplicitOptions, JointSpaceResponse, _EffortModeImplicit
+from .effort_mode_implicit import ImplicitOptions, JointSpaceResponse, _EffortModeImplicit, _EffortModeSemiImplicit
 
 if TYPE_CHECKING:
     from ..sim.builder import ModelBuilder
@@ -490,6 +490,51 @@ class Actuator:
             NotImplementedError: The actuator was built with ``requires_grad=True``.
                 The implicit solve is not differentiable.
         """
+        self._check_implicit_supported()
+        self._effort_mode = _EffortModeImplicit(
+            self.drive,
+            self.clamping,
+            response,
+            options,
+            self.num_actuators,
+            self.device,
+            self.indices,
+        )
+
+    def set_effort_mode_semi_implicit(
+        self,
+        response: JointSpaceResponse,
+        options: Actuator.ImplicitOptions | None = None,
+    ) -> None:
+        """Switch effort computation to semi-implicit mode.
+
+        Like :meth:`set_effort_mode_implicit`, but only the velocity terms of
+        the control law are solved against the predicted end-of-step velocity.
+        The position terms use the current position, as MuJoCo's
+        ``implicitfast`` integrator does for damping. See :ref:`effort-modes`.
+
+        Args:
+            response: :class:`~newton.actuators.JointSpaceResponse` supplying the
+                coupled effective inverse mass [1/kg or 1/(kg·m²)]. Refresh it
+                once per step before :meth:`step`.
+            options: Solver options; defaults to :class:`Actuator.ImplicitOptions`.
+
+        Raises:
+            NotImplementedError: The actuator was built with ``requires_grad=True``.
+                The semi-implicit solve is not differentiable.
+        """
+        self._check_implicit_supported()
+        self._effort_mode = _EffortModeSemiImplicit(
+            self.drive,
+            self.clamping,
+            response,
+            options,
+            self.num_actuators,
+            self.device,
+            self.indices,
+        )
+
+    def _check_implicit_supported(self) -> None:
         if self.requires_grad:
             raise NotImplementedError(
                 "Implicit actuation is not differentiable: the Newton solve has no adjoint, "
@@ -501,15 +546,6 @@ class Actuator:
                 f"{type(self.drive).__name__} declares custom inputs but does not override prepare_implicit, "
                 "so the implicit solve would ignore them."
             )
-        self._effort_mode = _EffortModeImplicit(
-            self.drive,
-            self.clamping,
-            response,
-            options,
-            self.num_actuators,
-            self.device,
-            self.indices,
-        )
 
     def set_effort_mode_explicit(self) -> None:
         """Switch effort computation back to the default explicit mode."""
@@ -568,10 +604,10 @@ class Actuator:
            ``current_state`` (falls back to current targets when
            the buffer is empty).
         2. **Effort** — raw effort into ``_computed_forces`` (explicit control
-           law, or the implicit end-of-step solve).
+           law, or the implicit or semi-implicit end-of-step solve).
         3. **Clamping** — bounded effort into ``_applied_forces``. Explicit
-           clamps after the drive law; implicit enforces them inside the
-           solve.
+           clamps after the drive law; implicit and semi-implicit enforce
+           them inside the solve.
         4. **Scatter-add** — *accumulate* applied (and optionally computed)
            effort into the output array.  The caller must zero the output
            (e.g. ``control.joint_f.zero_()``) before looping over actuators.
@@ -595,7 +631,8 @@ class Actuator:
                 step itself applies ``-bias_force``. For example
                 ``gravity_force + coriolis_force`` from
                 :func:`~newton.eval_inverse_dynamics_passive`. Used only in
-                implicit mode, where the predicted end-of-step velocity becomes
+                implicit and semi-implicit modes, where the predicted
+                end-of-step velocity becomes
                 ``qd + A (p - dt bias_force)``. Explicit mode ignores it.
                 ``None`` (default) leaves the prediction ``qd + A p``.
                 For free and distance joints the entries are a wrench at the

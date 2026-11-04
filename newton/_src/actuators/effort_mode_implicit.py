@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2026 The Newton Developers
 # SPDX-License-Identifier: Apache-2.0
 
-"""Coupled implicit effort mode for actuators.
+"""Coupled implicit and semi-implicit effort modes for actuators.
 
 For each articulation, the mode solves for the actuator impulse ``p`` at the
 predicted end-of-step state:
@@ -10,7 +10,10 @@ predicted end-of-step state:
 
     ``qd(p) = qd + A (p - h b)``
 
-    ``q(p) = q + h qd(p)``
+    ``q(p) = q + h qd(p)`` (implicit) or ``q(p) = q`` (semi-implicit)
+
+The semi-implicit mode treats only the velocity terms of ``g`` implicitly,
+like MuJoCo's ``implicitfast`` integrator does for damping.
 
 Here ``h`` is the timestep, ``g`` is the drive force law with clamping,
 and ``A`` is the coupled inverse-mass response supplied by
@@ -201,7 +204,26 @@ _SUFFICIENT_DECREASE = 1.0e-4
 """Armijo factor: a step of length ``alpha`` is accepted when ``|r|^2`` drops by at least this times ``alpha``."""
 
 
-def _build_coupled_solve_kernel(evaluate_force: wp.Function, clamp_chain: wp.Function, cache_key: tuple):
+def _build_predict_q(implicit_position: bool) -> wp.Function:
+    """Build the position the force law sees for a predicted end-of-step velocity.
+
+    With *implicit_position*, the position advances to ``q + h qd(p)``.
+    Otherwise it stays at the step-start ``q``, so only the velocity terms
+    of the force law are implicit.
+    """
+
+    @wp.func
+    def predict_q(q0: wp.float64, qd_i: wp.float64, h: wp.float64) -> wp.float64:
+        if wp.static(implicit_position):
+            return q0 + h * qd_i
+        return q0
+
+    return predict_q
+
+
+def _build_coupled_solve_kernel(
+    evaluate_force: wp.Function, clamp_chain: wp.Function, cache_key: tuple, implicit_position: bool
+):
     """Build or reuse the coupled solve kernel for a force law and clamp chain.
 
     One thread handles each articulation group. It predicts the group state
@@ -213,6 +235,8 @@ def _build_coupled_solve_kernel(evaluate_force: wp.Function, clamp_chain: wp.Fun
     cached = _coupled_kernel_cache.get(cache_key)
     if cached is not None:
         return cached
+
+    predict_q = _build_predict_q(implicit_position)
 
     @wp.func
     def predict_qd(
@@ -325,14 +349,16 @@ def _build_coupled_solve_kernel(evaluate_force: wp.Function, clamp_chain: wp.Fun
 
         for it in range(max_iters):
             # Residual at the current impulse guess (state coupled via A_g), plus
-            # the row slope s_i = h*df_i/dq + df_i/dqd by one forward difference.
+            # the row slope s_i = df_i/dqd(p) by one forward difference; with an
+            # implicit position it includes h*df_i/dq.
             rn = wp.float64(0.0)
             for i in range(ng):
                 si = group_slot[g, i]
                 qd_i = predict_qd(
                     velocities, vel_indices, inverse_blocks, group_local, pbuf, art, g, i, ng, si, bias_velocity
                 )
-                q_i = wp.float64(positions[pos_indices[si]]) + hd * qd_i
+                q0 = wp.float64(positions[pos_indices[si]])
+                q_i = predict_q(q0, qd_i, hd)
                 f_i = force_at(
                     q_i,
                     qd_i,
@@ -351,7 +377,7 @@ def _build_coupled_solve_kernel(evaluate_force: wp.Function, clamp_chain: wp.Fun
 
                 eps = fd_eps * (wp.float64(1.0) + wp.abs(qd_i))
                 f_p = force_at(
-                    q_i + hd * eps,
+                    predict_q(q0, qd_i + eps, hd),
                     qd_i + eps,
                     target_pos,
                     target_vel,
@@ -414,7 +440,7 @@ def _build_coupled_solve_kernel(evaluate_force: wp.Function, clamp_chain: wp.Fun
                     qd_i = predict_qd(
                         velocities, vel_indices, inverse_blocks, group_local, vbuf, art, g, i, ng, si, bias_velocity
                     )
-                    q_i = wp.float64(positions[pos_indices[si]]) + hd * qd_i
+                    q_i = predict_q(wp.float64(positions[pos_indices[si]]), qd_i, hd)
                     f_i = force_at(
                         q_i,
                         qd_i,
@@ -453,7 +479,7 @@ def _build_coupled_solve_kernel(evaluate_force: wp.Function, clamp_chain: wp.Fun
             qd_i = predict_qd(
                 velocities, vel_indices, inverse_blocks, group_local, pbuf, art, g, i, ng, si, bias_velocity
             )
-            q_i = wp.float64(positions[pos_indices[si]]) + hd * qd_i
+            q_i = predict_q(wp.float64(positions[pos_indices[si]]), qd_i, hd)
             tq = wp.float64(target_pos[target_pos_indices[si]])
             tqd = wp.float64(target_vel[target_vel_indices[si]])
             ff = wp.float64(0.0)
@@ -484,7 +510,9 @@ def _gather_group_response_kernel(
     group_response[g, i, j] = v
 
 
-def _build_block_solve_kernel(evaluate_force: wp.Function, clamp_chain: wp.Function, tile: int, cache_key: tuple):
+def _build_block_solve_kernel(
+    evaluate_force: wp.Function, clamp_chain: wp.Function, tile: int, cache_key: tuple, implicit_position: bool
+):
     """Build the block-parallel variant of the coupled solve.
 
     One thread block per group and one thread per row. The Newton system
@@ -497,6 +525,8 @@ def _build_block_solve_kernel(evaluate_force: wp.Function, clamp_chain: wp.Funct
     cached = _coupled_kernel_cache.get(key)
     if cached is not None:
         return cached
+
+    predict_q = _build_predict_q(implicit_position)
 
     @wp.func
     def force_at(
@@ -645,13 +675,14 @@ def _build_block_solve_kernel(evaluate_force: wp.Function, clamp_chain: wp.Funct
             r = wp.float64(0.0)
             c_lane = wp.float64(0.0)
             if active:
-                # Residual and the row slope s_i = h*df_i/dq + df_i/dqd by one forward difference.
+                # Residual and the row slope s_i = df_i/dqd(p) by one forward difference;
+                # with an implicit position it includes h*df_i/dq.
                 qd_i = qd0 + u
-                q_i = q0 + hd * qd_i
+                q_i = predict_q(q0, qd_i, hd)
                 f_i = force_at(q_i, qd_i, tq, tqd, ff, params, clamp_params, si)
                 r = p - hd * f_i
                 eps = fd_eps * (wp.float64(1.0) + wp.abs(qd_i))
-                f_p = force_at(q_i + hd * eps, qd_i + eps, tq, tqd, ff, params, clamp_params, si)
+                f_p = force_at(predict_q(q0, qd_i + eps, hd), qd_i + eps, tq, tqd, ff, params, clamp_params, si)
                 c_lane = -hd * (f_p - f_i) / eps
             rn = wp.tile_extract(wp.tile_sum(wp.tile(r * r)), 0)
             # Always take one Newton step: the absolute tolerance would otherwise
@@ -671,7 +702,7 @@ def _build_block_solve_kernel(evaluate_force: wp.Function, clamp_chain: wp.Funct
                 r_t = wp.float64(0.0)
                 if active:
                     qd_t = qd0 + u_t
-                    r_t = p_t - hd * force_at(q0 + hd * qd_t, qd_t, tq, tqd, ff, params, clamp_params, si)
+                    r_t = p_t - hd * force_at(predict_q(q0, qd_t, hd), qd_t, tq, tqd, ff, params, clamp_params, si)
                 rn_t = wp.tile_extract(wp.tile_sum(wp.tile(r_t * r_t)), 0)
                 if (
                     it == 0
@@ -691,7 +722,7 @@ def _build_block_solve_kernel(evaluate_force: wp.Function, clamp_chain: wp.Funct
         u = apply_response(A, p)
         if active:
             qd_i = qd0 + u
-            q_i = q0 + hd * qd_i
+            q_i = predict_q(q0, qd_i, hd)
             computed_efforts[si] = wp.float32(evaluate_force(q_i, qd_i, tq, tqd, ff, params, si))
             applied_efforts[si] = wp.float32(clamp_chain(p / hd, q_i, qd_i, clamp_params, si))
 
@@ -715,6 +746,9 @@ class _EffortModeImplicit:
     :meth:`~DriveBase.prepare_implicit` hook to update state-dependent drive
     parameters.
     """
+
+    _implicit_position: bool = True
+    """Evaluate the force law at the predicted end-of-step position ``q + h qd(p)``."""
 
     def __init__(
         self,
@@ -810,8 +844,8 @@ class _EffortModeImplicit:
         """Build the coupled in-kernel solve from the drive and clamps."""
         self._resolve_force_law(drive)
         chain, entries = self._pack_clamps(clamping)
-        key = (drive.evaluate_force, entries)
-        self._kernel = _build_coupled_solve_kernel(drive.evaluate_force, chain, key)
+        key = (drive.evaluate_force, entries, self._implicit_position)
+        self._kernel = _build_coupled_solve_kernel(drive.evaluate_force, chain, key, self._implicit_position)
         self._kernel_key = key
         self._clamp_chain = chain
 
@@ -915,7 +949,7 @@ class _EffortModeImplicit:
             self._block_tile = tile
             self._group_response = wp.zeros((num_groups, tile, tile), dtype=float, device=device)
             self._block_kernel = _build_block_solve_kernel(
-                self._drive.evaluate_force, self._clamp_chain, tile, self._kernel_key
+                self._drive.evaluate_force, self._clamp_chain, tile, self._kernel_key, self._implicit_position
             )
         else:
             self._pbuf = wp.zeros((num_groups, max_ng), dtype=wp.float64, device=device)
@@ -1111,3 +1145,15 @@ class _EffortModeImplicit:
             device=self._device,
         )
         return applied_forces
+
+
+class _EffortModeSemiImplicit(_EffortModeImplicit):
+    """Semi-implicit effort mode: implicit in velocity, explicit in position.
+
+    Uses the same coupled solve as :class:`_EffortModeImplicit`, but the force
+    law sees the step-start position ``q`` instead of ``q + h qd(p)``. For a PD
+    law this solves ``(1 + h kd A) p = h (kp e - kd qd)``, the damping-only
+    treatment of MuJoCo's ``implicitfast`` integrator.
+    """
+
+    _implicit_position = False

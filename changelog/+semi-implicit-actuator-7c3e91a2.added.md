@@ -1,0 +1,1 @@
+Add `Actuator.set_effort_mode_semi_implicit()`, an effort mode that solves only the velocity terms of the control law implicitly, like MuJoCo's `implicitfast` integrator, so undamped stiff drives keep their full position-error effort at large timesteps.

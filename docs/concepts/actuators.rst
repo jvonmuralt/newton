@@ -382,6 +382,28 @@ than the control law nominally asks for. The trade-off is between stability at
 large timesteps with the implicit mode, and fidelity to the requested gains at
 small timesteps with the explicit mode.
 
+For a PD drive on a single joint with inverse mass ``A``, the implicit effort
+for a position error ``e`` from rest is
+``(kp e) / (1 + dt kd A + dt^2 kp A)``. The ``dt^2 kp A`` term grows quickly
+with the timestep for stiff drives on light links. When the joint cannot move,
+for example a gripper finger pressed against an object, this shrinks the
+holding force even though no motion follows.
+
+The **semi-implicit** effort mode solves only the velocity terms of the
+control law against the predicted end-of-step velocity, and keeps the
+position terms at the current position. This is the damping-only treatment
+MuJoCo's ``implicitfast`` integrator applies to its own actuators. For the
+same PD drive the effort becomes ``(kp e) / (1 + dt kd A)``, so a drive without
+damping applies its full position-error effort, and damping still adds
+stability at high ``kd``. Like the explicit mode, the stiffness term limits
+the stable timestep. Damping still divides the effort of a blocked joint: the
+actuator writes its effort before the solver runs, so it cannot fold
+``dt kd`` into the mass matrix the way MuJoCo does for its own actuators, where
+a contact then resists the full force. Switch to it with
+:meth:`~newton.actuators.Actuator.set_effort_mode_semi_implicit`, which takes
+the same response and options as the implicit mode; everything below about the
+implicit mode applies to it as well.
+
 The implicit effort mode necessarily requires the joint-space inverse mass
 matrix. This is supplied by a :class:`~newton.actuators.JointSpaceResponse`, which
 is refreshed once per step at the current pose:
